@@ -1,4 +1,5 @@
 import type { BuiltinTool, Json } from "@/shared/types";
+import { extractImages } from "./extract-images";
 import { extractText } from "./extract-text";
 import { querySelector, querySelectorAll } from "./query";
 import { snapshotDOM } from "./snapshot-dom";
@@ -9,7 +10,8 @@ export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
   snapshotDOM,
   querySelector,
   querySelectorAll,
-  extractText
+  extractText,
+  extractImages
 };
 
 export async function callTool(name: BuiltinTool, args: Json): Promise<Json> {
