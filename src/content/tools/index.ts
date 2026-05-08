@@ -1,10 +1,13 @@
 import type { BuiltinTool, Json } from "@/shared/types";
+import { querySelector, querySelectorAll } from "./query";
 import { snapshotDOM } from "./snapshot-dom";
 
 export type ToolFn = (args: Json) => Promise<Json>;
 
 export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
-  snapshotDOM
+  snapshotDOM,
+  querySelector,
+  querySelectorAll
 };
 
 export async function callTool(name: BuiltinTool, args: Json): Promise<Json> {
