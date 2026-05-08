@@ -1,0 +1,1 @@
+{"root":["./src/manifest.ts","./src/background/index.ts","./src/content/index.ts","./src/sidepanel/app.tsx","./src/sidepanel/main.tsx","./tests/setup.ts","./vite.config.ts","./tailwind.config.ts"],"version":"5.9.3"}
