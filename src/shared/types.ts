@@ -72,3 +72,37 @@ export type ExportBundle = {
   exportedAt: number;
   tools: Tool[];
 };
+
+// === Plan 2 additions ===
+
+export type TextPart = { type: "text"; text: string };
+export type ToolUsePart = { type: "tool_use"; id: string; name: string; input: Json };
+export type ToolResultPart = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+};
+
+export type ChatMessage =
+  | { role: "user"; content: string | Array<TextPart | ToolResultPart> }
+  | { role: "assistant"; content: Array<TextPart | ToolUsePart> };
+
+export type Severity = "info" | "caution" | "dangerous";
+
+export type ScanFinding = {
+  rule: string;
+  severity: Severity;
+  message: string;
+  matches: { line: number; col: number; text: string }[];
+};
+
+export type LlmProvider = "anthropic" | "openai";
+
+export type LlmSettings = {
+  provider: LlmProvider;
+  model: string;
+  apiKey: string;
+  apiKeyMode: "persistent" | "session";
+  maxRounds: number;
+};
