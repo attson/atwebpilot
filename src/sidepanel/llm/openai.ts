@@ -1,4 +1,4 @@
-import type { ChatMessage, Json } from "@/shared/types";
+import type { ChatMessage, Json, ToolUsePart } from "@/shared/types";
 import type { LlmClient, LlmStreamEvent } from "./types";
 
 export async function* parseOpenAiStream(
@@ -195,9 +195,7 @@ function convertToOpenAiMessage(m: ChatMessage): unknown {
     .map((p) => p.text)
     .join("");
   const toolCalls = m.content
-    .filter((p): p is { type: "tool_use"; id: string; name: string; input: unknown } =>
-      p.type === "tool_use"
-    )
+    .filter((p): p is ToolUsePart => p.type === "tool_use")
     .map((p) => ({
       id: p.id,
       type: "function" as const,
