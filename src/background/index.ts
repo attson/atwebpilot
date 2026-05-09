@@ -1,5 +1,6 @@
 import { RpcRequest as RpcRequestSchema } from "@/shared/messages";
 import { handleRpc } from "./rpc-handlers";
+import { installTabWatcher } from "./tab-watcher";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[caiji2] service worker installed");
@@ -13,6 +14,8 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((e) => console.error("[caiji2] sidePanel setPanelBehavior", e));
+
+installTabWatcher();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const parsed = RpcRequestSchema.safeParse(msg);
