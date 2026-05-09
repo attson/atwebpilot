@@ -66,6 +66,34 @@ export const RpcRequest = z.discriminatedUnion("type", [
     tabId: z.number().optional(),
     source: z.string(),
     args: z.unknown()
+  }),
+
+  // chat session
+  z.object({ type: z.literal("chat.session.start"), url: z.string() }),
+  z.object({
+    type: z.literal("chat.session.appendLog"),
+    runId: z.string(),
+    entry: z.object({
+      stepIndex: z.number().int().min(0),
+      input: z.unknown(),
+      output: z.unknown(),
+      ms: z.number().int().min(0),
+      error: z.string().optional()
+    })
+  }),
+  z.object({
+    type: z.literal("chat.session.end"),
+    runId: z.string(),
+    status: z.enum(["ok", "error", "aborted"]),
+    output: z.unknown().optional()
+  }),
+
+  // single step (for sidepanel-driven session loop)
+  z.object({
+    type: z.literal("runs.runOneStep"),
+    step: StepSchema,
+    tabId: z.number(),
+    bindings: z.record(z.unknown()).default({})
   })
 ]);
 
