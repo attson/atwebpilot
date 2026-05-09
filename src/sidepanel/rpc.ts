@@ -1,5 +1,5 @@
 import type { RpcRequest } from "@/shared/messages";
-import type { ExportBundle, RunRecord, Tool } from "@/shared/types";
+import type { ExportBundle, Json, RunRecord, Step, Tool } from "@/shared/types";
 
 async function call<T>(req: RpcRequest): Promise<T> {
   const res = (await chrome.runtime.sendMessage(req)) as
@@ -10,6 +10,7 @@ async function call<T>(req: RpcRequest): Promise<T> {
 }
 
 export const rpc = {
+  // tools
   listTools: () => call<Tool[]>({ type: "tools.list" }),
   getTool: (id: string) => call<Tool | null>({ type: "tools.get", id }),
   saveTool: (draft: Extract<RpcRequest, { type: "tools.save" }>["draft"]) =>
@@ -19,18 +20,62 @@ export const rpc = {
   exportAll: () => call<ExportBundle>({ type: "tools.export" }),
   importBundle: (bundle: unknown) =>
     call<{ imported: number; skipped: number }>({ type: "tools.import", bundle }),
+
+  // runs
   runDraft: (
     draft: Extract<RpcRequest, { type: "tools.save" }>["draft"],
     tabId: number
   ) => call<RunRecord>({ type: "runs.start", target: { kind: "draft", draft }, tabId }),
   runTool: (id: string, tabId: number) =>
     call<RunRecord>({ type: "runs.start", target: { kind: "tool", id }, tabId }),
+  runOneStep: (input: { step: Step; tabId: number; bindings?: Record<string, Json> }) =>
+    call<Json>({
+      type: "runs.runOneStep",
+      step: input.step,
+      tabId: input.tabId,
+      bindings: input.bindings ?? {}
+    }),
   listRuns: (toolId?: string) => call<RunRecord[]>({ type: "runs.list", toolId }),
-  getRun: (id: string) => call<RunRecord | null>({ type: "runs.get", id })
+  getRun: (id: string) => call<RunRecord | null>({ type: "runs.get", id }),
+
+  // chat session
+  startSession: (input: { url: string }) =>
+    call<RunRecord>({ type: "chat.session.start", url: input.url }),
+  appendStepLog: (
+    runId: string,
+    entry: { stepIndex: number; input: Json; output: Json; ms: number; error?: string }
+  ) => call<null>({ type: "chat.session.appendLog", runId, entry }),
+  finalizeSession: (
+    runId: string,
+    status: "ok" | "error" | "aborted",
+    output?: Json
+  ) => call<RunRecord>({ type: "chat.session.end", runId, status, output })
 };
 
 export async function currentTabId(): Promise<number> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error("no active tab");
   return tab.id;
+}
+
+export async function currentTabInfo(): Promise<{ tabId: number; url: string }> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) throw new Error("no active tab");
+  return { tabId: tab.id, url: tab.url ?? "" };
+}
+
+export function onTabRecommendations(
+  cb: (msg: { tabId: number; url: string; tools: Tool[] }) => void
+): () => void {
+  const listener = (msg: unknown) => {
+    if (
+      typeof msg === "object" &&
+      msg !== null &&
+      (msg as { type?: string }).type === "tabs.recommendations"
+    ) {
+      cb(msg as { type: "tabs.recommendations"; tabId: number; url: string; tools: Tool[] });
+    }
+  };
+  chrome.runtime.onMessage.addListener(listener);
+  return () => chrome.runtime.onMessage.removeListener(listener);
 }
