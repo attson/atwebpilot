@@ -9,10 +9,12 @@ export default defineManifest({
   action: { default_title: "Caiji2" },
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
-  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs"],
+  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation"],
   host_permissions: [
     "*://*.yangkeduo.com/*",
-    "*://*.pinduoduo.com/*"
+    "*://*.pinduoduo.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*"
   ],
   content_scripts: [
     {
