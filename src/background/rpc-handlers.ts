@@ -3,7 +3,7 @@ import {
   RpcRequest as RpcRequestSchema,
   type RpcRequest
 } from "@/shared/messages";
-import type { Json, RunRecord, Tool } from "@/shared/types";
+import type { Json, RunRecord, Step, Tool } from "@/shared/types";
 import { httpRequest } from "./http-proxy";
 import { exportAll, importBundle } from "./storage/export-import";
 import { appendStepLog, createRun, finalizeRun, getRun, listRuns } from "./storage/runs";
@@ -72,7 +72,52 @@ async function dispatch(req: RpcRequest): Promise<Json> {
       if (req.tabId == null) throw new Error("scripting.injectMain: tabId missing");
       return (await injectMainWorld(req.tabId, req.source, req.args as Json)) as unknown as Json;
     }
+    case "chat.session.start": {
+      const run = await createRun({ toolId: null, toolVersion: null, url: req.url });
+      return run as unknown as Json;
+    }
+    case "chat.session.appendLog": {
+      await appendStepLog(req.runId, {
+        stepIndex: req.entry.stepIndex,
+        input: req.entry.input as Json,
+        output: req.entry.output as Json,
+        ms: req.entry.ms,
+        error: req.entry.error
+      });
+      return null;
+    }
+    case "chat.session.end": {
+      const r = await finalizeRun(req.runId, {
+        status: req.status,
+        output: req.output as Json | undefined
+      });
+      return r as unknown as Json;
+    }
+    case "runs.runOneStep": {
+      return (await runOneStep(
+        req.step as Step,
+        req.tabId,
+        req.bindings as Record<string, Json>
+      )) as unknown as Json;
+    }
   }
+}
+
+async function runOneStep(
+  step: Step,
+  tabId: number,
+  bindings: Record<string, Json>
+): Promise<Json> {
+  const stepReq = ContentRequestSchema.parse({
+    type: "content.runStep",
+    step,
+    bindings
+  });
+  const res = (await chrome.tabs.sendMessage(tabId, stepReq)) as
+    | { ok: true; data: Json }
+    | { ok: false; error: string };
+  if (!res.ok) throw new Error(res.error);
+  return res.data;
 }
 
 async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promise<RunRecord> {
