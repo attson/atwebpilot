@@ -129,17 +129,8 @@ async function runOneStep(
         "Content script 无法注入到此页面（可能是 chrome:// 或受限页面）。请在普通网页上重试。"
       );
     }
-    try {
-      res = (await chrome.tabs.sendMessage(tabId, stepReq)) as typeof res;
-    } catch (e2) {
-      const msg2 = e2 instanceof Error ? e2.message : String(e2);
-      if (isReceiverMissing(msg2)) {
-        throw new Error(
-          "Content script 注入后仍无响应。请刷新页面（Cmd/Ctrl+R）再试。"
-        );
-      }
-      throw e2;
-    }
+    // 注入完成后 listener 注册可能还需要几百 ms（@crxjs ESM loader 异步）
+    res = await retryUntilReady(tabId, stepReq);
   }
   if (!res.ok) throw new Error(res.error);
   return res.data;
@@ -161,9 +152,35 @@ async function injectContentScript(tabId: number): Promise<boolean> {
     await chrome.scripting.executeScript({ target: { tabId }, files });
     return true;
   } catch (e) {
-    console.warn("[caiji2] content script inject failed", e);
+    console.warn("[webpilot] content script inject failed", e);
     return false;
   }
+}
+
+async function retryUntilReady(
+  tabId: number,
+  stepReq: unknown,
+  deadlineMs = 2000,
+  intervalMs = 100
+): Promise<{ ok: true; data: Json } | { ok: false; error: string }> {
+  const start = Date.now();
+  let lastErr: unknown;
+  while (Date.now() - start < deadlineMs) {
+    try {
+      return (await chrome.tabs.sendMessage(tabId, stepReq)) as
+        | { ok: true; data: Json }
+        | { ok: false; error: string };
+    } catch (e) {
+      lastErr = e;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!isReceiverMissing(msg)) throw e;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+  const tail = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new Error(
+    `Content script 注入后 ${deadlineMs}ms 内仍无响应。请刷新页面（Cmd/Ctrl+R）再试。底层错误: ${tail}`
+  );
 }
 
 async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promise<RunRecord> {
