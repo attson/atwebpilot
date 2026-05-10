@@ -226,7 +226,14 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
           },
           input: { userPrompt: prompt, tabId, url },
           settings: { ...settings, autoApproveDangerous: settings.autoApproveDangerous ?? [] },
-          systemPrompt: buildSystemPrompt({ url }),
+          systemPrompt: buildSystemPrompt({
+            url,
+            savedTools: recommendations.map((t) => ({
+              name: t.name,
+              description: t.description ?? "",
+              version: t.versions.at(-1)?.version ?? 1
+            }))
+          }),
           tools: TOOL_DEFS,
           approveAllSafe: session.approveAllSafe,
           abortSignal: ac.signal,
@@ -362,11 +369,13 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
             recommendations[0]?.name ?? `WebPilot 任务 ${new Date().toISOString().slice(0, 10)}`
           }
           initialDescription={
-            session.messages
-              .filter((m): m is Extract<typeof m, { role: "assistant" }> => m.role === "assistant")
-              .at(-1)
-              ?.content.find((c): c is { type: "text"; text: string } => c.type === "text")
-              ?.text.slice(0, 200) ?? ""
+            (session.messages.find(
+              (m): m is Extract<typeof m, { role: "user" }> & { content: string } =>
+                m.role === "user" && typeof m.content === "string"
+            )?.content ?? "")
+              .replace(/^\[已恢复\][^\n]*\n?/, "")
+              .replace(/^\[页面跳转\][^\n]*\n?/, "")
+              .slice(0, 80)
           }
           initialUrl={session.url}
           steps={session.executedSteps}

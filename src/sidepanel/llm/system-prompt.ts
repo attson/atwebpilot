@@ -1,4 +1,20 @@
-export function buildSystemPrompt(input: { url: string; title?: string }): string {
+type SavedToolHint = { name: string; description: string; version: number };
+
+export function buildSystemPrompt(input: {
+  url: string;
+  title?: string;
+  savedTools?: SavedToolHint[];
+}): string {
+  const savedToolsSection =
+    input.savedTools && input.savedTools.length > 0
+      ? [
+          "",
+          "## 此页面已有以下保存的工具（URL 命中），用户可一键重放；如果用户的需求与某个工具吻合，主动建议：",
+          ...input.savedTools.map(
+            (t) => `- "${t.name}" (v${t.version})：${t.description || "(无描述)"}`
+          )
+        ]
+      : [];
   return [
     "你是 WebPilot，一个嵌入到浏览器侧边面板的 AI 网页助手。",
     "用户在浏览网页时会请你完成各种任务：",
@@ -25,7 +41,8 @@ export function buildSystemPrompt(input: { url: string; title?: string }): strin
     "storage 读取/submitForm/uploadFile）需要明确审阅。",
     "",
     `当前页面 URL: ${input.url}`,
-    input.title ? `页面标题: ${input.title}` : ""
+    input.title ? `页面标题: ${input.title}` : "",
+    ...savedToolsSection
   ]
     .filter(Boolean)
     .join("\n");
