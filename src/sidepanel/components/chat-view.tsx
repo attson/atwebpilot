@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSession, type StepCardState } from "../chat/session-store";
+import { useSettings } from "../chat/settings-store";
 import { MessageBubble } from "./message-bubble";
 import type { ChatMessage, TextPart, ToolUsePart } from "@/shared/types";
 import { autoApproves, classifyTool } from "../chat/severity";
@@ -11,6 +12,7 @@ type Props = {
 
 export function ChatView({ onApprove }: Props) {
   const session = useSession();
+  const settings = useSettings();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,7 +29,12 @@ export function ChatView({ onApprove }: Props) {
 
   function needsApproval(card: StepCardState): boolean {
     if (!card.inputReady) return false;
-    return !autoApproves(classifyTool(card.name, card.input), session.approveAllSafe);
+    return !autoApproves(
+      classifyTool(card.name, card.input),
+      card.name,
+      session.approveAllSafe,
+      settings.autoApproveDangerous ?? []
+    );
   }
 
   // finalized 的 assistant turn 已收录的 toolUseIds
