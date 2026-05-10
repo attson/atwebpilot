@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DangerApprovalGroup } from "../components/danger-approval-group";
 import { rpc } from "../rpc";
 import {
   ANTHROPIC_MODELS,
@@ -141,6 +142,8 @@ export function SettingsPage() {
           />
         </div>
       </section>
+
+      <DangerApprovalGroup />
 
       <section className="bg-zinc-900 rounded p-3 space-y-2">
         <h3 className="text-zinc-300">备份</h3>
