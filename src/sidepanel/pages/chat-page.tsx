@@ -266,7 +266,17 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={"描述要采集什么…（如：把主图、详情图、前 50 条评论拿出来）"}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              const busy =
+                session.status === "streaming" ||
+                session.status === "awaiting" ||
+                session.status === "running";
+              if (!busy && input.trim()) send(input);
+            }
+          }}
+          placeholder={"描述要采集什么…（Ctrl/⌘ + Enter 发送）"}
           rows={3}
           className="bg-zinc-900 rounded p-2 text-xs resize-none"
         />
