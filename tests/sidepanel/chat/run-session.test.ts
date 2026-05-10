@@ -53,7 +53,7 @@ describe("runChatSession", () => {
       approver,
       rpc,
       input: { userPrompt: "go", tabId: 7, url: "https://x/" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5 },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, autoApproveDangerous: [] },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
@@ -87,7 +87,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5 },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, autoApproveDangerous: [] },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
@@ -131,7 +131,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5 },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, autoApproveDangerous: [] },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
@@ -161,7 +161,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2 },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2, autoApproveDangerous: [] },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
