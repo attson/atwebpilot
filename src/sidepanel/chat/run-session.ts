@@ -49,7 +49,9 @@ export type SessionEvent =
   | { type: "tool_error"; id: string; error: string; ms: number }
   | { type: "tool_skipped"; id: string }
   | { type: "usage"; input_tokens: number; output_tokens: number }
-  | { type: "session_end"; status: "done" | "aborted" | "max_rounds" | "error"; lastOutput: Json };
+  | { type: "stream_error"; error: string }
+  | { type: "exception"; error: string }
+  | { type: "session_end"; status: "done" | "aborted" | "max_rounds" | "error"; lastOutput: Json; reason?: string };
 
 export type RunSessionArgs = {
   client: LlmClient;
@@ -150,6 +152,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
             break;
           case "error":
             streamErr = ev.error;
+            args.onEvent?.({ type: "stream_error", error: ev.error });
             break;
         }
       }
@@ -160,8 +163,9 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
         args.onEvent?.({ type: "session_end", status: "aborted", lastOutput });
         return { status: "aborted", runRecordId, messages, executedSteps, lastOutput };
       }
+      args.onEvent?.({ type: "exception", error: msg });
       await args.rpc.finalizeSession(runRecordId, "error");
-      args.onEvent?.({ type: "session_end", status: "error", lastOutput });
+      args.onEvent?.({ type: "session_end", status: "error", lastOutput, reason: msg });
       throw new Error(msg);
     }
 
@@ -169,7 +173,12 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       parseFailures++;
       if (parseFailures >= MAX_PARSE_RETRIES) {
         await args.rpc.finalizeSession(runRecordId, "error");
-        args.onEvent?.({ type: "session_end", status: "error", lastOutput });
+        args.onEvent?.({
+          type: "session_end",
+          status: "error",
+          lastOutput,
+          reason: `LLM stream error (${parseFailures} times): ${streamErr}`
+        });
         return { status: "error", runRecordId, messages, executedSteps, lastOutput };
       }
       messages.push({

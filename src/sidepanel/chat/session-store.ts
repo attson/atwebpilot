@@ -33,6 +33,17 @@ export type ChatSessionState = {
   showSaveDialog: boolean;
 
   abortController: AbortController | null;
+
+  // 日志抽屉
+  logs: LogEntry[];
+  logsOpen: boolean;
+};
+
+export type LogEntry = {
+  ts: number;
+  level: "info" | "warn" | "error";
+  message: string;
+  details?: string;
 };
 
 const initialState = (): ChatSessionState => ({
@@ -50,7 +61,9 @@ const initialState = (): ChatSessionState => ({
   executedSteps: [],
   lastOutput: null,
   showSaveDialog: false,
-  abortController: null
+  abortController: null,
+  logs: [],
+  logsOpen: false
 });
 
 type SessionActions = {
@@ -78,6 +91,9 @@ type SessionActions = {
   setAbortController: (c: AbortController | null) => void;
   showSave: () => void;
   hideSave: () => void;
+  appendLog: (level: LogEntry["level"], message: string, details?: string) => void;
+  clearLogs: () => void;
+  setLogsOpen: (open: boolean) => void;
 };
 
 export const useSession = create<ChatSessionState & SessionActions>((set) => ({
@@ -162,5 +178,11 @@ export const useSession = create<ChatSessionState & SessionActions>((set) => ({
     })),
   setAbortController: (abortController) => set({ abortController }),
   showSave: () => set({ showSaveDialog: true }),
-  hideSave: () => set({ showSaveDialog: false })
+  hideSave: () => set({ showSaveDialog: false }),
+  appendLog: (level, message, details) =>
+    set((s) => ({
+      logs: [...s.logs, { ts: Date.now(), level, message, details }]
+    })),
+  clearLogs: () => set({ logs: [] }),
+  setLogsOpen: (logsOpen) => set({ logsOpen })
 }));

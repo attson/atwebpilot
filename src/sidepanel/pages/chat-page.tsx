@@ -8,6 +8,7 @@ import { TOOL_DEFS } from "../llm/tool-schema";
 import { pickClient } from "../llm/client";
 import { buildSystemPrompt } from "../llm/system-prompt";
 import { ChatView } from "../components/chat-view";
+import { LogsDrawer } from "../components/logs-drawer";
 import { RecommendationsBanner } from "../components/recommendations-banner";
 import { SaveAsToolDialog } from "../components/save-as-tool-dialog";
 import { StatusBar } from "../components/status-bar";
@@ -73,8 +74,14 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       }
       const { tabId, url } = await currentTabInfo();
       session.setIdentity({ tabId, url, runRecordId: "" });
+      session.setError(null);
       session.setStatus("streaming");
       session.appendUserMessage(prompt);
+      session.appendLog(
+        "info",
+        `提交 prompt`,
+        `provider=${settings.provider} model=${settings.model} endpoint=${settings.endpoint || "(默认)"} maxRounds=${settings.maxRounds}\n---\n${prompt}`
+      );
       setInput("");
       const ac = new AbortController();
       session.setAbortController(ac);
@@ -93,16 +100,19 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       }
 
       const onEvent = (e: SessionEvent) => {
+        const log = useSession.getState().appendLog;
         switch (e.type) {
           case "round_start":
             session.incrementRound();
             session.beginAssistantTurn();
+            log("info", `round ${e.round + 1} 开始`);
             break;
           case "text_delta":
             session.appendAssistantText(e.text);
             break;
           case "tool_use_start":
             session.upsertCard({ toolUseId: e.id, name: e.name, status: "draft", inputReady: false });
+            log("info", `tool_use_start: ${e.name} (${e.id})`);
             break;
           case "tool_use_input_delta": {
             const fresh = useSession.getState().cards.find((c) => c.toolUseId === e.id);
@@ -115,38 +125,60 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
           case "tool_use_end":
             session.upsertCard({ toolUseId: e.id, input: e.input, inputReady: true, status: "awaiting" });
             session.setStatus("awaiting");
+            log("info", `tool_use_end: ${e.id}`, JSON.stringify(e.input, null, 2));
             break;
           case "tool_running":
             session.setCardStatus(e.id, { status: "running" });
             session.setStatus("running");
+            log("info", `step running: ${e.id}`);
             break;
           case "tool_done":
             session.setCardStatus(e.id, { status: "ok", output: e.output, ms: e.ms });
             session.pushExecutedStep(stepFromCard(e.id));
             session.setLastOutput(e.output);
             session.setStatus("streaming");
+            log("info", `step ok: ${e.id} (${e.ms}ms)`);
             break;
           case "tool_error":
             session.setCardStatus(e.id, { status: "error", error: e.error, ms: e.ms });
             session.setStatus("streaming");
+            log("error", `step error: ${e.id}`, e.error);
             break;
           case "tool_skipped":
             session.setCardStatus(e.id, { status: "skipped" });
+            log("warn", `step skipped: ${e.id}`);
             break;
           case "usage":
             session.addUsage({ input_tokens: e.input_tokens, output_tokens: e.output_tokens });
             break;
+          case "stream_error":
+            log("error", "LLM stream error", e.error);
+            session.setError(e.error);
+            session.setLogsOpen(true);
+            break;
+          case "exception":
+            log("error", "exception in run-session", e.error);
+            session.setError(e.error);
+            session.setLogsOpen(true);
+            break;
           case "session_end":
+            log(
+              e.status === "done" ? "info" : "warn",
+              `session_end: ${e.status}${e.reason ? " — " + e.reason : ""}`
+            );
             if (e.status === "done") {
               session.setStatus("done");
               session.showSave();
             } else if (e.status === "max_rounds") {
               session.setStatus("error");
               session.setError("达到最大轮数");
+              session.setLogsOpen(true);
             } else if (e.status === "aborted") {
               session.setStatus("aborted");
             } else {
               session.setStatus("error");
+              if (e.reason) session.setError(e.reason);
+              session.setLogsOpen(true);
             }
             break;
         }
@@ -199,11 +231,29 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
         onAbort={() => session.abortController?.abort()}
       />
       {session.errorMessage && (
-        <div className="bg-red-900/40 border-b border-red-800 p-2 text-xs text-red-200">
-          {session.errorMessage}
+        <div className="bg-red-900/40 border-b border-red-800 p-2 text-xs text-red-200 flex items-start gap-2">
+          <div className="flex-1 whitespace-pre-wrap break-words">{session.errorMessage}</div>
+          <button
+            onClick={() => session.setLogsOpen(!session.logsOpen)}
+            className="px-2 py-0.5 bg-zinc-700 rounded text-zinc-100 shrink-0"
+          >
+            {session.logsOpen ? "隐藏日志" : "查看日志"}
+          </button>
+        </div>
+      )}
+      {!session.errorMessage && session.logs.length > 0 && (
+        <div className="px-2 py-1 border-b border-zinc-800 text-[11px] text-zinc-500 flex items-center gap-2">
+          <span>日志 {session.logs.length} 条</span>
+          <button
+            onClick={() => session.setLogsOpen(!session.logsOpen)}
+            className="px-2 py-0.5 bg-zinc-800 rounded"
+          >
+            {session.logsOpen ? "隐藏" : "查看"}
+          </button>
         </div>
       )}
       <ChatView onApprove={handleApprove} />
+      <LogsDrawer />
       <div className="border-t border-zinc-800 p-2 flex flex-col gap-2">
         <label className="flex items-center gap-1 text-xs text-zinc-400">
           <input
