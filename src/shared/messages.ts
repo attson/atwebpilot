@@ -103,6 +103,12 @@ export const RpcRequest = z.discriminatedUnion("type", [
     step: StepSchema,
     tabId: z.number(),
     bindings: z.record(z.unknown()).default({})
+  }),
+
+  // binary fetch (for uploadFile)
+  z.object({
+    type: z.literal("http.fetchBinary"),
+    url: z.string().url()
   })
 ]);
 
