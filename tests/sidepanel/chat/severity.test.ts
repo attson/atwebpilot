@@ -26,19 +26,61 @@ describe("classifyTool", () => {
     expect(classifyTool("runJS", { source: "return document.cookie" })).toBe("dangerous");
     expect(classifyTool("runJS", { source: "return await fetch('/x').then(r => r.text())" })).toBe("caution");
   });
+
+  it("safe interaction tools", () => {
+    expect(classifyTool("hover", { selector: "x" })).toBe("safe");
+    expect(classifyTool("focus", { selector: "x" })).toBe("safe");
+    expect(classifyTool("getValue", { selector: "x" })).toBe("safe");
+    expect(classifyTool("extractFormState", {})).toBe("safe");
+  });
+
+  it("caution interaction tools", () => {
+    expect(classifyTool("fillInput", { selector: "x", value: "y" })).toBe("caution");
+    expect(classifyTool("setCheckbox", { selector: "x", checked: true })).toBe("caution");
+    expect(classifyTool("selectOption", { selector: "x", value: "y" })).toBe("caution");
+  });
+
+  it("dangerous side-effect tools", () => {
+    expect(classifyTool("submitForm", {})).toBe("dangerous");
+    expect(classifyTool("uploadFile", { selector: "x", url: "u" })).toBe("dangerous");
+  });
 });
 
 describe("autoApproves", () => {
   it("safe always auto", () => {
-    expect(autoApproves("safe", true)).toBe(true);
-    expect(autoApproves("safe", false)).toBe(true);
+    expect(autoApproves("safe", "snapshotDOM", true, [])).toBe(true);
+    expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
   });
   it("caution auto only when toggle on", () => {
-    expect(autoApproves("caution", true)).toBe(true);
-    expect(autoApproves("caution", false)).toBe(false);
+    expect(autoApproves("caution", "fillInput", true, [])).toBe(true);
+    expect(autoApproves("caution", "fillInput", false, [])).toBe(false);
   });
-  it("dangerous never auto", () => {
-    expect(autoApproves("dangerous", true)).toBe(false);
-    expect(autoApproves("dangerous", false)).toBe(false);
+  it("dangerous default no auto", () => {
+    expect(autoApproves("dangerous", "submitForm", true, [])).toBe(false);
+    expect(autoApproves("dangerous", "submitForm", false, [])).toBe(false);
+  });
+
+  it("dangerous auto only when toolName in allowlist", () => {
+    expect(autoApproves("dangerous", "submitForm", true, ["submitForm"])).toBe(true);
+    expect(autoApproves("dangerous", "submitForm", true, [])).toBe(false);
+  });
+
+  it("dangerous allowlist independent of approveAllSafe", () => {
+    expect(autoApproves("dangerous", "uploadFile", false, ["uploadFile"])).toBe(true);
+    expect(autoApproves("dangerous", "uploadFile", true, [])).toBe(false);
+  });
+
+  it("dangerous allowlist applies per tool name", () => {
+    expect(autoApproves("dangerous", "submitForm", true, ["uploadFile"])).toBe(false);
+    expect(autoApproves("dangerous", "uploadFile", true, ["uploadFile"])).toBe(true);
+  });
+
+  it("safe ignores allowlist", () => {
+    expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
+  });
+
+  it("caution ignores allowlist", () => {
+    expect(autoApproves("caution", "fillInput", true, [])).toBe(true);
+    expect(autoApproves("caution", "fillInput", false, ["fillInput"])).toBe(false);
   });
 });

@@ -10,13 +10,30 @@ const SAFE = new Set([
   "extractText",
   "extractImages",
   "scroll",
-  "waitFor"
+  "waitFor",
+  "hover",
+  "focus",
+  "getValue",
+  "extractFormState"
+]);
+
+const CAUTION = new Set([
+  "click",
+  "fillInput",
+  "setCheckbox",
+  "selectOption"
+]);
+
+const DANGEROUS_FIXED = new Set([
+  "readStorage",
+  "submitForm",
+  "uploadFile"
 ]);
 
 export function classifyTool(name: string, input: Json): ToolSeverity {
   if (SAFE.has(name)) return "safe";
-  if (name === "click") return "caution";
-  if (name === "readStorage") return "dangerous";
+  if (CAUTION.has(name)) return "caution";
+  if (DANGEROUS_FIXED.has(name)) return "dangerous";
   if (name === "httpRequest") {
     const withCred = isObject(input) && (input as Record<string, Json>).withCredentials === true;
     return withCred ? "dangerous" : "caution";
@@ -31,9 +48,15 @@ export function classifyTool(name: string, input: Json): ToolSeverity {
   return "dangerous";
 }
 
-export function autoApproves(severity: ToolSeverity, approveAllSafe: boolean): boolean {
+export function autoApproves(
+  severity: ToolSeverity,
+  toolName: string,
+  approveAllSafe: boolean,
+  dangerousAllowlist: string[]
+): boolean {
   if (severity === "safe") return true;
   if (severity === "caution") return approveAllSafe;
+  if (severity === "dangerous") return dangerousAllowlist.includes(toolName);
   return false;
 }
 
