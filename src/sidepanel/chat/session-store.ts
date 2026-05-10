@@ -469,7 +469,8 @@ export function useSession(): LegacySession {
     hideSave: () => hideSave(tabId),
     appendLog: (l, m, d) => appendLog(tabId, l, m, d),
     clearLogs: () => clearLogs(tabId),
-    setLogsOpen: (o) => setLogsOpen(tabId, o)
+    setLogsOpen: (o) => setLogsOpen(tabId, o),
+    setInputDraft: (t) => setInputDraft(tabId, t)
   };
 }
 
