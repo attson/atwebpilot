@@ -64,7 +64,7 @@ export function ToolDetailPage(props: Props) {
   const failed = run && run.status === "error";
 
   return (
-    <div className="p-3 flex flex-col gap-3 text-xs">
+    <div className="h-full overflow-auto p-3 flex flex-col gap-3 text-xs">
       <button onClick={props.onBack} className="self-start text-zinc-400">
         ← 返回
       </button>
