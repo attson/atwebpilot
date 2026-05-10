@@ -13,7 +13,16 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "waitFor",
       "click",
       "httpRequest",
-      "readStorage"
+      "readStorage",
+      "fillInput",
+      "setCheckbox",
+      "selectOption",
+      "submitForm",
+      "hover",
+      "focus",
+      "uploadFile",
+      "getValue",
+      "extractFormState"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),
