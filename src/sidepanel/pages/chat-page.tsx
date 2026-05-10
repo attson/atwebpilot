@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Approver } from "../chat/approval";
+import { useCallback, useEffect, useState } from "react";
+import { getGlobalApprover } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
 import { useSession } from "../chat/session-store";
 import { useSettings } from "../chat/settings-store";
@@ -25,7 +25,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
   const settings = useSettings();
   const [input, setInput] = useState(initialPrompt ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
-  const approverRef = useRef<Approver>(new Approver());
+  const approver = getGlobalApprover();
 
   useEffect(() => {
     if (!settings.loaded) settings.load();
@@ -37,8 +37,9 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       const { tabId, url } = await currentTabInfo();
       if (!active) return;
       const tools = await rpc.matchingTools(url);
-      if (active) setRecommendations(tools);
-      session.reset();
+      if (!active) return;
+      setRecommendations(tools);
+      // 仅刷新 tab 信息；保留消息流，避免 nav 切换丢失对话
       useSession.setState({ tabId, url });
     })();
     const off = onTabRecommendations((m) => {
@@ -57,13 +58,19 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
 
   const handleApprove = useCallback(
     (id: string, decision: "run" | "skip" | "deny") => {
-      approverRef.current.resolve(id, { kind: decision });
+      approver.resolve(id, { kind: decision });
       session.setCardStatus(id, {
         status: decision === "run" ? "running" : decision === "skip" ? "skipped" : "denied"
       });
     },
-    [session]
+    [session, approver]
   );
+
+  const clearChat = useCallback(() => {
+    session.abortController?.abort();
+    approver.resolveAllPending({ kind: "deny" });
+    session.reset();
+  }, [session, approver]);
 
   const send = useCallback(
     async (prompt: string) => {
@@ -187,7 +194,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
         await runChatSession({
           client,
           runner,
-          approver: approverRef.current,
+          approver: approver,
           rpc: {
             startSession: (i) => rpc.startSession(i).then((r) => ({ id: r.id })),
             appendStepLog: (runId, entry) => rpc.appendStepLog(runId, entry),
@@ -206,7 +213,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
         session.setError(e instanceof Error ? e.message : String(e));
         session.setStatus("error");
       } finally {
-        approverRef.current.resolveAllPending({ kind: "deny" });
+        approver.resolveAllPending({ kind: "deny" });
         session.setAbortController(null);
       }
     },
@@ -240,15 +247,29 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
           </button>
         </div>
       )}
-      {!session.errorMessage && session.logs.length > 0 && (
+      {(session.messages.length > 0 || session.logs.length > 0) && !session.errorMessage && (
         <div className="px-2 py-1 border-b border-zinc-800 text-[11px] text-zinc-500 flex items-center gap-2">
-          <span>日志 {session.logs.length} 条</span>
-          <button
-            onClick={() => session.setLogsOpen(!session.logsOpen)}
-            className="px-2 py-0.5 bg-zinc-800 rounded"
-          >
-            {session.logsOpen ? "隐藏" : "查看"}
-          </button>
+          {session.logs.length > 0 && (
+            <>
+              <span>日志 {session.logs.length} 条</span>
+              <button
+                onClick={() => session.setLogsOpen(!session.logsOpen)}
+                className="px-2 py-0.5 bg-zinc-800 rounded"
+              >
+                {session.logsOpen ? "隐藏" : "查看"}
+              </button>
+            </>
+          )}
+          {session.messages.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm("清空当前对话？")) clearChat();
+              }}
+              className="px-2 py-0.5 bg-zinc-800 rounded"
+            >
+              清空对话
+            </button>
+          )}
           {session.executedSteps.length > 0 && (
             <>
               <span className="ml-auto">已执行 {session.executedSteps.length} 步</span>

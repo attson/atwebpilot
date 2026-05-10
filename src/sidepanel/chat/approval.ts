@@ -27,3 +27,10 @@ export class Approver {
     return this.pending.has(toolUseId);
   }
 }
+
+// 跨 ChatPage mount 共享，避免侧边面板内切 nav 时丢失 pending approval
+let globalApprover: Approver | null = null;
+export function getGlobalApprover(): Approver {
+  if (!globalApprover) globalApprover = new Approver();
+  return globalApprover;
+}

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
-import { useSession } from "../chat/session-store";
+import { useSession, type StepCardState } from "../chat/session-store";
 import { MessageBubble } from "./message-bubble";
-import { StepCard } from "./step-card";
-import type { ChatMessage, ToolUsePart } from "@/shared/types";
+import type { ChatMessage, TextPart, ToolUsePart } from "@/shared/types";
 import { autoApproves, classifyTool } from "../chat/severity";
+import { AssistantBubble } from "./assistant-bubble";
 
 type Props = {
   onApprove: (id: string, decision: "run" | "skip" | "deny") => void;
@@ -15,51 +15,80 @@ export function ChatView({ onApprove }: Props) {
 
   useEffect(() => {
     ref.current?.scrollTo({ top: ref.current.scrollHeight });
-  }, [session.messages.length, session.streamingAssistantText, session.cards.length]);
+  }, [
+    session.messages.length,
+    session.streamingAssistantText,
+    session.cards.length,
+    session.cards.map((c) => c.status).join(",")
+  ]);
 
-  const items: Array<{ kind: "message"; msg: ChatMessage } | { kind: "card"; cardId: string }> =
-    [];
+  const cardsById = new Map<string, StepCardState>();
+  for (const c of session.cards) cardsById.set(c.toolUseId, c);
+
+  function needsApproval(card: StepCardState): boolean {
+    if (!card.inputReady) return false;
+    return !autoApproves(classifyTool(card.name, card.input), session.approveAllSafe);
+  }
+
+  // finalized 的 assistant turn 已收录的 toolUseIds
+  const finalizedIds = new Set<string>();
   for (const m of session.messages) {
-    items.push({ kind: "message", msg: m });
-    if (m.role === "assistant") {
-      const toolUses = m.content.filter((c): c is ToolUsePart => c.type === "tool_use");
-      for (const tu of toolUses) items.push({ kind: "card", cardId: tu.id });
-    }
+    if (m.role !== "assistant") continue;
+    for (const c of m.content) if (c.type === "tool_use") finalizedIds.add(c.id);
   }
-  if (session.streamingAssistantText) {
-    items.push({
-      kind: "message",
-      msg: {
-        role: "assistant",
-        content: [{ type: "text", text: session.streamingAssistantText }]
-      }
-    });
-  }
-  const finalizedIds = new Set(
-    session.messages
-      .filter((m): m is Extract<ChatMessage, { role: "assistant" }> => m.role === "assistant")
-      .flatMap((m) => m.content.filter((c): c is ToolUsePart => c.type === "tool_use"))
-      .map((c) => c.id)
-  );
-  for (const card of session.cards) {
-    if (
-      !finalizedIds.has(card.toolUseId) &&
-      !items.some((i) => i.kind === "card" && i.cardId === card.toolUseId)
-    ) {
-      items.push({ kind: "card", cardId: card.toolUseId });
-    }
-  }
+
+  // 流式中：尚未 finalize 的 cards（按出现顺序）
+  const pendingCards = session.cards.filter((c) => !finalizedIds.has(c.toolUseId));
+  const isStreaming =
+    session.status === "streaming" ||
+    session.status === "awaiting" ||
+    session.status === "running";
 
   return (
     <div ref={ref} className="flex-1 overflow-auto flex flex-col gap-2 p-3">
-      {items.map((it, i) => {
-        if (it.kind === "message") return <MessageBubble key={i} message={it.msg} />;
-        const card = session.cards.find((c) => c.toolUseId === it.cardId);
-        if (!card) return null;
-        const sev = card.inputReady ? classifyTool(card.name, card.input) : "safe";
-        const needs = !autoApproves(sev, session.approveAllSafe);
-        return <StepCard key={card.toolUseId} card={card} onApprove={onApprove} needsManualApproval={needs} />;
-      })}
+      {session.messages.map((m, i) => renderMessage(m, i))}
+      {isStreaming && (session.streamingAssistantText || pendingCards.length > 0) && (
+        <AssistantBubble
+          key="live-bubble"
+          text={session.streamingAssistantText}
+          toolUses={[]}
+          pendingCards={pendingCards}
+          cardsById={cardsById}
+          onApprove={onApprove}
+          needsApproval={needsApproval}
+          isLive
+        />
+      )}
+      {session.messages.length === 0 && !isStreaming && (
+        <div className="text-zinc-500 text-xs text-center mt-8">
+          描述要采集什么开始对话…
+        </div>
+      )}
     </div>
   );
+
+  function renderMessage(m: ChatMessage, i: number) {
+    if (m.role === "user") {
+      // 跳过 tool_result 注入（只在 chat history 内部有意义，UI 不展示）
+      if (typeof m.content !== "string") return null;
+      return <MessageBubble key={i} message={m} />;
+    }
+    const text = m.content
+      .filter((c): c is TextPart => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+    const toolUses = m.content.filter((c): c is ToolUsePart => c.type === "tool_use");
+    if (!text && toolUses.length === 0) return null;
+    return (
+      <AssistantBubble
+        key={i}
+        text={text}
+        toolUses={toolUses}
+        cardsById={cardsById}
+        onApprove={onApprove}
+        needsApproval={needsApproval}
+        isLive={false}
+      />
+    );
+  }
 }
