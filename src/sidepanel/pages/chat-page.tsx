@@ -25,9 +25,10 @@ import type { BuiltinTool, Json, Step, Tool } from "@/shared/types";
 type ChatPageProps = {
   initialPrompt?: string;
   initialContext?: string;
+  onOpenTool?: (id: string, autoRun: boolean) => void;
 };
 
-export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
+export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPageProps) {
   const session = useSession();
   const settings = useSettings();
   const currentTabId = useCurrentTabId();
@@ -255,9 +256,8 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
     <div className="h-full flex flex-col">
       <RecommendationsBanner
         tools={recommendations}
-        onRun={async (id) => {
-          const { tabId } = await currentTabInfo();
-          await rpc.runTool(id, tabId);
+        onOpenTool={(id, autoRun) => {
+          if (onOpenTool) onOpenTool(id, autoRun);
         }}
       />
       <StatusBar

@@ -8,6 +8,8 @@ type Props = {
   id: string;
   onBack: () => void;
   onFixWithAi?: (opts: { initialPrompt: string; initialContext: string }) => void;
+  /** 进入页面后自动跑一次（用于 banner "运行" 按钮直接联动） */
+  autoRun?: boolean;
 };
 
 export function ToolDetailPage(props: Props) {
@@ -19,6 +21,12 @@ export function ToolDetailPage(props: Props) {
   useEffect(() => {
     rpc.getTool(props.id).then(setTool).catch((e) => setErr(String(e)));
   }, [props.id]);
+
+  useEffect(() => {
+    if (!props.autoRun || !tool || run || busy) return;
+    void go();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.autoRun, tool]);
 
   async function go() {
     setBusy(true);

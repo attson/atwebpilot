@@ -13,7 +13,7 @@ type Route =
   | { name: "chat"; initialPrompt?: string; initialContext?: string }
   | { name: "run" }
   | { name: "tools" }
-  | { name: "tool"; id: string }
+  | { name: "tool"; id: string; autoRun?: boolean }
   | { name: "settings" };
 
 export function App() {
@@ -31,6 +31,10 @@ export function App() {
       initialPrompt: opts.initialPrompt,
       initialContext: opts.initialContext
     });
+  }
+
+  function openTool(id: string, autoRun: boolean) {
+    setRoute({ name: "tool", id, autoRun });
   }
 
   return (
@@ -64,13 +68,16 @@ export function App() {
             key={(route.initialPrompt ?? "") + (route.initialContext ?? "")}
             initialPrompt={route.initialPrompt}
             initialContext={route.initialContext}
+            onOpenTool={openTool}
           />
         )}
         {route.name === "run" && <RunPage />}
         {route.name === "tools" && <ToolsPage onOpen={(id) => setRoute({ name: "tool", id })} />}
         {route.name === "tool" && (
           <ToolDetailPage
+            key={`${route.id}-${route.autoRun ? "auto" : "manual"}`}
             id={route.id}
+            autoRun={route.autoRun}
             onBack={() => setRoute({ name: "tools" })}
             onFixWithAi={fixWithAi}
           />
