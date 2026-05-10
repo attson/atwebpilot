@@ -2,6 +2,11 @@ import type { ChatMessage, Json } from "@/shared/types";
 import type { LlmClient, LlmStreamEvent, LlmTool } from "./types";
 
 const ANTHROPIC_VERSION = "2023-06-01";
+const ANTHROPIC_DEFAULT_BASE = "https://api.anthropic.com";
+
+function joinUrl(base: string, path: string): string {
+  return base.replace(/\/+$/, "") + path;
+}
 
 export async function* parseAnthropicStream(
   stream: ReadableStream<Uint8Array>
@@ -129,7 +134,9 @@ export const anthropicClient: LlmClient = {
       })),
       stream: true
     };
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const base = input.endpoint?.trim() || ANTHROPIC_DEFAULT_BASE;
+    const url = /\/v\d/.test(base) ? joinUrl(base, "/messages") : joinUrl(base, "/v1/messages");
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "x-api-key": input.apiKey,

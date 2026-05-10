@@ -105,4 +105,6 @@ export type LlmSettings = {
   apiKey: string;
   apiKeyMode: "persistent" | "session";
   maxRounds: number;
+  /** 自定义 base URL，留空 = 用 provider 默认值。例如 "https://api.openai.com/v1" */
+  endpoint?: string;
 };

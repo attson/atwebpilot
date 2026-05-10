@@ -97,6 +97,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       system: args.systemPrompt,
       messages,
       tools: args.tools,
+      endpoint: args.settings.endpoint,
       abortSignal: args.abortSignal
     });
 

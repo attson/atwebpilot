@@ -13,8 +13,7 @@ export default defineManifest({
   host_permissions: [
     "*://*.yangkeduo.com/*",
     "*://*.pinduoduo.com/*",
-    "https://api.anthropic.com/*",
-    "https://api.openai.com/*"
+    "https://*/*"
   ],
   content_scripts: [
     {

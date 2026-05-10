@@ -23,5 +23,7 @@ export interface LlmClient {
     tools: LlmTool[];
     maxTokens?: number;
     abortSignal?: AbortSignal;
+    /** 自定义 base URL（含 /v1 等版本路径），留空 = 用 provider 默认 */
+    endpoint?: string;
   }): AsyncIterable<LlmStreamEvent>;
 }

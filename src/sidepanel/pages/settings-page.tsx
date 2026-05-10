@@ -104,6 +104,24 @@ export function SettingsPage() {
             </label>
           </div>
         </div>
+        <div className="flex items-start gap-2">
+          <span className="w-20 text-zinc-400 mt-1">Endpoint</span>
+          <div className="flex-1 flex flex-col gap-1">
+            <input
+              value={settings.endpoint ?? ""}
+              onChange={(e) => settings.save({ endpoint: e.target.value })}
+              placeholder={
+                settings.provider === "anthropic"
+                  ? "留空 = https://api.anthropic.com"
+                  : "留空 = https://api.openai.com/v1"
+              }
+              className="bg-zinc-800 px-2 py-1 rounded font-mono"
+            />
+            <span className="text-zinc-500">
+              自定义 base URL（含 /v1 等版本路径）。可接 LiteLLM、Azure、自建网关、Ollama 等。
+            </span>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <span className="w-20 text-zinc-400">最大轮数</span>
           <input

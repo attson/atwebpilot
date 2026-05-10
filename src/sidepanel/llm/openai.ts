@@ -145,7 +145,9 @@ export const openaiClient: LlmClient = {
       stream: true,
       stream_options: { include_usage: true }
     };
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const base = input.endpoint?.trim() || "https://api.openai.com/v1";
+    const url = base.replace(/\/+$/, "") + "/chat/completions";
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${input.apiKey}`,
