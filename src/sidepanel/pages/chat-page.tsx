@@ -8,6 +8,7 @@ import { TOOL_DEFS } from "../llm/tool-schema";
 import { pickClient } from "../llm/client";
 import { buildSystemPrompt } from "../llm/system-prompt";
 import { ChatView } from "../components/chat-view";
+import { DangerApprovalPopover } from "../components/danger-approval-popover";
 import { LogsDrawer } from "../components/logs-drawer";
 import { RecommendationsBanner } from "../components/recommendations-banner";
 import { SaveAsToolDialog } from "../components/save-as-tool-dialog";
@@ -289,14 +290,17 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       <ChatView onApprove={handleApprove} />
       <LogsDrawer />
       <div className="border-t border-zinc-800 p-2 flex flex-col gap-2">
-        <label className="flex items-center gap-1 text-xs text-zinc-400">
-          <input
-            type="checkbox"
-            checked={session.approveAllSafe}
-            onChange={(e) => session.setApproveAllSafe(e.target.checked)}
-          />
-          自动通过 safe + caution
-        </label>
+        <div className="flex items-center justify-between gap-2 text-xs text-zinc-400">
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={session.approveAllSafe}
+              onChange={(e) => session.setApproveAllSafe(e.target.checked)}
+            />
+            自动通过 caution
+          </label>
+          <DangerApprovalPopover />
+        </div>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
