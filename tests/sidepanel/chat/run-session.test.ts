@@ -140,6 +140,53 @@ describe("runChatSession", () => {
     expect(result.status).toBe("done");
   });
 
+  it("dangerous tool with allowlist auto-approves", async () => {
+    const client = makeClient([
+      [
+        { type: "tool_use_start", id: "t1", name: "submitForm" },
+        { type: "tool_use_input_delta", id: "t1", partial_json: '{"selector":"form"}' },
+        { type: "tool_use_end", id: "t1", input: { selector: "form" } },
+        { type: "message_end" }
+      ],
+      [
+        { type: "text_delta", text: "submitted" },
+        { type: "message_end" }
+      ]
+    ]);
+    let ran = 0;
+    const runner = makeRunner(async () => {
+      ran++;
+      return { ok: true };
+    });
+    const approver = new Approver();
+
+    const result = await runChatSession({
+      client,
+      runner,
+      approver,
+      rpc: {
+        startSession: vi.fn().mockResolvedValue({ id: "r" }),
+        appendStepLog: vi.fn(),
+        finalizeSession: vi.fn().mockResolvedValue(null)
+      },
+      input: { userPrompt: "go", tabId: 1, url: "u" },
+      settings: {
+        provider: "anthropic",
+        model: "m",
+        apiKey: "k",
+        apiKeyMode: "session",
+        maxRounds: 5,
+        autoApproveDangerous: ["submitForm"]
+      },
+      systemPrompt: "sys",
+      tools: [],
+      approveAllSafe: false
+    });
+
+    expect(result.status).toBe("done");
+    expect(ran).toBe(1);
+  });
+
   it("stops at maxRounds", async () => {
     const oneRound: LlmStreamEvent[] = [
       { type: "tool_use_start", id: "t1", name: "snapshotDOM" },

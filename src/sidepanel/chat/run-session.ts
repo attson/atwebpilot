@@ -206,7 +206,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
     for (const tu of completedToolUses) {
       const sev = classifyTool(tu.name, tu.input);
       let decision: { kind: "run" | "skip" | "deny" };
-      if (autoApproves(sev, args.approveAllSafe)) {
+      if (autoApproves(sev, tu.name, args.approveAllSafe, args.settings.autoApproveDangerous)) {
         decision = { kind: "run" };
       } else {
         decision = await args.approver.request(tu.id);
