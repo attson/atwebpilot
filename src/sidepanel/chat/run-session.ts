@@ -44,6 +44,7 @@ export type SessionEvent =
   | { type: "tool_use_start"; id: string; name: string }
   | { type: "tool_use_input_delta"; id: string; partial_json: string }
   | { type: "tool_use_end"; id: string; input: Json }
+  | { type: "assistant_turn_end"; toolUses: ToolUsePart[] }
   | { type: "tool_running"; id: string }
   | { type: "tool_done"; id: string; output: Json; ms: number }
   | { type: "tool_error"; id: string; error: string; ms: number }
@@ -192,6 +193,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
     if (textBuf) assistantContent.push({ type: "text", text: textBuf });
     for (const tu of completedToolUses) assistantContent.push(tu);
     messages.push({ role: "assistant", content: assistantContent });
+    args.onEvent?.({ type: "assistant_turn_end", toolUses: completedToolUses });
 
     if (completedToolUses.length === 0) {
       lastOutput = textBuf;

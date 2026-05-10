@@ -134,6 +134,9 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
             session.setStatus("awaiting");
             log("info", `tool_use_end: ${e.id}`, JSON.stringify(e.input, null, 2));
             break;
+          case "assistant_turn_end":
+            session.finalizeAssistantTurn(e.toolUses);
+            break;
           case "tool_running":
             session.setCardStatus(e.id, { status: "running" });
             session.setStatus("running");
