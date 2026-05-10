@@ -114,8 +114,8 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       );
 
       function stepFromCard(id: string): Step {
-        const tabId = useStore.getState().currentTabId;
-        const cards = tabId == null ? [] : (useStore.getState().sessionsByTab[tabId]?.cards ?? []);
+        // 用闭包里 send() 起始的 tabId，避免用户中途切 tab 时 currentTabId 变了找错位置
+        const cards = useStore.getState().sessionsByTab[tabId]?.cards ?? [];
         const card = cards.find((c) => c.toolUseId === id);
         if (!card) throw new Error(`card not found: ${id}`);
         if (card.name === "runJS") {
@@ -141,8 +141,8 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
             log("info", `tool_use_start: ${e.name} (${e.id})`);
             break;
           case "tool_use_input_delta": {
-            const tabId = useStore.getState().currentTabId;
-            const cards = tabId == null ? [] : (useStore.getState().sessionsByTab[tabId]?.cards ?? []);
+            // 用闭包 tabId，不要用 dynamic currentTabId（用户切 tab 时会指向错的 SessionData）
+            const cards = useStore.getState().sessionsByTab[tabId]?.cards ?? [];
             const fresh = cards.find((c) => c.toolUseId === e.id);
             session.upsertCard({
               toolUseId: e.id,
