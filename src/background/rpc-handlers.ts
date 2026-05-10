@@ -248,18 +248,44 @@ async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promis
 }
 
 async function injectMainWorld(tabId: number, source: string, args: Json): Promise<Json> {
-  const [{ result }] = await chrome.scripting.executeScript({
+  const [res] = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
     args: [source, args],
     func: (src: string, a: unknown) => {
-      // eslint-disable-next-line no-new-func
-      const fn = new Function(
-        "ctx",
-        `"use strict"; return (async (ctx) => { ${src} })(ctx);`
-      ) as (ctx: unknown) => Promise<unknown>;
-      return fn(a);
+      try {
+        // eslint-disable-next-line no-new-func
+        const fn = new Function(
+          "ctx",
+          `"use strict"; return (async (ctx) => { ${src} })(ctx);`
+        ) as (ctx: unknown) => Promise<unknown>;
+        return Promise.resolve(fn(a)).then(
+          (v) => ({ __ok: true as const, value: v }),
+          (e: unknown) => ({
+            __ok: false as const,
+            error:
+              e instanceof Error
+                ? `${e.name}: ${e.message}\n${e.stack ?? ""}`.trim()
+                : String(e)
+          })
+        );
+      } catch (e) {
+        return {
+          __ok: false as const,
+          error: e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+        };
+      }
     }
   });
+  const result = res?.result;
+  if (
+    result &&
+    typeof result === "object" &&
+    "__ok" in (result as Record<string, unknown>)
+  ) {
+    const wrapped = result as { __ok: boolean; value?: unknown; error?: string };
+    if (wrapped.__ok) return ((wrapped.value ?? null) as Json);
+    throw new Error(`runJS error: ${wrapped.error ?? "(unknown)"}`);
+  }
   return (result ?? null) as Json;
 }
