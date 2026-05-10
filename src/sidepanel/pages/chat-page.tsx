@@ -314,7 +314,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
               if (!busy && input.trim()) send(input);
             }
           }}
-          placeholder={"描述要采集什么…（Ctrl/⌘ + Enter 发送）"}
+          placeholder={'要让 AI 做什么？例如"总结此页"/"填写注册表单"/"采集前 50 条评论"（Ctrl/⌘ + Enter 发送）'}
           rows={3}
           className="bg-zinc-900 rounded p-2 text-xs resize-none"
         />
@@ -336,7 +336,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       {session.showSaveDialog && (
         <SaveAsToolDialog
           initialName={
-            recommendations[0]?.name ?? `采集器 ${new Date().toISOString().slice(0, 10)}`
+            recommendations[0]?.name ?? `WebPilot 任务 ${new Date().toISOString().slice(0, 10)}`
           }
           initialDescription={
             session.messages

@@ -3,7 +3,7 @@ import type { Json } from "@/shared/types";
 import { injectMain } from "./inject-main";
 import { callTool } from "./tools";
 
-console.info("[caiji2] content script loaded on", location.href);
+console.info("[webpilot] content script loaded on", location.href);
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const parsed = ContentRequest.safeParse(msg);

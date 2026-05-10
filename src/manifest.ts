@@ -3,10 +3,10 @@ import pkg from "../package.json" with { type: "json" };
 
 export default defineManifest({
   manifest_version: 3,
-  name: "Caiji2 — AI 网页采集器",
-  description: "对话式 AI 采集 + 工具固化复用",
+  name: "WebPilot — AI 网页助手",
+  description: "让 AI 帮你浏览、总结、操作网页，并把成功的对话固化为可复用工具",
   version: pkg.version,
-  action: { default_title: "Caiji2" },
+  action: { default_title: "WebPilot" },
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
   permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation"],

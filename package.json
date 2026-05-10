@@ -1,7 +1,8 @@
 {
-  "name": "caiji2",
+  "name": "webpilot",
   "private": true,
   "version": "0.0.1",
+  "description": "WebPilot — AI 网页助手（侧边面板）",
   "type": "module",
   "scripts": {
     "dev": "vite",

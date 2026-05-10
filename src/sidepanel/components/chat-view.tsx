@@ -68,7 +68,7 @@ export function ChatView({ onApprove }: Props) {
       )}
       {session.messages.length === 0 && !isStreaming && (
         <div className="text-zinc-500 text-xs text-center mt-8">
-          描述要采集什么开始对话…
+          输入指令，让 AI 帮你浏览、总结、操作或采集网页…
         </div>
       )}
     </div>
