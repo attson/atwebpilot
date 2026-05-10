@@ -168,7 +168,6 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
             );
             if (e.status === "done") {
               session.setStatus("done");
-              session.showSave();
             } else if (e.status === "max_rounds") {
               session.setStatus("error");
               session.setError("达到最大轮数");
@@ -250,6 +249,17 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
           >
             {session.logsOpen ? "隐藏" : "查看"}
           </button>
+          {session.executedSteps.length > 0 && (
+            <>
+              <span className="ml-auto">已执行 {session.executedSteps.length} 步</span>
+              <button
+                onClick={() => session.showSave()}
+                className="px-2 py-0.5 bg-emerald-700 text-zinc-100 rounded"
+              >
+                保存为工具
+              </button>
+            </>
+          )}
         </div>
       )}
       <ChatView onApprove={handleApprove} />
