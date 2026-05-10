@@ -17,6 +17,7 @@ export function SettingsPage() {
   }, [settings]);
 
   const models = settings.provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
+  const datalistId = `models-${settings.provider}`;
 
   async function doExport() {
     setMsg(null); setErr(null);
@@ -68,19 +69,25 @@ export function SettingsPage() {
             <option value="openai">OpenAI</option>
           </select>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-20 text-zinc-400">Model</span>
-          <select
-            value={settings.model}
-            onChange={(e) => settings.save({ model: e.target.value })}
-            className="bg-zinc-800 px-2 py-1 rounded"
-          >
-            {models.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-start gap-2">
+          <span className="w-20 text-zinc-400 mt-1">Model</span>
+          <div className="flex-1 flex flex-col gap-1">
+            <input
+              list={datalistId}
+              value={settings.model}
+              onChange={(e) => settings.save({ model: e.target.value })}
+              placeholder={settings.provider === "anthropic" ? "claude-sonnet-4-6" : "gpt-4o-mini"}
+              className="bg-zinc-800 px-2 py-1 rounded font-mono"
+            />
+            <datalist id={datalistId}>
+              {models.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+            <span className="text-zinc-500">
+              下拉列出预设；可任意填（自建网关 / LiteLLM 代理跑 deepseek、qwen、kimi 等）。
+            </span>
+          </div>
         </div>
         <div className="flex items-start gap-2">
           <span className="w-20 text-zinc-400 mt-1">API Key</span>
