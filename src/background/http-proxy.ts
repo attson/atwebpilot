@@ -31,3 +31,22 @@ export async function httpRequest(input: HttpRequestInput): Promise<HttpRequestO
 export function asJson(out: HttpRequestOutput): Json {
   return out as unknown as Json;
 }
+
+export async function fetchAsBase64(
+  url: string
+): Promise<{ base64: string; mime: string; size: number }> {
+  const res = await fetch(url, { credentials: "omit" });
+  if (!res.ok) throw new Error(`download failed: ${res.status} ${res.statusText}`);
+  const blob = await res.blob();
+  const arr = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < arr.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, Array.from(arr.subarray(i, i + chunk)));
+  }
+  return {
+    base64: btoa(bin),
+    mime: blob.type || "application/octet-stream",
+    size: arr.length
+  };
+}

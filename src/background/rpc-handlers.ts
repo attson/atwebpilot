@@ -4,7 +4,7 @@ import {
   type RpcRequest
 } from "@/shared/messages";
 import type { Json, RunRecord, Step, Tool } from "@/shared/types";
-import { httpRequest } from "./http-proxy";
+import { fetchAsBase64, httpRequest } from "./http-proxy";
 import { exportAll, importBundle } from "./storage/export-import";
 import { appendStepLog, createRun, finalizeRun, getRun, listRuns } from "./storage/runs";
 import {
@@ -99,6 +99,9 @@ async function dispatch(req: RpcRequest): Promise<Json> {
         req.tabId,
         req.bindings as Record<string, Json>
       )) as unknown as Json;
+    }
+    case "http.fetchBinary": {
+      return (await fetchAsBase64(req.url)) as unknown as Json;
     }
   }
 }
