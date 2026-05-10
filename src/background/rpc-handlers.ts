@@ -113,11 +113,54 @@ async function runOneStep(
     step,
     bindings
   });
-  const res = (await chrome.tabs.sendMessage(tabId, stepReq)) as
-    | { ok: true; data: Json }
-    | { ok: false; error: string };
+  let res: { ok: true; data: Json } | { ok: false; error: string };
+  try {
+    res = (await chrome.tabs.sendMessage(tabId, stepReq)) as typeof res;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!isReceiverMissing(msg)) throw e;
+    // content script 还没在该 tab 上加载——尝试动态注入
+    const injected = await injectContentScript(tabId);
+    if (!injected) {
+      throw new Error(
+        "Content script 无法注入到此页面（可能是 chrome:// 或受限页面）。请在普通网页上重试。"
+      );
+    }
+    try {
+      res = (await chrome.tabs.sendMessage(tabId, stepReq)) as typeof res;
+    } catch (e2) {
+      const msg2 = e2 instanceof Error ? e2.message : String(e2);
+      if (isReceiverMissing(msg2)) {
+        throw new Error(
+          "Content script 注入后仍无响应。请刷新页面（Cmd/Ctrl+R）再试。"
+        );
+      }
+      throw e2;
+    }
+  }
   if (!res.ok) throw new Error(res.error);
   return res.data;
+}
+
+function isReceiverMissing(msg: string): boolean {
+  return (
+    msg.includes("Could not establish connection") ||
+    msg.includes("Receiving end does not exist")
+  );
+}
+
+async function injectContentScript(tabId: number): Promise<boolean> {
+  const manifest = chrome.runtime.getManifest();
+  const cs = manifest.content_scripts?.[0];
+  const files = cs?.js;
+  if (!files?.length) return false;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files });
+    return true;
+  } catch (e) {
+    console.warn("[caiji2] content script inject failed", e);
+    return false;
+  }
 }
 
 async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promise<RunRecord> {
