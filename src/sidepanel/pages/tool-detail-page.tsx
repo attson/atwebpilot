@@ -70,7 +70,7 @@ export function ToolDetailPage(props: Props) {
       </button>
       <h2 className="text-base font-medium">{tool.name}</h2>
       <div className="text-zinc-400">{tool.urlPatterns.join(", ")}</div>
-      <div>
+      <div className="flex items-center gap-2">
         <button
           onClick={go}
           disabled={busy}
@@ -78,10 +78,14 @@ export function ToolDetailPage(props: Props) {
         >
           {busy ? "执行中…" : "在当前 tab 运行"}
         </button>
+        {busy && <span className="text-zinc-400">step 在 BG 顺序执行，结束后会显示结果…</span>}
       </div>
-      <h3 className="text-zinc-300 mt-2">步骤（v{tool.versions.at(-1)?.version}）</h3>
-      <StepList steps={tool.steps} />
-      {run && <ResultView run={run} />}
+      {run && (
+        <section className="bg-zinc-900 rounded p-2 border border-emerald-900/40">
+          <h3 className="text-emerald-300 mb-1">运行结果</h3>
+          <ResultView run={run} />
+        </section>
+      )}
       {failed && props.onFixWithAi && (
         <button
           onClick={onFix}
@@ -90,6 +94,14 @@ export function ToolDetailPage(props: Props) {
           让 AI 修复
         </button>
       )}
+      <details className="bg-zinc-900/40 rounded">
+        <summary className="cursor-pointer p-2 text-zinc-300">
+          步骤定义（v{tool.versions.at(-1)?.version}） · {tool.steps.length} 条
+        </summary>
+        <div className="p-2 pt-0">
+          <StepList steps={tool.steps} />
+        </div>
+      </details>
     </div>
   );
 }
