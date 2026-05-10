@@ -131,6 +131,22 @@ export function SettingsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <span className="w-20 text-zinc-400">max_tokens</span>
+          <input
+            type="number"
+            min={256}
+            max={200000}
+            step={256}
+            value={settings.maxTokens ?? 4096}
+            onChange={(e) => {
+              const v = parseInt(e.target.value || "4096", 10);
+              settings.save({ maxTokens: Number.isFinite(v) && v > 0 ? v : 4096 });
+            }}
+            className="bg-zinc-800 px-2 py-1 rounded w-28"
+          />
+          <span className="text-zinc-500 text-[11px]">单次 LLM 响应上限；默认 4096，长任务可调 8192/16384</span>
+        </div>
+        <div className="flex items-center gap-2">
           <span className="w-20 text-zinc-400">最大轮数</span>
           <input
             type="number"

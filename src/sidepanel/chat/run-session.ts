@@ -101,6 +101,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       messages,
       tools: args.tools,
       endpoint: args.settings.endpoint,
+      maxTokens: args.settings.maxTokens,
       abortSignal: args.abortSignal
     });
 

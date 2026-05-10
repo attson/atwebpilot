@@ -119,4 +119,6 @@ export type LlmSettings = {
   endpoint?: string;
   /** dangerous 工具白名单。空数组 = 全部人工 */
   autoApproveDangerous: string[];
+  /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
+  maxTokens?: number;
 };
