@@ -204,7 +204,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
             finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output)
           },
           input: { userPrompt: prompt, tabId, url },
-          settings,
+          settings: { ...settings, autoApproveDangerous: settings.autoApproveDangerous ?? [] },
           systemPrompt: buildSystemPrompt({ url }),
           tools: TOOL_DEFS,
           approveAllSafe: session.approveAllSafe,
