@@ -1,11 +1,15 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 import pkg from "../package.json" with { type: "json" };
 
+const extensionKey =
+  "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2MMIurte87Qyc3+fgE14sZvVNdY7Y/olNx0+9P5av+/KaVbtRjgsAWB7hEdJhvX0qjAPi083fknAmZ/kMjTWVGhjWgl+XVxWH19PANwk7gbPw0qxYQsEi8p9iFJteirmszxPootNYsFnSCdgTebk9O7j2E1mNDCcR9+vt6rOMTZXBgjNy8tmAtHeWG5m8XD+EZSvx7sxh4bXNIhKMcpUnnx8j6+BHiuJyAkKsgTHkZ8pDAapwRYX+FpMzSLap5ugeiGCFiA3RWOTFG0LdbjJ1tuIczu3EJ3diGOgQtt5nZmZJvCkcA60l4qShDiJhWTFHHi2VsROY51eJLecQsffFQIDAQAB";
+
 export default defineManifest({
   manifest_version: 3,
   name: "WebPilot — AI 网页助手",
   description: "让 AI 帮你浏览、总结、操作网页，并把成功的对话固化为可复用工具",
   version: pkg.version,
+  key: extensionKey,
   action: { default_title: "WebPilot" },
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
