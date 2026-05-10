@@ -127,6 +127,103 @@ export const TOOL_DEFS: LlmTool[] = [
     }
   },
   {
+    name: "fillInput",
+    description: "往 input/textarea/contenteditable 填值；触发 input/change 事件以兼容 React/Vue。clear=true（默认）会先清空再填。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string" },
+        value: { type: "string" },
+        clear: { type: "boolean", default: true }
+      },
+      required: ["selector", "value"]
+    }
+  },
+  {
+    name: "setCheckbox",
+    description: "设置 checkbox 勾选状态；派发 change 事件。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string" },
+        checked: { type: "boolean" }
+      },
+      required: ["selector", "checked"]
+    }
+  },
+  {
+    name: "selectOption",
+    description: "<select> 元素按 value 或 label 选项。同时给两者时优先 value。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string" },
+        value: { type: "string" },
+        label: { type: "string" }
+      },
+      required: ["selector"]
+    }
+  },
+  {
+    name: "submitForm",
+    description: "提交 <form>。会触发服务端动作（下单、留言等），需要审阅。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string", default: "form" }
+      }
+    }
+  },
+  {
+    name: "hover",
+    description: "把鼠标悬停在元素上（触发 mouseenter / mouseover / mousemove）。",
+    input_schema: {
+      type: "object",
+      properties: { selector: { type: "string" } },
+      required: ["selector"]
+    }
+  },
+  {
+    name: "focus",
+    description: "把焦点给某元素（触发 focus / focusin）。",
+    input_schema: {
+      type: "object",
+      properties: { selector: { type: "string" } },
+      required: ["selector"]
+    }
+  },
+  {
+    name: "uploadFile",
+    description: "把后端代理拉到的文件填到 <input type=file>。某些站点会拒绝合成 File（isTrusted 校验）。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string" },
+        url: { type: "string" },
+        filename: { type: "string" },
+        mime: { type: "string" }
+      },
+      required: ["selector", "url"]
+    }
+  },
+  {
+    name: "getValue",
+    description: "读 input/select/textarea/contenteditable 的当前值。",
+    input_schema: {
+      type: "object",
+      properties: { selector: { type: "string" } },
+      required: ["selector"]
+    }
+  },
+  {
+    name: "extractFormState",
+    description: "把 <form> 内所有可填字段读成 {name: value} 对象（radio 取选中值；checkbox 多选取数组）。",
+    input_schema: {
+      type: "object",
+      properties: { selector: { type: "string", default: "form" } }
+    }
+  },
+  {
     name: "runJS",
     description: "在 MAIN world 注入并执行一段 async 函数体（receives `ctx` = bindings）。务必使用 return 返回值。仅在结构化工具不够用时使用，会经过静态扫描与人工审阅。",
     input_schema: {
