@@ -63,10 +63,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -101,10 +102,16 @@ jobs:
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.package.outputs.zip_name }}
-          fail_on_unmatched_files: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$ZIP_NAME" --clobber
+          else
+            gh release create "$tag" "$ZIP_NAME" --title "$tag" --generate-notes
+          fi
 ```
 
 - [ ] **Step 3: Verify workflow file exists**
