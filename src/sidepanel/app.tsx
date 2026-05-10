@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useClosedSessionsPruner } from "./chat/closed-sessions-pruner";
+import { installTabTracker } from "./chat/tab-tracker";
+import { ClosedSessionsBanner } from "./components/closed-sessions-banner";
+import { TabInfoBar } from "./components/tab-info-bar";
 import { ChatPage } from "./pages/chat-page";
 import { RunPage } from "./pages/run-page";
 import { SettingsPage } from "./pages/settings-page";
@@ -15,8 +19,18 @@ type Route =
 export function App() {
   const [route, setRoute] = useState<Route>({ name: "chat" });
 
+  useEffect(() => {
+    const off = installTabTracker();
+    return () => off();
+  }, []);
+  useClosedSessionsPruner();
+
   function fixWithAi(opts: { initialPrompt: string; initialContext: string }) {
-    setRoute({ name: "chat", initialPrompt: opts.initialPrompt, initialContext: opts.initialContext });
+    setRoute({
+      name: "chat",
+      initialPrompt: opts.initialPrompt,
+      initialContext: opts.initialContext
+    });
   }
 
   return (
@@ -25,7 +39,10 @@ export function App() {
         <NavBtn active={route.name === "chat"} onClick={() => setRoute({ name: "chat" })}>
           对话
         </NavBtn>
-        <NavBtn active={route.name === "tools" || route.name === "tool"} onClick={() => setRoute({ name: "tools" })}>
+        <NavBtn
+          active={route.name === "tools" || route.name === "tool"}
+          onClick={() => setRoute({ name: "tools" })}
+        >
           工具库
         </NavBtn>
         <NavBtn active={route.name === "run"} onClick={() => setRoute({ name: "run" })}>
@@ -35,6 +52,12 @@ export function App() {
           设置
         </NavBtn>
       </nav>
+      {route.name === "chat" && (
+        <>
+          <ClosedSessionsBanner />
+          <TabInfoBar />
+        </>
+      )}
       <main className="flex-1 overflow-hidden">
         {route.name === "chat" && (
           <ChatPage
