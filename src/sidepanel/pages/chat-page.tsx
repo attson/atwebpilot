@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getGlobalApprover } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
-import { useSession } from "../chat/session-store";
+import { ensureSession, setCurrentTab, useSession, useStore } from "../chat/session-store";
 import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
 import { TOOL_DEFS } from "../llm/tool-schema";
@@ -41,7 +41,8 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       if (!active) return;
       setRecommendations(tools);
       // 仅刷新 tab 信息；保留消息流，避免 nav 切换丢失对话
-      useSession.setState({ tabId, url });
+      ensureSession(tabId, url);
+      setCurrentTab(tabId);
     })();
     const off = onTabRecommendations((m) => {
       currentTabInfo()
@@ -99,7 +100,9 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       );
 
       function stepFromCard(id: string): Step {
-        const card = useSession.getState().cards.find((c) => c.toolUseId === id);
+        const tabId = useStore.getState().currentTabId;
+        const cards = tabId == null ? [] : (useStore.getState().sessionsByTab[tabId]?.cards ?? []);
+        const card = cards.find((c) => c.toolUseId === id);
         if (!card) throw new Error(`card not found: ${id}`);
         if (card.name === "runJS") {
           return { kind: "js", source: (card.input as { source: string }).source };
@@ -108,7 +111,8 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
       }
 
       const onEvent = (e: SessionEvent) => {
-        const log = useSession.getState().appendLog;
+        const log: typeof session.appendLog = (level, message, details) =>
+          session.appendLog(level, message, details);
         switch (e.type) {
           case "round_start":
             session.incrementRound();
@@ -123,7 +127,9 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
             log("info", `tool_use_start: ${e.name} (${e.id})`);
             break;
           case "tool_use_input_delta": {
-            const fresh = useSession.getState().cards.find((c) => c.toolUseId === e.id);
+            const tabId = useStore.getState().currentTabId;
+            const cards = tabId == null ? [] : (useStore.getState().sessionsByTab[tabId]?.cards ?? []);
+            const fresh = cards.find((c) => c.toolUseId === e.id);
             session.upsertCard({
               toolUseId: e.id,
               partialJson: (fresh?.partialJson ?? "") + e.partial_json
