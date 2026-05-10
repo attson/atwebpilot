@@ -117,6 +117,6 @@ export type LlmSettings = {
   maxRounds: number;
   /** 自定义 base URL，留空 = 用 provider 默认值。例如 "https://api.openai.com/v1" */
   endpoint?: string;
-  /** dangerous 工具白名单。空数组 = 全部人工。Plan 3 task 4 起始终使用 */
-  autoApproveDangerous?: string[];
+  /** dangerous 工具白名单。空数组 = 全部人工 */
+  autoApproveDangerous: string[];
 };

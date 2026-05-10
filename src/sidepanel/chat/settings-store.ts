@@ -8,7 +8,8 @@ const DEFAULTS: LlmSettings = {
   model: "claude-sonnet-4-6",
   apiKey: "",
   apiKeyMode: "persistent",
-  maxRounds: 20
+  maxRounds: 20,
+  autoApproveDangerous: []
 };
 
 type StoreShape = LlmSettings & {
