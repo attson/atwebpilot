@@ -436,6 +436,7 @@ type LegacySession = SessionData & {
   appendLog: (level: LogEntry["level"], message: string, details?: string) => void;
   clearLogs: () => void;
   setLogsOpen: (open: boolean) => void;
+  setInputDraft: (text: string) => void;
 };
 
 export function useSession(): LegacySession {

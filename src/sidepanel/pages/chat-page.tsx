@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { getGlobalApprover } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
-import { ensureSession, setCurrentTab, useSession, useStore } from "../chat/session-store";
+import {
+  ensureSession,
+  setCurrentTab,
+  useCurrentTabId,
+  useSession,
+  useStore
+} from "../chat/session-store";
 import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
 import { TOOL_DEFS } from "../llm/tool-schema";
@@ -24,9 +30,16 @@ type ChatPageProps = {
 export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
   const session = useSession();
   const settings = useSettings();
-  const [input, setInput] = useState(initialPrompt ?? "");
+  const currentTabId = useCurrentTabId();
+  const [input, setInput] = useState(initialPrompt ?? session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
   const approver = getGlobalApprover();
+
+  // 切 tab 时把 input 同步到该 tab 的 inputDraft
+  useEffect(() => {
+    setInput(session.inputDraft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTabId]);
 
   useEffect(() => {
     if (!settings.loaded) settings.load();
@@ -91,6 +104,7 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
         `提交 prompt`,
         `provider=${settings.provider} model=${settings.model} endpoint=${settings.endpoint || "(默认)"} maxRounds=${settings.maxRounds}\n---\n${prompt}`
       );
+      session.setInputDraft("");
       setInput("");
       const ac = new AbortController();
       session.setAbortController(ac);
@@ -309,7 +323,10 @@ export function ChatPage({ initialPrompt, initialContext }: ChatPageProps) {
         </div>
         <textarea
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            session.setInputDraft(e.target.value);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
