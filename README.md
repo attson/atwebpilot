@@ -22,6 +22,21 @@ pnpm build           # 产出 dist/
 
 刷新扩展（reload 按钮）后，已打开的页面**第一次执行 step 时**扩展会自动注入 content script + 重试，无需手动刷新页面。
 
+## GitHub Actions 打包
+
+仓库包含 `.github/workflows/build-extension.yml` 自动打包流程：
+
+- `push` / `pull_request` / 手动运行会执行 `pnpm typecheck`、`pnpm test`、`pnpm build`，并上传 `webpilot-<version>.zip` artifact。
+- 推送 `v*` tag（例如 `v0.0.1`）会在通过检查后创建 GitHub Release，并上传同一个 zip。
+- zip 内容来自 `dist/` 内部，`manifest.json` 位于压缩包根目录，可直接用于 Chrome 扩展加载或发布前检查。
+
+发布示例：
+
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
+
 ---
 
 ## 第一次配置
