@@ -380,6 +380,8 @@ export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPage
           initialUrl={session.url}
           steps={session.executedSteps}
           lastOutput={session.lastOutput}
+          messages={session.messages}
+          llmSettings={settings}
           onClose={() => session.hideSave()}
           onSaved={() => {
             session.hideSave();
