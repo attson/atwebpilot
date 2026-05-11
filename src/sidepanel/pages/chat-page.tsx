@@ -270,6 +270,16 @@ export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPage
       {session.errorMessage && (
         <div className="bg-red-900/40 border-b border-red-800 p-2 text-xs text-red-200 flex items-start gap-2">
           <div className="flex-1 whitespace-pre-wrap break-words">{session.errorMessage}</div>
+          {session.messages.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm("清空当前对话？")) clearChat();
+              }}
+              className="px-2 py-0.5 bg-zinc-700 rounded text-zinc-100 shrink-0"
+            >
+              清空对话
+            </button>
+          )}
           <button
             onClick={() => session.setLogsOpen(!session.logsOpen)}
             className="px-2 py-0.5 bg-zinc-700 rounded text-zinc-100 shrink-0"
