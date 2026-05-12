@@ -1,7 +1,7 @@
 {
   "name": "webpilot",
   "private": true,
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "WebPilot — AI 网页助手（侧边面板）",
   "type": "module",
   "scripts": {
