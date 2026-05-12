@@ -3,7 +3,7 @@ import {
   RpcRequest as RpcRequestSchema,
   type RpcRequest
 } from "@/shared/messages";
-import type { Json, RunRecord, Step, Tool } from "@/shared/types";
+import type { Json, RunRecord, Step, ToolDraft } from "@/shared/types";
 import { fetchAsBase64, httpRequest } from "./http-proxy";
 import { exportAll, importBundle } from "./storage/export-import";
 import { appendStepLog, createRun, finalizeRun, getRun, listRuns } from "./storage/runs";
@@ -34,13 +34,7 @@ async function dispatch(req: RpcRequest): Promise<Json> {
     case "tools.get":
       return ((await getTool(req.id)) ?? null) as unknown as Json;
     case "tools.save":
-      return (await saveDraft({
-        name: req.draft.name,
-        urlPatterns: req.draft.urlPatterns,
-        description: req.draft.description ?? "",
-        steps: req.draft.steps as Tool["steps"],
-        outputSchema: (req.draft.outputSchema ?? {}) as Json
-      })) as unknown as Json;
+      return (await saveDraft(req.draft as ToolDraft)) as unknown as Json;
     case "tools.delete":
       await deleteToolDb(req.id);
       return null;
@@ -184,14 +178,16 @@ async function retryUntilReady(
 }
 
 async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promise<RunRecord> {
-  let steps: Tool["steps"];
+  let steps: Step[];
   let toolId: string | null = null;
   let toolVersion: number | null = null;
   if (req.target.kind === "draft") {
-    steps = req.target.draft.steps as Tool["steps"];
+    if (req.target.draft.kind !== "steps") throw new Error("draft runs require steps tools");
+    steps = req.target.draft.steps as Step[];
   } else {
     const tool = await getTool(req.target.id);
     if (!tool) throw new Error("tool not found");
+    if (tool.kind !== "steps") throw new Error("prompt tools run in chat, not background runner");
     steps = tool.steps;
     toolId = tool.id;
     toolVersion = tool.versions.at(-1)?.version ?? 1;

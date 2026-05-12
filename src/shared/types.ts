@@ -34,15 +34,29 @@ export type Step =
   | { kind: "tool"; tool: BuiltinTool; args: Json; bindResultTo?: string; timeoutMs?: number }
   | { kind: "js"; source: string; bindResultTo?: string; timeoutMs?: number };
 
-export type ToolVersion = {
+export type StepsToolVersion = {
   version: number;
+  kind: "steps";
   steps: Step[];
   outputSchema: JsonSchema;
   createdAt: number;
   note?: string;
 };
 
-export type Tool = {
+export type PromptToolVersion = {
+  version: number;
+  kind: "prompt";
+  prompt: string;
+  createdAt: number;
+  note?: string;
+};
+
+export type ToolVersion = StepsToolVersion | PromptToolVersion;
+
+export type ToolStats = { runs: number; lastRunAt?: number; lastRunOk?: boolean };
+
+export type StepsTool = {
+  kind: "steps";
   id: string;
   name: string;
   urlPatterns: string[];
@@ -51,9 +65,43 @@ export type Tool = {
   outputSchema: JsonSchema;
   createdAt: number;
   updatedAt: number;
-  versions: ToolVersion[];
-  stats: { runs: number; lastRunAt?: number; lastRunOk?: boolean };
+  versions: StepsToolVersion[];
+  stats: ToolStats;
 };
+
+export type PromptTool = {
+  kind: "prompt";
+  id: string;
+  name: string;
+  urlPatterns: string[];
+  description: string;
+  prompt: string;
+  createdAt: number;
+  updatedAt: number;
+  versions: PromptToolVersion[];
+  stats: ToolStats;
+};
+
+export type Tool = StepsTool | PromptTool;
+
+export type StepsToolDraft = {
+  kind: "steps";
+  name: string;
+  urlPatterns: string[];
+  description: string;
+  steps: Step[];
+  outputSchema: JsonSchema;
+};
+
+export type PromptToolDraft = {
+  kind: "prompt";
+  name: string;
+  urlPatterns: string[];
+  description: string;
+  prompt: string;
+};
+
+export type ToolDraft = StepsToolDraft | PromptToolDraft;
 
 export type RunStepLogEntry = {
   stepIndex: number;
@@ -78,7 +126,7 @@ export type RunRecord = {
 };
 
 export type ExportBundle = {
-  schema: "caiji.tools/v1";
+  schema: "caiji.tools/v2";
   exportedAt: number;
   tools: Tool[];
 };

@@ -10,7 +10,13 @@ import { ToolDetailPage } from "./pages/tool-detail-page";
 import { ToolsPage } from "./pages/tools-page";
 
 type Route =
-  | { name: "chat"; initialPrompt?: string; initialContext?: string }
+  | {
+      name: "chat";
+      initialPrompt?: string;
+      initialContext?: string;
+      autoSend?: boolean;
+      sourceTool?: { id: string; name: string; description: string; urlPatterns: string[] };
+    }
   | { name: "run" }
   | { name: "tools" }
   | { name: "tool"; id: string; autoRun?: boolean }
@@ -35,6 +41,34 @@ export function App() {
 
   function openTool(id: string, autoRun: boolean) {
     setRoute({ name: "tool", id, autoRun });
+  }
+
+  function runPromptTool(tool: {
+    id: string;
+    name: string;
+    description: string;
+    prompt: string;
+    urlPatterns: string[];
+  }) {
+    setRoute({
+      name: "chat",
+      initialPrompt: tool.prompt,
+      initialContext: [
+        "# 保存的提示词工具",
+        `名称：${tool.name}`,
+        `描述：${tool.description}`,
+        `URL 模式：${tool.urlPatterns.join(", ")}`,
+        "",
+        "请把接下来用户消息视为一个已保存工具的任务说明。基于当前页面重新执行，不要机械复述旧对话；如果页面结构变化，请先读取页面再判断。"
+      ].join("\n"),
+      autoSend: true,
+      sourceTool: {
+        id: tool.id,
+        name: tool.name,
+        description: tool.description,
+        urlPatterns: tool.urlPatterns
+      }
+    });
   }
 
   return (
@@ -68,7 +102,10 @@ export function App() {
             key={(route.initialPrompt ?? "") + (route.initialContext ?? "")}
             initialPrompt={route.initialPrompt}
             initialContext={route.initialContext}
+            autoSend={route.autoSend}
+            sourceTool={route.sourceTool}
             onOpenTool={openTool}
+            onRunPromptTool={runPromptTool}
           />
         )}
         {route.name === "run" && <RunPage />}
@@ -80,6 +117,7 @@ export function App() {
             autoRun={route.autoRun}
             onBack={() => setRoute({ name: "tools" })}
             onFixWithAi={fixWithAi}
+            onRunPromptTool={runPromptTool}
           />
         )}
         {route.name === "settings" && <SettingsPage />}

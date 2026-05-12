@@ -18,7 +18,7 @@ function safeFilename(s: string): string {
 
 function exportOne(t: Tool) {
   const bundle: ExportBundle = {
-    schema: "caiji.tools/v1",
+    schema: "caiji.tools/v2",
     exportedAt: Date.now(),
     tools: [t]
   };
@@ -88,10 +88,16 @@ export function ToolsPage(props: { onOpen: (id: string) => void }) {
         {tools.map((t) => (
           <li key={t.id} className="bg-zinc-900 rounded p-2 flex items-start gap-2">
             <div className="flex-1">
-              <div className="font-medium">{t.name}</div>
+              <div className="font-medium flex items-center gap-1">
+                <span>{t.name}</span>
+                <span className="text-[10px] px-1 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                  {t.kind === "prompt" ? "提示词" : "纯函数"}
+                </span>
+              </div>
               <div className="text-zinc-400">{t.urlPatterns.join("  ·  ")}</div>
               <div className="text-zinc-500">
-                v{t.versions.at(-1)?.version} · {t.steps.length} steps · runs {t.stats.runs}
+                v{t.versions.at(-1)?.version} ·{" "}
+                {t.kind === "prompt" ? "prompt" : `${t.steps.length} steps`} · runs {t.stats.runs}
               </div>
             </div>
             <div className="flex flex-col gap-1">

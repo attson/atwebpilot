@@ -3,6 +3,17 @@ import { _resetDBForTests } from "@/background/storage/db";
 import { exportAll, importBundle } from "@/background/storage/export-import";
 import { listTools, saveDraft } from "@/background/storage/tools";
 
+function stepsDraft(name: string) {
+  return {
+    kind: "steps" as const,
+    name,
+    urlPatterns: ["https://example.com/*"],
+    description: "",
+    steps: [{ kind: "tool" as const, tool: "snapshotDOM" as const, args: {} }],
+    outputSchema: {}
+  };
+}
+
 describe("export-import", () => {
   beforeEach(() => {
     _resetDBForTests();
@@ -10,30 +21,31 @@ describe("export-import", () => {
   });
   afterEach(() => _resetDBForTests());
 
-  it("exportAll produces a valid bundle", async () => {
-    const t = await saveDraft({
-      name: "A",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
-      outputSchema: {}
-    });
+  it("exportAll produces a valid v2 bundle", async () => {
+    const t = await saveDraft(stepsDraft("A"));
     const bundle = await exportAll();
-    expect(bundle.schema).toBe("caiji.tools/v1");
+    expect(bundle.schema).toBe("caiji.tools/v2");
     expect(bundle.tools).toHaveLength(1);
     expect(bundle.tools[0].id).toBe(t.id);
   });
 
-  it("importBundle merges tools by id (default skip)", async () => {
+  it("exports prompt tools in v2 bundles", async () => {
     const t = await saveDraft({
-      name: "A",
+      kind: "prompt",
+      name: "Prompt",
       urlPatterns: ["https://example.com/*"],
       description: "",
-      steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
-      outputSchema: {}
+      prompt: "请总结当前页面"
     });
+    const bundle = await exportAll();
+    expect(bundle.schema).toBe("caiji.tools/v2");
+    expect(bundle.tools[0]).toMatchObject({ id: t.id, kind: "prompt", prompt: "请总结当前页面" });
+  });
+
+  it("importBundle merges tools by id (default skip)", async () => {
+    const t = await saveDraft(stepsDraft("A"));
     const bundle = {
-      schema: "caiji.tools/v1" as const,
+      schema: "caiji.tools/v2" as const,
       exportedAt: Date.now(),
       tools: [{ ...t, name: "A-modified" }]
     };
@@ -45,15 +57,9 @@ describe("export-import", () => {
   });
 
   it("importBundle overwrite replaces existing", async () => {
-    const t = await saveDraft({
-      name: "A",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
-      outputSchema: {}
-    });
+    const t = await saveDraft(stepsDraft("A"));
     const bundle = {
-      schema: "caiji.tools/v1" as const,
+      schema: "caiji.tools/v2" as const,
       exportedAt: Date.now(),
       tools: [{ ...t, name: "A-modified" }]
     };
@@ -64,15 +70,9 @@ describe("export-import", () => {
   });
 
   it("importBundle copy creates a new id", async () => {
-    const t = await saveDraft({
-      name: "A",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
-      outputSchema: {}
-    });
+    const t = await saveDraft(stepsDraft("A"));
     const bundle = {
-      schema: "caiji.tools/v1" as const,
+      schema: "caiji.tools/v2" as const,
       exportedAt: Date.now(),
       tools: [{ ...t, name: "A-modified" }]
     };
@@ -86,9 +86,9 @@ describe("export-import", () => {
   it("importBundle rejects invalid schema", async () => {
     await expect(
       importBundle(
-        { schema: "wrong", tools: [] } as unknown as Parameters<typeof importBundle>[0],
+        { schema: "caiji.tools/v1", exportedAt: Date.now(), tools: [] } as never,
         { onConflict: "skip" }
       )
-    ).rejects.toThrow();
+    ).rejects.toThrow("schema mismatch");
   });
 });

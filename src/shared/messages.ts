@@ -36,13 +36,79 @@ export const StepSchema = z.discriminatedUnion("kind", [
   })
 ]);
 
-export const ToolDraftSchema = z.object({
+const ToolStatsSchema = z.object({
+  runs: z.number().int().min(0),
+  lastRunAt: z.number().optional(),
+  lastRunOk: z.boolean().optional()
+});
+
+export const StepsToolDraftSchema = z.object({
+  kind: z.literal("steps"),
   name: z.string().min(1),
   urlPatterns: z.array(z.string().min(1)).min(1),
   description: z.string().default(""),
   steps: z.array(StepSchema).min(1),
   outputSchema: z.unknown().default({})
 });
+
+export const PromptToolDraftSchema = z.object({
+  kind: z.literal("prompt"),
+  name: z.string().min(1),
+  urlPatterns: z.array(z.string().min(1)).min(1),
+  description: z.string().default(""),
+  prompt: z.string().min(1)
+});
+
+export const ToolDraftSchema = z.discriminatedUnion("kind", [
+  StepsToolDraftSchema,
+  PromptToolDraftSchema
+]);
+
+const StepsToolVersionSchema = z.object({
+  version: z.number().int().positive(),
+  kind: z.literal("steps"),
+  steps: z.array(StepSchema).min(1),
+  outputSchema: z.unknown().default({}),
+  createdAt: z.number(),
+  note: z.string().optional()
+});
+
+const PromptToolVersionSchema = z.object({
+  version: z.number().int().positive(),
+  kind: z.literal("prompt"),
+  prompt: z.string().min(1),
+  createdAt: z.number(),
+  note: z.string().optional()
+});
+
+export const StepsToolSchema = z.object({
+  kind: z.literal("steps"),
+  id: z.string().min(1),
+  name: z.string().min(1),
+  urlPatterns: z.array(z.string().min(1)).min(1),
+  description: z.string().default(""),
+  steps: z.array(StepSchema).min(1),
+  outputSchema: z.unknown().default({}),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  versions: z.array(StepsToolVersionSchema).min(1),
+  stats: ToolStatsSchema
+});
+
+export const PromptToolSchema = z.object({
+  kind: z.literal("prompt"),
+  id: z.string().min(1),
+  name: z.string().min(1),
+  urlPatterns: z.array(z.string().min(1)).min(1),
+  description: z.string().default(""),
+  prompt: z.string().min(1),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  versions: z.array(PromptToolVersionSchema).min(1),
+  stats: ToolStatsSchema
+});
+
+export const ToolSchema = z.discriminatedUnion("kind", [StepsToolSchema, PromptToolSchema]);
 
 export const RpcRequest = z.discriminatedUnion("type", [
   z.object({ type: z.literal("tools.list") }),

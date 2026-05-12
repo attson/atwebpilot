@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { _resetDBForTests } from "@/background/storage/db";
+import { _resetDBForTests, getDB } from "@/background/storage/db";
 import {
   appendVersion,
   deleteTool,
@@ -8,11 +8,32 @@ import {
   matchingTools,
   saveDraft
 } from "@/background/storage/tools";
-import type { Step } from "@/shared/types";
+import type { PromptToolDraft, Step, StepsToolDraft } from "@/shared/types";
 
 const sampleSteps: Step[] = [
   { kind: "tool", tool: "snapshotDOM", args: { maxDepth: 3 } }
 ];
+
+function stepsDraft(name: string, urlPatterns = ["https://example.com/*"]): StepsToolDraft {
+  return {
+    kind: "steps",
+    name,
+    urlPatterns,
+    description: "",
+    steps: sampleSteps,
+    outputSchema: {}
+  };
+}
+
+function promptDraft(name: string, urlPatterns = ["https://example.com/*"]): PromptToolDraft {
+  return {
+    kind: "prompt",
+    name,
+    urlPatterns,
+    description: "",
+    prompt: "请总结当前页面并返回 JSON"
+  };
+}
 
 describe("tools storage", () => {
   beforeEach(async () => {
@@ -23,43 +44,27 @@ describe("tools storage", () => {
     _resetDBForTests();
   });
 
-  it("saveDraft creates a tool with v1 + listTools returns it", async () => {
-    const t = await saveDraft({
-      name: "T1",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: sampleSteps,
-      outputSchema: {}
-    });
-    expect(t.id).toBeTruthy();
-    expect(t.versions).toHaveLength(1);
-    expect(t.versions[0].version).toBe(1);
+  it("saveDraft creates prompt and steps tools with v1", async () => {
+    const steps = await saveDraft(stepsDraft("Steps"));
+    const prompt = await saveDraft(promptDraft("Prompt"));
+
+    expect(steps.kind).toBe("steps");
+    expect(steps.versions[0]).toMatchObject({ kind: "steps", version: 1 });
+    expect(prompt.kind).toBe("prompt");
+    expect(prompt.versions[0]).toMatchObject({ kind: "prompt", version: 1 });
 
     const list = await listTools();
-    expect(list).toHaveLength(1);
-    expect(list[0].name).toBe("T1");
+    expect(list.map((t) => t.kind).sort()).toEqual(["prompt", "steps"]);
   });
 
   it("getTool returns the saved tool", async () => {
-    const t = await saveDraft({
-      name: "T2",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: sampleSteps,
-      outputSchema: {}
-    });
+    const t = await saveDraft(stepsDraft("T2"));
     const got = await getTool(t.id);
     expect(got?.id).toBe(t.id);
   });
 
   it("appendVersion increments version and updates main steps", async () => {
-    const t = await saveDraft({
-      name: "T3",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: sampleSteps,
-      outputSchema: {}
-    });
+    const t = await saveDraft(stepsDraft("T3"));
     const newSteps: Step[] = [
       { kind: "tool", tool: "extractText", args: { selector: "h1" } }
     ];
@@ -68,38 +73,44 @@ describe("tools storage", () => {
       outputSchema: {},
       note: "fix"
     });
-    expect(updated.versions).toHaveLength(2);
-    expect(updated.versions[1].version).toBe(2);
-    expect(updated.steps).toEqual(newSteps);
+    expect(updated.kind).toBe("steps");
+    if (updated.kind === "steps") {
+      expect(updated.versions).toHaveLength(2);
+      expect(updated.versions[1]).toMatchObject({ kind: "steps", version: 2 });
+      expect(updated.steps).toEqual(newSteps);
+    }
   });
 
-  it("matchingTools filters by URL pattern", async () => {
-    await saveDraft({
-      name: "PDD",
-      urlPatterns: ["https://*.yangkeduo.com/**"],
-      description: "",
-      steps: sampleSteps,
-      outputSchema: {}
-    });
-    await saveDraft({
-      name: "TB",
-      urlPatterns: ["https://*.taobao.com/**"],
-      description: "",
-      steps: sampleSteps,
-      outputSchema: {}
-    });
+  it("matchingTools filters both kinds by URL pattern", async () => {
+    await saveDraft(stepsDraft("PDD", ["https://*.yangkeduo.com/**"]));
+    await saveDraft(promptDraft("PDD AI", ["https://*.yangkeduo.com/**"]));
+    await saveDraft(stepsDraft("TB", ["https://*.taobao.com/**"]));
     const hits = await matchingTools("https://mobile.yangkeduo.com/goods.html");
-    expect(hits.map((t) => t.name)).toEqual(["PDD"]);
+    expect(hits.map((t) => t.name).sort()).toEqual(["PDD", "PDD AI"]);
+  });
+
+  it("filters invalid old tools from list/get/matching", async () => {
+    const db = await getDB();
+    await db.put("tools", {
+      id: "old-1",
+      name: "Old",
+      urlPatterns: ["https://example.com/*"],
+      description: "old",
+      steps: sampleSteps,
+      outputSchema: {},
+      createdAt: 1,
+      updatedAt: 1,
+      versions: [{ version: 1, steps: sampleSteps, outputSchema: {}, createdAt: 1 }],
+      stats: { runs: 0 }
+    } as never);
+
+    expect(await listTools()).toEqual([]);
+    expect(await getTool("old-1")).toBeUndefined();
+    expect(await matchingTools("https://example.com/a")).toEqual([]);
   });
 
   it("deleteTool removes the tool", async () => {
-    const t = await saveDraft({
-      name: "X",
-      urlPatterns: ["https://example.com/*"],
-      description: "",
-      steps: sampleSteps,
-      outputSchema: {}
-    });
+    const t = await saveDraft(stepsDraft("X"));
     await deleteTool(t.id);
     expect(await getTool(t.id)).toBeUndefined();
   });

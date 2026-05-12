@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getGlobalApprover } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
 import {
@@ -25,16 +25,27 @@ import type { BuiltinTool, Json, Step, Tool } from "@/shared/types";
 type ChatPageProps = {
   initialPrompt?: string;
   initialContext?: string;
+  autoSend?: boolean;
+  sourceTool?: { id: string; name: string; description: string; urlPatterns: string[] };
+  onRunPromptTool?: (tool: Extract<Tool, { kind: "prompt" }>) => void;
   onOpenTool?: (id: string, autoRun: boolean) => void;
 };
 
-export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPageProps) {
+export function ChatPage({
+  initialPrompt,
+  initialContext,
+  autoSend,
+  sourceTool,
+  onRunPromptTool,
+  onOpenTool
+}: ChatPageProps) {
   const session = useSession();
   const settings = useSettings();
   const currentTabId = useCurrentTabId();
   const [input, setInput] = useState(initialPrompt ?? session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
   const approver = getGlobalApprover();
+  const autoSentRef = useRef(false);
 
   // 切 tab 时把 input 同步到该 tab 的 inputDraft
   useEffect(() => {
@@ -252,6 +263,18 @@ export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPage
     [session, settings, initialContext]
   );
 
+  useEffect(() => {
+    if (!autoSend || autoSentRef.current || !initialPrompt?.trim()) return;
+    if (currentTabId == null || !settings.loaded) return;
+    autoSentRef.current = true;
+    if (sourceTool) {
+      session.appendLog("info", `autoSend source tool: ${sourceTool.name} (${sourceTool.id})`);
+    } else {
+      session.appendLog("info", "autoSend initial prompt");
+    }
+    void send(initialPrompt);
+  }, [autoSend, initialPrompt, currentTabId, settings.loaded, send, session, sourceTool]);
+
   return (
     <div className="h-full flex flex-col">
       <RecommendationsBanner
@@ -259,6 +282,7 @@ export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPage
         onOpenTool={(id, autoRun) => {
           if (onOpenTool) onOpenTool(id, autoRun);
         }}
+        onRunPromptTool={onRunPromptTool ?? (() => undefined)}
       />
       <StatusBar
         status={session.status}

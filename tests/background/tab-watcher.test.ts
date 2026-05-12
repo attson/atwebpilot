@@ -24,6 +24,7 @@ describe("tab-watcher", () => {
 
   it("sets badge text when matching tools exist", async () => {
     await saveDraft({
+      kind: "steps",
       name: "PDD",
       urlPatterns: ["https://*.yangkeduo.com/**"],
       description: "",
@@ -43,6 +44,7 @@ describe("tab-watcher", () => {
 
   it("broadcasts recommendations to sidepanel", async () => {
     await saveDraft({
+      kind: "steps",
       name: "PDD",
       urlPatterns: ["https://*.yangkeduo.com/**"],
       description: "",
