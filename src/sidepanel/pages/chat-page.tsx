@@ -269,7 +269,12 @@ export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPage
       />
       {session.errorMessage && (
         <div className="bg-red-900/40 border-b border-red-800 p-2 text-xs text-red-200 flex items-start gap-2">
-          <div className="flex-1 whitespace-pre-wrap break-words">{session.errorMessage}</div>
+          <div
+            data-testid="chat-error-body"
+            className="flex-1 min-w-0 max-h-24 overflow-auto whitespace-pre-wrap break-words pr-1"
+          >
+            {session.errorMessage}
+          </div>
           {session.messages.length > 0 && (
             <button
               onClick={() => {
@@ -285,6 +290,12 @@ export function ChatPage({ initialPrompt, initialContext, onOpenTool }: ChatPage
             className="px-2 py-0.5 bg-zinc-700 rounded text-zinc-100 shrink-0"
           >
             {session.logsOpen ? "隐藏日志" : "查看日志"}
+          </button>
+          <button
+            onClick={() => session.setError(null)}
+            className="px-2 py-0.5 bg-zinc-700 rounded text-zinc-100 shrink-0"
+          >
+            关闭
           </button>
         </div>
       )}

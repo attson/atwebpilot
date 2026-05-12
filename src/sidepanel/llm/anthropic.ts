@@ -1,4 +1,5 @@
 import type { ChatMessage, Json } from "@/shared/types";
+import { formatLlmHttpError } from "./http-error";
 import type { LlmClient, LlmStreamEvent, LlmTool } from "./types";
 
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -148,9 +149,10 @@ export const anthropicClient: LlmClient = {
       signal: input.abortSignal
     });
     if (!res.ok) {
+      const bodyText = await res.text().catch(() => "<no body>");
       yield {
         type: "error",
-        error: `Anthropic ${res.status}: ${await res.text().catch(() => "<no body>")}`
+        error: formatLlmHttpError("Anthropic", res.status, bodyText)
       };
       return;
     }

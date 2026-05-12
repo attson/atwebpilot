@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseOpenAiStream } from "@/sidepanel/llm/openai";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { openaiClient, parseOpenAiStream } from "@/sidepanel/llm/openai";
 import type { LlmStreamEvent } from "@/sidepanel/llm/types";
 
 async function collect(stream: AsyncIterable<LlmStreamEvent>): Promise<LlmStreamEvent[]> {
@@ -79,5 +79,35 @@ describe("parseOpenAiStream", () => {
 
     const events = await collect(parseOpenAiStream(chunksFrom(sse)));
     expect(events.find((e) => e.type === "error")).toBeTruthy();
+  });
+});
+
+describe("openaiClient", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("truncates large non-JSON error bodies", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<!DOCTYPE html><html>".repeat(200), { status: 520 }))
+    );
+
+    const events = await collect(
+      openaiClient.stream({
+        apiKey: "sk-test",
+        model: "gpt-test",
+        system: "system",
+        messages: [{ role: "user", content: "hello" }],
+        tools: []
+      })
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "error" });
+    const error = events[0]?.type === "error" ? events[0].error : "";
+    expect(error).toContain("OpenAI 520");
+    expect(error).toContain("truncated");
+    expect(error.length).toBeLessThan(700);
   });
 });

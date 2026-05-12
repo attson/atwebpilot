@@ -1,4 +1,5 @@
 import type { ChatMessage, Json, ToolUsePart } from "@/shared/types";
+import { formatLlmHttpError } from "./http-error";
 import type { LlmClient, LlmStreamEvent } from "./types";
 
 export async function* parseOpenAiStream(
@@ -157,9 +158,10 @@ export const openaiClient: LlmClient = {
       signal: input.abortSignal
     });
     if (!res.ok) {
+      const bodyText = await res.text().catch(() => "<no body>");
       yield {
         type: "error",
-        error: `OpenAI ${res.status}: ${await res.text().catch(() => "<no body>")}`
+        error: formatLlmHttpError("OpenAI", res.status, bodyText)
       };
       return;
     }

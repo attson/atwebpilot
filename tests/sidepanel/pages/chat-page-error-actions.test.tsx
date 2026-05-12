@@ -55,4 +55,29 @@ describe("ChatPage error actions", () => {
     expect(container.textContent).toContain("查看日志");
     expect(container.textContent).toContain("清空对话");
   });
+
+  it("keeps oversized server errors bounded and dismissible", async () => {
+    const hugeHtml = `OpenAI 520: ${"<!DOCTYPE html><html>".repeat(200)}`;
+    setError(1, hugeHtml);
+
+    await act(async () => {
+      root.render(<ChatPage />);
+    });
+
+    const body = container.querySelector('[data-testid="chat-error-body"]');
+    expect(body?.className).toContain("max-h-");
+    expect(body?.className).toContain("overflow-auto");
+
+    const close = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "关闭"
+    );
+    expect(close).toBeTruthy();
+
+    await act(async () => {
+      close?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.textContent).not.toContain("OpenAI 520");
+    expect(useStore.getState().sessionsByTab[1].messages).toHaveLength(1);
+  });
 });
