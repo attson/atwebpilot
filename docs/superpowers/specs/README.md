@@ -9,6 +9,7 @@
 | 3 | WebPilot 重定位 | [`2026-05-10-plan3-design.md`](./2026-05-10-plan3-design.md) | 9 个交互工具（fillInput / submitForm / uploadFile 等）、按工具名粒度的 dangerous 自动通过白名单、产品名 Caiji2→WebPilot |
 | 4 | Per-Tab 会话 | [`2026-05-10-plan4-per-tab-sessions-design.md`](./2026-05-10-plan4-per-tab-sessions-design.md) | sessionsByTab 切片、currentTabId、closedSessions 5min 临时区、tab-tracker、闭包捕获 tabId 防 race |
 | 5 | AI 生成汇总 step | [`2026-05-10-plan5-summary-step-design.md`](./2026-05-10-plan5-summary-step-design.md) | 保存对话框增 [让 AI 生成汇总步骤]；一次性非流式 LLM call 产出 runJS source；append 为最后一步使重放产物结构稳定 |
+| 6 | AI 生成两类工具 | [`2026-05-12-ai-generated-tool-types-design.md`](./2026-05-12-ai-generated-tool-types-design.md) | 保存为工具先选提示词/纯函数；AI 总结多轮对话生成 name/description/prompt 或 steps；提示词工具运行时跳聊天自动发送 |
 
 ## 不在 spec 里的细节修复
 
