@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ExportBundle, Tool } from "@/shared/types";
+import type { ExportBundle, Tool } from "@webpilot/shared/types";
 import { rpc } from "../rpc";
 
 function downloadJson(value: unknown, filename: string) {

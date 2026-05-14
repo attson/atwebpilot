@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { inferJsonSchema } from "@/shared/infer-json-schema";
-import { highestSeverity, runStaticScan } from "@/shared/static-scan";
-import type { ChatMessage, Json, LlmSettings, ScanFinding, Step } from "@/shared/types";
+import { inferJsonSchema } from "@webpilot/shared/infer-json-schema";
+import { highestSeverity, runStaticScan } from "@webpilot/shared/static-scan";
+import type { ChatMessage, Json, LlmSettings, ScanFinding, Step } from "@webpilot/shared/types";
 import { pickClient } from "../llm/client";
 import {
   generatePromptToolDraft,

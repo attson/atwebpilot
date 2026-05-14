@@ -1,4 +1,4 @@
-import type { LlmProvider } from "@/shared/types";
+import type { LlmProvider } from "@webpilot/shared/types";
 import { anthropicClient } from "./anthropic";
 import { openaiClient } from "./openai";
 import type { LlmClient } from "./types";

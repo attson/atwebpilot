@@ -1,5 +1,5 @@
-import { StepSchema } from "@/shared/messages";
-import type { ChatMessage, Json, Step } from "@/shared/types";
+import { StepSchema } from "@webpilot/shared/messages";
+import type { ChatMessage, Json, Step } from "@webpilot/shared/types";
 import type { LlmClient } from "./types";
 
 const MAX_NAME = 80;

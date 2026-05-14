@@ -26,7 +26,7 @@ import { StatusBar } from "../components/status-bar";
 import { TabChipsBar } from "../components/tab-chips-bar";
 import { TabPicker } from "../components/tab-picker";
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "../rpc";
-import type { BuiltinTool, Json, Step, Tool } from "@/shared/types";
+import type { BuiltinTool, Json, Step, Tool } from "@webpilot/shared/types";
 
 type ChatPageProps = {
   initialPrompt?: string;

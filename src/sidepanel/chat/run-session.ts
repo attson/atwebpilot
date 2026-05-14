@@ -7,7 +7,7 @@ import type {
   TextPart,
   ToolResultPart,
   ToolUsePart
-} from "@/shared/types";
+} from "@webpilot/shared/types";
 import type { LlmClient, LlmTool } from "@/sidepanel/llm/types";
 import type { ToolRunner } from "./tool-runner";
 import { Approver, type Decision } from "./approval";

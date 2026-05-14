@@ -1,4 +1,4 @@
-import type { Json } from "@/shared/types";
+import type { Json } from "@webpilot/shared/types";
 
 type Args = { root?: string; includeBg?: boolean };
 type ImageRef = { url: string; via: "src" | "data-src" | "data-original" | "srcset" | "bg" };

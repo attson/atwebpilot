@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { LlmSettings } from "@/shared/types";
+import type { LlmSettings } from "@webpilot/shared/types";
 
 const KEY = "caiji.llm";
 

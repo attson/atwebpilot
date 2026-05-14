@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ToolUsePart } from "@/shared/types";
+import type { ToolUsePart } from "@webpilot/shared/types";
 import type { StepCardState } from "../chat/session-store";
 import { StepCard } from "./step-card";
 

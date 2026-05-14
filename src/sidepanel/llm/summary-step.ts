@@ -1,4 +1,4 @@
-import type { ChatMessage, Json, LlmSettings, Step } from "@/shared/types";
+import type { ChatMessage, Json, LlmSettings, Step } from "@webpilot/shared/types";
 import type { LlmClient } from "./types";
 
 export const SUMMARY_SYSTEM_PROMPT = [

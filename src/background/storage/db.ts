@@ -1,5 +1,5 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
-import type { RunRecord, Tool } from "@/shared/types";
+import type { RunRecord, Tool } from "@webpilot/shared/types";
 
 export interface CaijiDB extends DBSchema {
   tools: {

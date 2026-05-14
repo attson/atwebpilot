@@ -1,5 +1,5 @@
-import type { RpcRequest } from "@/shared/messages";
-import type { ExportBundle, Json, RunRecord, Step, Tool } from "@/shared/types";
+import type { RpcRequest } from "@webpilot/shared/messages";
+import type { ExportBundle, Json, RunRecord, Step, Tool } from "@webpilot/shared/types";
 
 function isReceiverMissing(msg: string): boolean {
   return (

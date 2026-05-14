@@ -1,4 +1,4 @@
-import { RpcRequest as RpcRequestSchema } from "@/shared/messages";
+import { RpcRequest as RpcRequestSchema } from "@webpilot/shared/messages";
 import { handleRpc } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
 

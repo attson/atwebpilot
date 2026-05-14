@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/shared/types";
+import type { ChatMessage } from "@webpilot/shared/types";
 
 export function MessageBubble(props: { message: ChatMessage }) {
   const m = props.message;

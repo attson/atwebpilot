@@ -1,4 +1,4 @@
-import type { BuiltinTool, Json, RunStatus, RunStepLogEntry, Step } from "@/shared/types";
+import type { BuiltinTool, Json, RunStatus, RunStepLogEntry, Step } from "@webpilot/shared/types";
 import { RunContext } from "./ctx";
 
 export type RunnerHandlers = {

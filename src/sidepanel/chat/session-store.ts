@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AttachedTab, ChatMessage, Json, Step, ToolUsePart } from "@/shared/types";
+import type { AttachedTab, ChatMessage, Json, Step, ToolUsePart } from "@webpilot/shared/types";
 
 export type StepCardState = {
   toolUseId: string;

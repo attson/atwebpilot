@@ -1,4 +1,4 @@
-import type { Json, RunRecord, RunStepLogEntry, RunStatus } from "@/shared/types";
+import type { Json, RunRecord, RunStepLogEntry, RunStatus } from "@webpilot/shared/types";
 import { getDB } from "./db";
 
 export async function createRun(input: {

@@ -1,4 +1,4 @@
-import type { Json } from "@/shared/types";
+import type { Json } from "@webpilot/shared/types";
 
 type Args = { maxDepth?: number; root?: string };
 

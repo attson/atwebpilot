@@ -1,4 +1,4 @@
-import type { ChatMessage, Json } from "@/shared/types";
+import type { ChatMessage, Json } from "@webpilot/shared/types";
 import { formatLlmHttpError } from "./http-error";
 import type { LlmClient, LlmStreamEvent, LlmTool } from "./types";
 

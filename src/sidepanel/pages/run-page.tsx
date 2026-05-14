@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { RunRecord } from "@/shared/types";
+import type { RunRecord } from "@webpilot/shared/types";
 import { JsonEditor } from "../components/json-editor";
 import { ResultView } from "../components/result-view";
 import { currentTabId, rpc } from "../rpc";

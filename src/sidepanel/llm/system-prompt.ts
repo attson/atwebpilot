@@ -1,4 +1,4 @@
-import type { AttachedTab } from "@/shared/types";
+import type { AttachedTab } from "@webpilot/shared/types";
 
 type SavedToolHint = { name: string; description: string; version: number };
 

@@ -2,8 +2,8 @@ import {
   ContentRequest as ContentRequestSchema,
   RpcRequest as RpcRequestSchema,
   type RpcRequest
-} from "@/shared/messages";
-import type { Json, RunRecord, Step, ToolDraft } from "@/shared/types";
+} from "@webpilot/shared/messages";
+import type { Json, RunRecord, Step, ToolDraft } from "@webpilot/shared/types";
 import { fetchAsBase64, httpRequest } from "./http-proxy";
 import { exportAll, importBundle } from "./storage/export-import";
 import { appendStepLog, createRun, finalizeRun, getRun, listRuns } from "./storage/runs";

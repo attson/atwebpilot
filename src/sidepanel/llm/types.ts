@@ -1,4 +1,4 @@
-import type { ChatMessage, Json, JsonSchema } from "@/shared/types";
+import type { ChatMessage, Json, JsonSchema } from "@webpilot/shared/types";
 
 export type LlmTool = {
   name: string;

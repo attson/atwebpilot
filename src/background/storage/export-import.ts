@@ -1,5 +1,5 @@
-import { ToolSchema } from "@/shared/messages";
-import type { ExportBundle, Tool } from "@/shared/types";
+import { ToolSchema } from "@webpilot/shared/messages";
+import type { ExportBundle, Tool } from "@webpilot/shared/types";
 import { getDB } from "./db";
 
 function parseTool(raw: unknown): Tool | undefined {

@@ -1,4 +1,4 @@
-import type { Step } from "@/shared/types";
+import type { Step } from "@webpilot/shared/types";
 
 export function StepList(props: { steps: Step[] }) {
   return (

@@ -1,4 +1,4 @@
-import type { Json } from "@/shared/types";
+import type { Json } from "@webpilot/shared/types";
 
 export async function injectMain(source: string, args: Json): Promise<Json> {
   const res = (await chrome.runtime.sendMessage({

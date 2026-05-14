@@ -1,4 +1,4 @@
-import type { Json } from "@/shared/types";
+import type { Json } from "@webpilot/shared/types";
 
 export class RunContext {
   private bindings: Record<string, Json> = {};

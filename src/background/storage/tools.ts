@@ -1,6 +1,6 @@
-import { matchesAny } from "@/shared/url-pattern";
-import { ToolSchema } from "@/shared/messages";
-import type { JsonSchema, PromptTool, Step, StepsTool, Tool, ToolDraft } from "@/shared/types";
+import { matchesAny } from "@webpilot/shared/url-pattern";
+import { ToolSchema } from "@webpilot/shared/messages";
+import type { JsonSchema, PromptTool, Step, StepsTool, Tool, ToolDraft } from "@webpilot/shared/types";
 import { getDB } from "./db";
 
 function uuid(): string {

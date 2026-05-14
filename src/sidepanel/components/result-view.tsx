@@ -1,4 +1,4 @@
-import type { RunRecord } from "@/shared/types";
+import type { RunRecord } from "@webpilot/shared/types";
 
 export function ResultView(props: { run: RunRecord }) {
   const { run } = props;
