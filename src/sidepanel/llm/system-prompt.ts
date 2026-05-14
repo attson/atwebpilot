@@ -1,9 +1,12 @@
+import type { AttachedTab } from "@/shared/types";
+
 type SavedToolHint = { name: string; description: string; version: number };
 
 export function buildSystemPrompt(input: {
   url: string;
   title?: string;
   savedTools?: SavedToolHint[];
+  attachedTabs?: AttachedTab[];
 }): string {
   const savedToolsSection =
     input.savedTools && input.savedTools.length > 0
@@ -15,6 +18,33 @@ export function buildSystemPrompt(input: {
           )
         ]
       : [];
+
+  const attached = input.attachedTabs ?? [];
+  const visible = attached.slice(0, 8);
+  const overflow = attached.length - visible.length;
+  const attachedSection =
+    attached.length > 0
+      ? [
+          "",
+          "[Attached tabs]",
+          ...visible.map(
+            (a) =>
+              `#${a.tabId} ${a.lastSeenUrl}  (source: ${a.source}${a.urlChanged ? ", url-changed" : ""})`
+          ),
+          ...(overflow > 0 ? [`+${overflow} more, call listTabs() for the full list`] : [])
+        ]
+      : [];
+
+  const crossTabProtocol = [
+    "",
+    "[Cross-tab protocol]",
+    "- Pass `tabId` in any tool input to act on a non-focused tab.",
+    "- Allowed tabIds: the focused tab + the attached list above.",
+    "- Call listTabs() to discover other open tabs.",
+    "- Call attachTab(tabId) to request access; user must approve.",
+    "- Call openTab(url) to spawn a new tab; it auto-attaches."
+  ];
+
   return [
     "你是 WebPilot，一个嵌入到浏览器侧边面板的 AI 网页助手。",
     "用户在浏览网页时会请你完成各种任务：",
@@ -46,7 +76,9 @@ export function buildSystemPrompt(input: {
     "",
     `当前页面 URL: ${input.url}`,
     input.title ? `页面标题: ${input.title}` : "",
-    ...savedToolsSection
+    ...savedToolsSection,
+    ...attachedSection,
+    ...crossTabProtocol
   ]
     .filter(Boolean)
     .join("\n");

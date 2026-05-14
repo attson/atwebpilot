@@ -9,6 +9,7 @@ import { useSettings } from "@/sidepanel/chat/settings-store";
 vi.mock("@/sidepanel/rpc", () => ({
   currentTabInfo: vi.fn(async () => ({ tabId: 1, url: "https://example.com/" })),
   onTabRecommendations: vi.fn(() => () => undefined),
+  onTabEvents: vi.fn(() => () => undefined),
   rpc: {
     matchingTools: vi.fn(async () => [])
   }

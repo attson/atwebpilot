@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useClosedSessionsPruner } from "./chat/closed-sessions-pruner";
+import { validateAttachedTabs } from "./chat/session-store";
 import { installTabTracker } from "./chat/tab-tracker";
 import { ClosedSessionsBanner } from "./components/closed-sessions-banner";
 import { TabInfoBar } from "./components/tab-info-bar";
@@ -28,6 +29,17 @@ export function App() {
   useEffect(() => {
     const off = installTabTracker();
     return () => off();
+  }, []);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const tabs = await chrome.tabs.query({});
+        const known = new Set(tabs.map((t) => t.id).filter((id): id is number => id != null));
+        validateAttachedTabs(known);
+      } catch {
+        // chrome.tabs not available in some test contexts
+      }
+    })();
   }, []);
   useClosedSessionsPruner();
 

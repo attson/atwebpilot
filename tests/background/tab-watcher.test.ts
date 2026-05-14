@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetDBForTests } from "@/background/storage/db";
 import { saveDraft } from "@/background/storage/tools";
-import { refreshRecommendations } from "@/background/tab-watcher";
+import { installTabWatcher, refreshRecommendations } from "@/background/tab-watcher";
 
 const setBadgeText = vi.fn();
 const setBadgeBackgroundColor = vi.fn();
@@ -66,5 +66,84 @@ describe("tab-watcher", () => {
   it("swallows sidepanel sendMessage rejection", async () => {
     sendMessage.mockRejectedValueOnce(new Error("no listeners"));
     await expect(refreshRecommendations(10, "https://other.com/")).resolves.not.toThrow();
+  });
+});
+
+describe("tab-watcher new events", () => {
+  it("broadcasts tabs.spawned on chrome.tabs.onCreated", async () => {
+    const sent: unknown[] = [];
+    let createdCb: ((tab: chrome.tabs.Tab) => void) | null = null;
+    (globalThis as unknown as { chrome: typeof chrome }).chrome = {
+      runtime: { sendMessage: async (m: unknown) => { sent.push(m); } },
+      action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {} },
+      tabs: {
+        onUpdated: { addListener: () => {} },
+        onRemoved: { addListener: () => {} },
+        onCreated: { addListener: (cb: (t: chrome.tabs.Tab) => void) => { createdCb = cb; } }
+      },
+      webNavigation: { onHistoryStateUpdated: { addListener: () => {} } }
+    } as unknown as typeof chrome;
+    installTabWatcher();
+    createdCb!({
+      id: 200, windowId: 1, url: "https://x", title: "X",
+      openerTabId: 100, incognito: false
+    } as chrome.tabs.Tab);
+    // sendMessage is async; wait a microtask
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.find((m) => (m as { type?: string }).type === "tabs.spawned")).toMatchObject({
+      type: "tabs.spawned",
+      tabId: 200,
+      openerTabId: 100,
+      url: "https://x",
+      windowId: 1
+    });
+  });
+
+  it("broadcasts tabs.urlChanged on chrome.tabs.onUpdated with status=complete + url present", async () => {
+    const sent: unknown[] = [];
+    let updatedCb: ((tabId: number, change: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => void) | null = null;
+    (globalThis as unknown as { chrome: typeof chrome }).chrome = {
+      runtime: { sendMessage: async (m: unknown) => { sent.push(m); } },
+      action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {} },
+      tabs: {
+        onUpdated: { addListener: (cb: typeof updatedCb) => { updatedCb = cb; } },
+        onRemoved: { addListener: () => {} },
+        onCreated: { addListener: () => {} }
+      },
+      webNavigation: { onHistoryStateUpdated: { addListener: () => {} } }
+    } as unknown as typeof chrome;
+    installTabWatcher();
+    updatedCb!(167, { status: "complete", url: "https://new" }, {
+      id: 167, url: "https://new", title: "NEW"
+    } as chrome.tabs.Tab);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.find((m) => (m as { type?: string }).type === "tabs.urlChanged")).toMatchObject({
+      type: "tabs.urlChanged",
+      tabId: 167,
+      newUrl: "https://new",
+      newTitle: "NEW"
+    });
+  });
+
+  it("broadcasts tabs.removed on chrome.tabs.onRemoved", async () => {
+    const sent: unknown[] = [];
+    let removedCb: ((tabId: number) => void) | null = null;
+    (globalThis as unknown as { chrome: typeof chrome }).chrome = {
+      runtime: { sendMessage: async (m: unknown) => { sent.push(m); } },
+      action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {} },
+      tabs: {
+        onUpdated: { addListener: () => {} },
+        onRemoved: { addListener: (cb: (id: number) => void) => { removedCb = cb; } },
+        onCreated: { addListener: () => {} }
+      },
+      webNavigation: { onHistoryStateUpdated: { addListener: () => {} } }
+    } as unknown as typeof chrome;
+    installTabWatcher();
+    removedCb!(167);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.find((m) => (m as { type?: string }).type === "tabs.removed")).toMatchObject({
+      type: "tabs.removed",
+      tabId: 167
+    });
   });
 });

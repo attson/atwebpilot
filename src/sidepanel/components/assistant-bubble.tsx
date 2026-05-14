@@ -8,7 +8,11 @@ type Props = {
   toolUses: ToolUsePart[];        // finalized 的（来自 messages）
   pendingCards?: StepCardState[]; // 流式中尚未 finalize 的 cards
   cardsById: Map<string, StepCardState>;
-  onApprove: (id: string, decision: "run" | "skip" | "deny") => void;
+  onApprove: (
+    id: string,
+    decision: "run" | "run-and-always-allow" | "skip" | "deny",
+    toolName?: string
+  ) => void;
   needsApproval: (card: StepCardState) => boolean;
   isLive: boolean;                 // 是否当前流式中（影响默认折叠）
 };

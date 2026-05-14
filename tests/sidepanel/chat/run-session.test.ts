@@ -187,6 +187,119 @@ describe("runChatSession", () => {
     expect(ran).toBe(1);
   });
 
+  describe("control-plane tools", () => {
+    it("listTabs is handled by tabsRpc and does not go to runner", async () => {
+      let runnerCalls = 0;
+      let listTabsCalls = 0;
+
+      const client = makeClient([
+        [
+          { type: "tool_use_start", id: "u1", name: "listTabs" },
+          { type: "tool_use_input_delta", id: "u1", partial_json: "{}" },
+          { type: "tool_use_end", id: "u1", input: {} },
+          { type: "message_end", usage: { input_tokens: 0, output_tokens: 0 } }
+        ],
+        [
+          { type: "text_delta", text: "done" },
+          { type: "message_end", usage: { input_tokens: 0, output_tokens: 0 } }
+        ]
+      ]);
+      const runner = makeRunner(async () => {
+        runnerCalls++;
+        return null;
+      });
+      const approver = new Approver();
+      const rpc = {
+        startSession: vi.fn().mockResolvedValue({ id: "run-1" }),
+        appendStepLog: vi.fn().mockResolvedValue(null),
+        finalizeSession: vi.fn().mockResolvedValue(null)
+      };
+      const tabsRpc = {
+        listTabs: vi.fn(async () => {
+          listTabsCalls++;
+          return { tabs: [{ tabId: 1, windowId: 1, url: "u", title: "t" }] };
+        }),
+        openTab: vi.fn()
+      };
+      const result = await runChatSession({
+        client,
+        runner,
+        approver,
+        rpc,
+        input: { userPrompt: "go", tabId: 7, url: "https://x/" },
+        settings: {
+          provider: "anthropic",
+          model: "m",
+          apiKey: "k",
+          apiKeyMode: "session",
+          maxRounds: 5,
+          autoApproveDangerous: ["listTabs"]
+        },
+        systemPrompt: "sys",
+        tools: [],
+        approveAllSafe: true,
+        attachedTabIds: [],
+        tabsRpc
+      });
+
+      expect(result.status).toBe("done");
+      expect(runnerCalls).toBe(0);
+      expect(listTabsCalls).toBe(1);
+    });
+
+    it("openTab calls tabsRpc.openTab and emits onCrossTabResult", async () => {
+      const client = makeClient([
+        [
+          { type: "tool_use_start", id: "u2", name: "openTab" },
+          { type: "tool_use_input_delta", id: "u2", partial_json: '{"url":"https://new"}' },
+          { type: "tool_use_end", id: "u2", input: { url: "https://new" } },
+          { type: "message_end" }
+        ],
+        [
+          { type: "text_delta", text: "ok" },
+          { type: "message_end" }
+        ]
+      ]);
+      const runner = makeRunner(async () => null);
+      const approver = new Approver();
+      const rpc = {
+        startSession: vi.fn().mockResolvedValue({ id: "run-2" }),
+        appendStepLog: vi.fn().mockResolvedValue(null),
+        finalizeSession: vi.fn().mockResolvedValue(null)
+      };
+      const tabsRpc = {
+        listTabs: vi.fn(),
+        openTab: vi.fn(async () => ({ tabId: 99, url: "https://new", title: "" }))
+      };
+      const events: unknown[] = [];
+
+      await runChatSession({
+        client,
+        runner,
+        approver,
+        rpc,
+        input: { userPrompt: "go", tabId: 7, url: "https://x/" },
+        settings: {
+          provider: "anthropic",
+          model: "m",
+          apiKey: "k",
+          apiKeyMode: "session",
+          maxRounds: 5,
+          autoApproveDangerous: ["openTab"]
+        },
+        systemPrompt: "sys",
+        tools: [],
+        approveAllSafe: true,
+        attachedTabIds: [],
+        tabsRpc,
+        onCrossTabResult: (r) => events.push(r)
+      });
+
+      expect(tabsRpc.openTab).toHaveBeenCalledWith("https://new", undefined);
+      expect(events).toContainEqual({ kind: "opened", tabId: 99, url: "https://new", title: "" });
+    });
+  });
+
   it("stops at maxRounds", async () => {
     const oneRound: LlmStreamEvent[] = [
       { type: "tool_use_start", id: "t1", name: "snapshotDOM" },

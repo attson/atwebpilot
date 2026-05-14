@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getGlobalApprover } from "../chat/approval";
+import { getGlobalApprover, type Decision } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
 import {
+  attachTab,
+  detachTab,
   ensureSession,
+  getSessionFor,
   setCurrentTab,
   useCurrentTabId,
   useSession,
   useStore
 } from "../chat/session-store";
+import { handleTabEvent } from "../chat/cross-tab-events";
 import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
 import { TOOL_DEFS } from "../llm/tool-schema";
@@ -19,7 +23,9 @@ import { LogsDrawer } from "../components/logs-drawer";
 import { RecommendationsBanner } from "../components/recommendations-banner";
 import { SaveAsToolDialog } from "../components/save-as-tool-dialog";
 import { StatusBar } from "../components/status-bar";
-import { currentTabInfo, onTabRecommendations, rpc } from "../rpc";
+import { TabChipsBar } from "../components/tab-chips-bar";
+import { TabPicker } from "../components/tab-picker";
+import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "../rpc";
 import type { BuiltinTool, Json, Step, Tool } from "@/shared/types";
 
 type ChatPageProps = {
@@ -44,6 +50,7 @@ export function ChatPage({
   const currentTabId = useCurrentTabId();
   const [input, setInput] = useState(initialPrompt ?? session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const approver = getGlobalApprover();
   const autoSentRef = useRef(false);
 
@@ -76,21 +83,37 @@ export function ChatPage({
         })
         .catch(() => {});
     });
+    const offEvents = onTabEvents(handleTabEvent);
     return () => {
       active = false;
       off();
+      offEvents();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleApprove = useCallback(
-    (id: string, decision: "run" | "skip" | "deny") => {
-      approver.resolve(id, { kind: decision });
+    (
+      id: string,
+      decision: "run" | "run-and-always-allow" | "skip" | "deny",
+      toolName?: string
+    ) => {
+      if (decision === "run-and-always-allow" && toolName) {
+        void settings.save({
+          autoApproveDangerous: Array.from(
+            new Set([...(settings.autoApproveDangerous ?? []), toolName])
+          )
+        });
+        approver.resolve(id, { kind: "run-and-always-allow", toolName });
+        session.setCardStatus(id, { status: "running" });
+        return;
+      }
+      approver.resolve(id, { kind: decision } as Decision);
       session.setCardStatus(id, {
         status: decision === "run" ? "running" : decision === "skip" ? "skipped" : "denied"
       });
     },
-    [session, approver]
+    [session, approver, settings]
   );
 
   const clearChat = useCallback(() => {
@@ -107,6 +130,9 @@ export function ChatPage({
         return;
       }
       const { tabId, url } = await currentTabInfo();
+      const session0 = getSessionFor(tabId);
+      const attachedTabs = session0.attachedTabs;
+      const attachedTabIds = attachedTabs.map((a) => a.tabId);
       session.setIdentity({ tabId, url, runRecordId: "" });
       session.setError(null);
       session.setStatus("streaming");
@@ -244,13 +270,42 @@ export function ChatPage({
               name: t.name,
               description: t.description ?? "",
               version: t.versions.at(-1)?.version ?? 1
-            }))
+            })),
+            attachedTabs
           }),
           tools: TOOL_DEFS,
           approveAllSafe: session.approveAllSafe,
           abortSignal: ac.signal,
           onEvent,
-          initialMessages: initialContext ? [{ role: "user", content: initialContext }] : undefined
+          initialMessages: initialContext ? [{ role: "user", content: initialContext }] : undefined,
+          attachedTabIds,
+          tabsRpc: { listTabs: rpc.listTabs, openTab: rpc.openTab },
+          onCrossTabResult: (r) => {
+            if (r.kind === "opened") {
+              attachTab(tabId, {
+                tabId: r.tabId,
+                windowId: r.windowId ?? -1,
+                source: "ai-open",
+                lastSeenUrl: r.url ?? "",
+                lastSeenTitle: r.title ?? ""
+              });
+            } else if (r.kind === "attached") {
+              chrome.tabs
+                .get(r.tabId)
+                .then((t) =>
+                  attachTab(tabId, {
+                    tabId: r.tabId,
+                    windowId: t.windowId,
+                    source: "approval",
+                    lastSeenUrl: t.url ?? "",
+                    lastSeenTitle: t.title ?? ""
+                  })
+                )
+                .catch(() => {});
+            } else if (r.kind === "detached") {
+              detachTab(tabId, r.tabId);
+            }
+          }
         });
       } catch (e) {
         session.setError(e instanceof Error ? e.message : String(e));
@@ -283,6 +338,13 @@ export function ChatPage({
           if (onOpenTool) onOpenTool(id, autoRun);
         }}
         onRunPromptTool={onRunPromptTool ?? (() => undefined)}
+      />
+      <TabChipsBar
+        attachedTabs={session.attachedTabs}
+        onDetach={(id) => {
+          if (currentTabId != null) detachTab(currentTabId, id);
+        }}
+        onPick={() => setPickerOpen(true)}
       />
       <StatusBar
         status={session.status}
@@ -376,8 +438,12 @@ export function ChatPage({
         <textarea
           value={input}
           onChange={(e) => {
-            setInput(e.target.value);
-            session.setInputDraft(e.target.value);
+            const v = e.target.value;
+            setInput(v);
+            session.setInputDraft(v);
+            if (v.endsWith("@")) {
+              setPickerOpen(true);
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -408,6 +474,29 @@ export function ChatPage({
           </button>
         </div>
       </div>
+      {pickerOpen && currentTabId != null && (
+        <TabPicker
+          listTabs={(wid) => rpc.listTabs(wid)}
+          attachedIds={session.attachedTabs.map((a) => a.tabId)}
+          currentTabId={currentTabId}
+          onSelect={(t) => {
+            attachTab(currentTabId, {
+              tabId: t.tabId,
+              windowId: t.windowId,
+              source: "mention",
+              lastSeenUrl: t.url,
+              lastSeenTitle: t.title
+            });
+            if (input.endsWith("@")) {
+              const stripped = input.slice(0, -1);
+              setInput(stripped);
+              session.setInputDraft(stripped);
+            }
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
       {session.showSaveDialog && (
         <SaveAsToolDialog
           initialName={

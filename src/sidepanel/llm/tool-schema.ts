@@ -8,7 +8,8 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         maxDepth: { type: "integer", default: 3 },
-        root: { type: "string", description: "可选的 CSS 选择器；找不到时退回到 <html>" }
+        root: { type: "string", description: "可选的 CSS 选择器；找不到时退回到 <html>" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       }
     }
   },
@@ -19,7 +20,8 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string" },
-        root: { type: "string" }
+        root: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector"]
     }
@@ -32,7 +34,8 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         root: { type: "string" },
-        limit: { type: "integer" }
+        limit: { type: "integer" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector"]
     }
@@ -45,7 +48,8 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         root: { type: "string" },
-        single: { type: "boolean" }
+        single: { type: "boolean" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector"]
     }
@@ -57,7 +61,8 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         root: { type: "string" },
-        includeBg: { type: "boolean", default: false }
+        includeBg: { type: "boolean", default: false },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       }
     }
   },
@@ -70,7 +75,8 @@ export const TOOL_DEFS: LlmTool[] = [
         to: { description: "'bottom' | 'top' | number" },
         max: { type: "integer", default: 1 },
         intervalMs: { type: "integer", default: 250 },
-        untilSelector: { type: "string" }
+        untilSelector: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["to"]
     }
@@ -83,7 +89,8 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         ms: { type: "integer" },
         selector: { type: "string" },
-        timeoutMs: { type: "integer", default: 5000 }
+        timeoutMs: { type: "integer", default: 5000 },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       }
     }
   },
@@ -94,7 +101,8 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string" },
-        required: { type: "boolean", default: true }
+        required: { type: "boolean", default: true },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector"]
     }
@@ -109,7 +117,8 @@ export const TOOL_DEFS: LlmTool[] = [
         method: { type: "string", enum: ["GET", "POST", "PUT", "DELETE", "PATCH"], default: "GET" },
         headers: { type: "object" },
         body: { type: "string" },
-        withCredentials: { type: "boolean", default: false }
+        withCredentials: { type: "boolean", default: false },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["url"]
     }
@@ -121,7 +130,8 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         store: { type: "string", enum: ["local", "session"] },
-        key: { type: "string" }
+        key: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["store", "key"]
     }
@@ -134,7 +144,8 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         value: { type: "string" },
-        clear: { type: "boolean", default: true }
+        clear: { type: "boolean", default: true },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector", "value"]
     }
@@ -146,7 +157,8 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string" },
-        checked: { type: "boolean" }
+        checked: { type: "boolean" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector", "checked"]
     }
@@ -159,7 +171,8 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         value: { type: "string" },
-        label: { type: "string" }
+        label: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector"]
     }
@@ -170,7 +183,8 @@ export const TOOL_DEFS: LlmTool[] = [
     input_schema: {
       type: "object",
       properties: {
-        selector: { type: "string", default: "form" }
+        selector: { type: "string", default: "form" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       }
     }
   },
@@ -179,7 +193,10 @@ export const TOOL_DEFS: LlmTool[] = [
     description: "把鼠标悬停在元素上（触发 mouseenter / mouseover / mousemove）。",
     input_schema: {
       type: "object",
-      properties: { selector: { type: "string" } },
+      properties: {
+        selector: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
+      },
       required: ["selector"]
     }
   },
@@ -188,7 +205,10 @@ export const TOOL_DEFS: LlmTool[] = [
     description: "把焦点给某元素（触发 focus / focusin）。",
     input_schema: {
       type: "object",
-      properties: { selector: { type: "string" } },
+      properties: {
+        selector: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
+      },
       required: ["selector"]
     }
   },
@@ -201,7 +221,8 @@ export const TOOL_DEFS: LlmTool[] = [
         selector: { type: "string" },
         url: { type: "string" },
         filename: { type: "string" },
-        mime: { type: "string" }
+        mime: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["selector", "url"]
     }
@@ -211,7 +232,10 @@ export const TOOL_DEFS: LlmTool[] = [
     description: "读 input/select/textarea/contenteditable 的当前值。",
     input_schema: {
       type: "object",
-      properties: { selector: { type: "string" } },
+      properties: {
+        selector: { type: "string" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
+      },
       required: ["selector"]
     }
   },
@@ -220,7 +244,10 @@ export const TOOL_DEFS: LlmTool[] = [
     description: "把 <form> 内所有可填字段读成 {name: value} 对象（radio 取选中值；checkbox 多选取数组）。",
     input_schema: {
       type: "object",
-      properties: { selector: { type: "string", default: "form" } }
+      properties: {
+        selector: { type: "string", default: "form" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
+      }
     }
   },
   {
@@ -229,9 +256,53 @@ export const TOOL_DEFS: LlmTool[] = [
     input_schema: {
       type: "object",
       properties: {
-        source: { type: "string", description: "async function body" }
+        source: { type: "string", description: "async function body" },
+        tabId: { type: "integer", description: "目标 tab；省略=会话焦点 tab；必须先在 attachedTabs 中" }
       },
       required: ["source"]
+    }
+  },
+  {
+    name: "listTabs",
+    description: "列出所有窗口的可访问 tab；返回 [{tabId, windowId, url, title, attached, isCurrent}]。仅在你需要识别新 tab 时调用。",
+    input_schema: {
+      type: "object",
+      properties: {
+        windowId: { type: "integer", description: "仅返回此窗口的 tab；省略=全部窗口" }
+      }
+    }
+  },
+  {
+    name: "openTab",
+    description: "打开新 tab，成功后自动加入会话 attachedTabs（source=ai-open）。返回 {tabId, url, title}。",
+    input_schema: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        active: { type: "boolean", default: false, description: "true=切到该 tab" }
+      },
+      required: ["url"]
+    }
+  },
+  {
+    name: "attachTab",
+    description: "请求把某个已打开的 tab 纳入会话 attachedTabs；未预批准时会向用户索取审批。",
+    input_schema: {
+      type: "object",
+      properties: {
+        tabId: { type: "integer" },
+        reason: { type: "string", description: "向用户解释为何需要访问该 tab" }
+      },
+      required: ["tabId"]
+    }
+  },
+  {
+    name: "detachTab",
+    description: "从会话 attachedTabs 移除一个 tab；不关闭该 tab。",
+    input_schema: {
+      type: "object",
+      properties: { tabId: { type: "integer" } },
+      required: ["tabId"]
     }
   }
 ];

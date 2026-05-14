@@ -1,17 +1,25 @@
 import { runStaticScan } from "@/shared/static-scan";
 import type { ScanFinding } from "@/shared/types";
+import { useSession } from "../chat/session-store";
 import type { StepCardState } from "../chat/session-store";
 import { classifyTool } from "../chat/severity";
 import { StaticScanBadge } from "./static-scan-badge";
 
 type Props = {
   card: StepCardState;
-  onApprove: (id: string, decision: "run" | "skip" | "deny") => void;
+  onApprove: (
+    id: string,
+    decision: "run" | "run-and-always-allow" | "skip" | "deny",
+    toolName?: string
+  ) => void;
   needsManualApproval: boolean;
 };
 
 export function StepCard({ card, onApprove, needsManualApproval }: Props) {
   const severity = classifyTool(card.name, card.input);
+  const session = useSession();
+  const argTab = (card.input as { tabId?: number } | null | undefined)?.tabId;
+  const showCrossTab = typeof argTab === "number" && argTab !== session.tabId;
   const findings: ScanFinding[] =
     card.name === "runJS" && typeof (card.input as { source?: string })?.source === "string"
       ? runStaticScan((card.input as { source: string }).source)
@@ -29,6 +37,9 @@ export function StepCard({ card, onApprove, needsManualApproval }: Props) {
       <div className="flex items-center gap-2">
         <span className="text-zinc-400">tool:</span>
         <span className="font-medium">{card.name}</span>
+        {showCrossTab && (
+          <span className="text-blue-400 text-[10px]">→ Tab #{argTab}</span>
+        )}
         <SeverityPill severity={severity} />
         <CardStatus card={card} />
       </div>
@@ -53,6 +64,16 @@ export function StepCard({ card, onApprove, needsManualApproval }: Props) {
           >
             ✓ 通过
           </button>
+          {card.name === "attachTab" && (
+            <button
+              onClick={() =>
+                onApprove(card.toolUseId, "run-and-always-allow", card.name)
+              }
+              className="px-2 py-0.5 bg-emerald-800 rounded"
+            >
+              ✓ 允许并始终通过
+            </button>
+          )}
           <button
             onClick={() => onApprove(card.toolUseId, "skip")}
             className="px-2 py-0.5 bg-zinc-700 rounded"

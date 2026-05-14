@@ -79,8 +79,40 @@ describe("autoApproves", () => {
     expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
   });
 
-  it("caution ignores allowlist", () => {
+  it("caution honors allowlist", () => {
     expect(autoApproves("caution", "fillInput", true, [])).toBe(true);
-    expect(autoApproves("caution", "fillInput", false, ["fillInput"])).toBe(false);
+    expect(autoApproves("caution", "fillInput", false, ["fillInput"])).toBe(true);
+  });
+});
+
+describe("autoApproves allowlist precedence", () => {
+  it("allowlist overrides caution when approveAllSafe is off", () => {
+    // attachTab is caution; with approveAllSafe=false, allowlist should let it through
+    expect(autoApproves("caution", "attachTab", false, ["attachTab"])).toBe(true);
+  });
+  it("allowlist overrides dangerous as before", () => {
+    expect(autoApproves("dangerous", "readStorage", false, ["readStorage"])).toBe(true);
+  });
+  it("safe is always approved regardless of approveAllSafe", () => {
+    expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
+  });
+  it("caution falls back to approveAllSafe when not in allowlist", () => {
+    expect(autoApproves("caution", "click", false, [])).toBe(false);
+    expect(autoApproves("caution", "click", true, [])).toBe(true);
+  });
+  it("dangerous requires explicit allowlist", () => {
+    expect(autoApproves("dangerous", "readStorage", true, [])).toBe(false);
+  });
+});
+
+describe("control-plane tools", () => {
+  it("listTabs / openTab / attachTab are caution", () => {
+    expect(classifyTool("listTabs", {})).toBe("caution");
+    expect(classifyTool("openTab", { url: "https://x" })).toBe("caution");
+    expect(classifyTool("attachTab", { tabId: 1 })).toBe("caution");
+  });
+
+  it("detachTab is safe", () => {
+    expect(classifyTool("detachTab", { tabId: 1 })).toBe("safe");
   });
 });

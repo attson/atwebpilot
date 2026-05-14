@@ -14,14 +14,18 @@ const SAFE = new Set([
   "hover",
   "focus",
   "getValue",
-  "extractFormState"
+  "extractFormState",
+  "detachTab"
 ]);
 
 const CAUTION = new Set([
   "click",
   "fillInput",
   "setCheckbox",
-  "selectOption"
+  "selectOption",
+  "listTabs",
+  "openTab",
+  "attachTab"
 ]);
 
 const DANGEROUS_FIXED = new Set([
@@ -55,8 +59,9 @@ export function autoApproves(
   dangerousAllowlist: string[]
 ): boolean {
   if (severity === "safe") return true;
+  if (dangerousAllowlist.includes(toolName)) return true;
   if (severity === "caution") return approveAllSafe;
-  if (severity === "dangerous") return dangerousAllowlist.includes(toolName);
+  if (severity === "dangerous") return false;
   return false;
 }
 
