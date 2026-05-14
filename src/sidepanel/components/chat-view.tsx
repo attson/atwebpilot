@@ -6,6 +6,12 @@ import type { ChatMessage, TextPart, ToolUsePart } from "@/shared/types";
 import { autoApproves, classifyTool } from "../chat/severity";
 import { AssistantBubble } from "./assistant-bubble";
 
+const SYSTEM_PREFIXES = ["🆕", "🗑", "⚠", "[页面跳转]", "[已恢复]"];
+
+function isSystemNote(content: string): boolean {
+  return SYSTEM_PREFIXES.some((p) => content.startsWith(p));
+}
+
 type Props = {
   onApprove: (
     id: string,
@@ -82,6 +88,13 @@ export function ChatView({ onApprove }: Props) {
     if (m.role === "user") {
       // 跳过 tool_result 注入（只在 chat history 内部有意义，UI 不展示）
       if (typeof m.content !== "string") return null;
+      if (isSystemNote(m.content)) {
+        return (
+          <div key={i} className="text-[11px] text-zinc-500 italic px-2 py-1">
+            {m.content}
+          </div>
+        );
+      }
       return <MessageBubble key={i} message={m} />;
     }
     const text = m.content
