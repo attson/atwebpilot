@@ -30,56 +30,76 @@ Three personas of work the user expects help with:
 ## Repo layout
 
 ```
-src/
-├─ manifest.ts                       MV3 manifest (defineManifest)
-├─ shared/                            Imports allowed from all three entrypoints
-│  ├─ types.ts                        Tool / Step / RunRecord / SessionData / LlmSettings / ChatMessage / ScanFinding
-│  ├─ messages.ts                     zod RPC schemas (sidepanel <-> bg <-> content)
-│  ├─ url-pattern.ts                  glob → RegExp
-│  ├─ static-scan.ts                  runJS source → severity findings (regex rules)
-│  └─ infer-json-schema.ts            Minimal JSON Schema inference for save dialog
-├─ background/                        Service worker
-│  ├─ index.ts                        Wakeup + RPC listener + tab-watcher install
-│  ├─ rpc-handlers.ts                 Dispatch RpcRequest; runOneStep + injectMainWorld
-│  ├─ http-proxy.ts                   Cross-origin fetch (omit/include cookie); fetchAsBase64 for uploadFile
-│  ├─ tab-watcher.ts                  chrome.tabs / webNavigation → set badge + push tabs.recommendations
-│  └─ storage/{db,tools,runs,export-import}.ts   IndexedDB (DB_NAME = "caiji" — do NOT rename)
-├─ content/                           Content script (isolated world)
-│  ├─ index.ts                        chrome.runtime.onMessage → callTool / injectMain
-│  ├─ runner.ts + ctx.ts              Step Runner with ${var} bindings + timeout
-│  ├─ inject-main.ts                  Bridge to BG.scripting.injectMain
-│  └─ tools/*.ts                      One file per BuiltinTool
-└─ sidepanel/                         React UI (the only user surface)
-   ├─ rpc.ts                          typed wrappers + onTabRecommendations + retry on SW wake
-   ├─ chat/
-   │  ├─ session-store.ts             zustand: sessionsByTab + closedSessions + currentTabId; per-tab actions
-   │  ├─ approval.ts                  Per-tab Approver factory
-   │  ├─ severity.ts                  classifyTool / autoApproves(sev,name,toggle,allowlist)
-   │  ├─ tool-runner.ts               Wraps rpc.runOneStep
-   │  ├─ run-session.ts               LLM tool-use loop (DI: client/runner/approver/rpc); emits SessionEvent
-   │  ├─ tab-tracker.ts               chrome.tabs events → store actions
-   │  ├─ closed-sessions-pruner.ts    setInterval prune
-   │  └─ settings-store.ts            LlmSettings (provider/model/apiKey/endpoint/maxRounds/maxTokens/autoApproveDangerous)
-   ├─ llm/
-   │  ├─ types.ts                     LlmClient interface (streaming events)
-   │  ├─ anthropic.ts / openai.ts     SSE parsers (parseAnthropicStream / parseOpenAiStream are pure, well-tested)
-   │  ├─ client.ts                    pickClient(provider)
-   │  ├─ tool-schema.ts               19 BuiltinTool LlmTool defs + runJS
-   │  ├─ system-prompt.ts             buildSystemPrompt({url,title,savedTools})
-   │  └─ summary-step.ts              One-shot non-streaming gen of a "summary runJS step" for save-as-tool
-   ├─ pages/
-   │  ├─ chat-page.tsx                Default route; full session loop wiring (tabId captured in send() closure)
-   │  ├─ tools-page.tsx               List + per-row export + page import
-   │  ├─ tool-detail-page.tsx         Replay tool; ResultView hoisted above step list; autoRun supported
-   │  ├─ run-page.tsx                 DEV: paste Tool JSON
-   │  └─ settings-page.tsx            LLM + 自动通过策略 + 备份
-   ├─ components/                     Stateless except where needed (chat-view, step-card, etc.)
-   └─ app.tsx                         Routing + tab-tracker mount + pruner
-docs/superpowers/
-├─ specs/      Design docs (one per planning cycle); see specs/README.md for index
-└─ plans/      Implementation plans (numbered Plan 1-5)
-tests/         Unit + integration; mirrors src/ tree
+caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
+├─ packages/
+│  ├─ shared/                         纯函数 + 类型，给后续 coordinator/daemon/server 共享
+│  │  ├─ src/                         types / messages / static-scan / url-pattern / infer-json-schema
+│  │  └─ tests/
+│  └─ extension/                      WebPilot 浏览器扩展（现 19 工具 + sidepanel + LLM agent loop）
+│     ├─ src/
+│     │  ├─ manifest.ts               MV3 manifest (defineManifest)
+│     │  ├─ shared/                   Imports allowed from all three entrypoints
+│     │  │  ├─ types.ts               Tool / Step / RunRecord / SessionData / LlmSettings / ChatMessage / ScanFinding
+│     │  │  ├─ messages.ts            zod RPC schemas (sidepanel <-> bg <-> content)
+│     │  │  ├─ url-pattern.ts         glob → RegExp
+│     │  │  ├─ static-scan.ts         runJS source → severity findings (regex rules)
+│     │  │  └─ infer-json-schema.ts   Minimal JSON Schema inference for save dialog
+│     │  ├─ background/               Service worker
+│     │  │  ├─ index.ts               Wakeup + RPC listener + tab-watcher install
+│     │  │  ├─ rpc-handlers.ts        Dispatch RpcRequest; runOneStep + injectMainWorld
+│     │  │  ├─ http-proxy.ts          Cross-origin fetch (omit/include cookie); fetchAsBase64 for uploadFile
+│     │  │  ├─ tab-watcher.ts         chrome.tabs / webNavigation → set badge + push tabs.recommendations
+│     │  │  └─ storage/{db,tools,runs,export-import}.ts   IndexedDB (DB_NAME = "caiji" — do NOT rename)
+│     │  ├─ content/                  Content script (isolated world)
+│     │  │  ├─ index.ts               chrome.runtime.onMessage → callTool / injectMain
+│     │  │  ├─ runner.ts + ctx.ts     Step Runner with ${var} bindings + timeout
+│     │  │  ├─ inject-main.ts         Bridge to BG.scripting.injectMain
+│     │  │  └─ tools/*.ts             One file per BuiltinTool
+│     │  └─ sidepanel/                React UI (the only user surface)
+│     │     ├─ rpc.ts                 typed wrappers + onTabRecommendations + retry on SW wake
+│     │     ├─ chat/
+│     │     │  ├─ session-store.ts    zustand: sessionsByTab + closedSessions + currentTabId; per-tab actions
+│     │     │  ├─ approval.ts         Per-tab Approver factory
+│     │     │  ├─ severity.ts         classifyTool / autoApproves(sev,name,toggle,allowlist)
+│     │     │  ├─ tool-runner.ts      Wraps rpc.runOneStep
+│     │     │  ├─ run-session.ts      LLM tool-use loop (DI: client/runner/approver/rpc); emits SessionEvent
+│     │     │  ├─ tab-tracker.ts      chrome.tabs events → store actions
+│     │     │  ├─ closed-sessions-pruner.ts   setInterval prune
+│     │     │  └─ settings-store.ts   LlmSettings (provider/model/apiKey/endpoint/maxRounds/maxTokens/autoApproveDangerous)
+│     │     ├─ llm/
+│     │     │  ├─ types.ts            LlmClient interface (streaming events)
+│     │     │  ├─ anthropic.ts / openai.ts    SSE parsers (parseAnthropicStream / parseOpenAiStream are pure, well-tested)
+│     │     │  ├─ client.ts           pickClient(provider)
+│     │     │  ├─ tool-schema.ts      19 BuiltinTool LlmTool defs + runJS
+│     │     │  ├─ system-prompt.ts    buildSystemPrompt({url,title,savedTools})
+│     │     │  └─ summary-step.ts     One-shot non-streaming gen of a "summary runJS step" for save-as-tool
+│     │     ├─ pages/
+│     │     │  ├─ chat-page.tsx       Default route; full session loop wiring (tabId captured in send() closure)
+│     │     │  ├─ tools-page.tsx      List + per-row export + page import
+│     │     │  ├─ tool-detail-page.tsx Replay tool; ResultView hoisted above step list; autoRun supported
+│     │     │  ├─ run-page.tsx        DEV: paste Tool JSON
+│     │     │  └─ settings-page.tsx   LLM + 自动通过策略 + 备份
+│     │     ├─ components/            Stateless except where needed (chat-view, step-card, etc.)
+│     │     └─ app.tsx                Routing + tab-tracker mount + pruner
+│     ├─ tests/                       Unit + integration; mirrors src/ tree
+│     ├─ vite.config.ts               Vite 配置含 @crxjs，build 产物在 packages/extension/dist/
+│     ├─ tsconfig.json
+│     └─ package.json
+└─ docs/superpowers/
+   ├─ specs/                          Design docs (one per planning cycle); see specs/README.md for index
+   └─ plans/                          Implementation plans (numbered Plan 1-5)
 ```
+
+## monorepo 开发常用命令
+
+| 命令 | 作用 |
+|---|---|
+| `pnpm dev` | 跑扩展开发模式（vite + HMR） |
+| `pnpm build` | 产 `packages/extension/dist/` |
+| `pnpm typecheck` | shared + extension 串跑 tsc --noEmit |
+| `pnpm test` | shared + extension 串跑 vitest |
+| `pnpm --filter @webpilot/shared test` | 只跑 shared 包测试 |
+| `pnpm --filter @webpilot/extension test:watch` | 扩展测试 watch 模式 |
 
 ## Workflow conventions
 
@@ -100,7 +120,7 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 
 ## Hard rules
 
-- **IDB DB name is `caiji`** in `background/storage/db.ts`. Do not rename
+- **IDB DB name is `caiji`** in `packages/extension/src/background/storage/db.ts`. Do not rename
   it (would orphan every existing user's saved tools). Internal name and
   product name (WebPilot) are intentionally decoupled.
 - **No new dependencies without asking.** Existing stack covers everything
@@ -111,7 +131,7 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
   in the `send()` closure and pass it to every store action / approver
   lookup. Do NOT read `useStore.getState().currentTabId` inside async
   callbacks — the user may have switched tabs and you'll write to the
-  wrong session. See `chat-page.tsx`'s `stepFromCard` and the
+  wrong session. See `packages/extension/src/sidepanel/pages/chat-page.tsx`'s `stepFromCard` and the
   `tool_use_input_delta` case as the canonical pattern.
 - **Severity gating signature is 4-arg**:
   `autoApproves(severity, toolName, approveAllSafe, dangerousAllowlist)`.
@@ -127,20 +147,20 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 
 ### Add a new BuiltinTool
 
-1. `src/shared/types.ts` — add to `BuiltinTool` union
-2. `src/shared/messages.ts` — add to `StepSchema` enum
-3. `src/content/tools/<tool>.ts` — implement `(args: Json) => Promise<Json>`
-4. `src/content/tools/index.ts` — register in `TOOLS`
-5. `src/sidepanel/llm/tool-schema.ts` — add `LlmTool` def with JSON Schema
-6. `src/sidepanel/chat/severity.ts` — classify in safe / caution / dangerous
-7. `tests/content/tools/<tool>.test.ts` — happy-dom unit tests
-8. `tests/sidepanel/chat/severity.test.ts` — add a classification case
+1. `packages/shared/src/types.ts` — add to `BuiltinTool` union
+2. `packages/shared/src/messages.ts` — add to `StepSchema` enum
+3. `packages/extension/src/content/tools/<tool>.ts` — implement `(args: Json) => Promise<Json>`
+4. `packages/extension/src/content/tools/index.ts` — register in `TOOLS`
+5. `packages/extension/src/sidepanel/llm/tool-schema.ts` — add `LlmTool` def with JSON Schema
+6. `packages/extension/src/sidepanel/chat/severity.ts` — classify in safe / caution / dangerous
+7. `packages/extension/tests/content/tools/<tool>.test.ts` — happy-dom unit tests
+8. `packages/extension/tests/sidepanel/chat/severity.test.ts` — add a classification case
 
 ### Add a new RPC
 
-1. `src/shared/messages.ts` — add to `RpcRequest` discriminatedUnion
-2. `src/background/rpc-handlers.ts` — handle in `dispatch` switch
-3. `src/sidepanel/rpc.ts` — add typed wrapper
+1. `packages/shared/src/messages.ts` — add to `RpcRequest` discriminatedUnion
+2. `packages/extension/src/background/rpc-handlers.ts` — handle in `dispatch` switch
+3. `packages/extension/src/sidepanel/rpc.ts` — add typed wrapper
 
 ### Working with sessions
 
@@ -158,10 +178,10 @@ pnpm install
 pnpm typecheck      # tsc -b --noEmit; CI gate
 pnpm test           # vitest run; full suite
 pnpm test:watch
-pnpm build          # tsc + vite build → dist/
+pnpm build          # tsc + vite build → packages/extension/dist/
 ```
 
-Load `dist/` via `chrome://extensions` (developer mode → load unpacked).
+Load `packages/extension/dist/` via `chrome://extensions` (developer mode → load unpacked).
 After code change: rebuild, then click the reload icon on the extension.
 **Reload an open page if content script seems missing** (the BG-side
 auto-injection retries up to 2s but a hard refresh is faster).
@@ -192,8 +212,8 @@ Read `docs/superpowers/specs/README.md` for the spec index. At a glance:
 
 ## Test-driven changes
 
-Most modules in `src/shared/`, `src/sidepanel/llm/`, `src/sidepanel/chat/`
-have direct unit-test counterparts in `tests/`. When changing one:
+Most modules in `packages/shared/src/`, `packages/extension/src/sidepanel/llm/`, `packages/extension/src/sidepanel/chat/`
+have direct unit-test counterparts in `packages/shared/tests/` and `packages/extension/tests/`. When changing one:
 
 1. Edit the test first to express the new behavior
 2. Run failing
