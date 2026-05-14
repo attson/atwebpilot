@@ -94,6 +94,11 @@ async function dispatch(req: RpcRequest): Promise<Json> {
         req.bindings as Record<string, Json>
       )) as unknown as Json;
     }
+    case "tabs.list":
+    case "tabs.open": {
+      // wired in Tasks 7/8
+      throw new Error(`${req.type}: not implemented yet`);
+    }
     case "http.fetchBinary": {
       return (await fetchAsBase64(req.url)) as unknown as Json;
     }

@@ -55,6 +55,7 @@ export const rpc = {
       type: "runs.runOneStep",
       step: input.step,
       tabId: input.tabId,
+      attachedTabIds: [],
       bindings: input.bindings ?? {}
     }),
   listRuns: (toolId?: string) => call<RunRecord[]>({ type: "runs.list", toolId }),

@@ -168,7 +168,18 @@ export const RpcRequest = z.discriminatedUnion("type", [
     type: z.literal("runs.runOneStep"),
     step: StepSchema,
     tabId: z.number(),
+    attachedTabIds: z.array(z.number()).default([]),
     bindings: z.record(z.unknown()).default({})
+  }),
+
+  z.object({
+    type: z.literal("tabs.list"),
+    windowId: z.number().int().optional()
+  }),
+  z.object({
+    type: z.literal("tabs.open"),
+    url: z.string().url(),
+    active: z.boolean().optional()
   }),
 
   // binary fetch (for uploadFile)
