@@ -22,11 +22,41 @@ export async function refreshRecommendations(tabId: number, url: string): Promis
 }
 
 export function installTabWatcher(): void {
-  chrome.tabs.onUpdated.addListener((tabId, change) => {
-    if (!change.url) return;
-    void refreshRecommendations(tabId, change.url);
+  chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+    if (change.url) void refreshRecommendations(tabId, change.url);
+    if (change.status === "complete" && (change.url || tab.url)) {
+      void broadcast({
+        type: "tabs.urlChanged",
+        tabId,
+        newUrl: change.url ?? tab.url ?? "",
+        newTitle: tab.title ?? ""
+      });
+    }
   });
   chrome.webNavigation.onHistoryStateUpdated.addListener(({ tabId, url }) => {
     void refreshRecommendations(tabId, url);
+    void broadcast({ type: "tabs.urlChanged", tabId, newUrl: url, newTitle: "" });
   });
+  chrome.tabs.onCreated.addListener((tab) => {
+    if (tab.id == null) return;
+    void broadcast({
+      type: "tabs.spawned",
+      tabId: tab.id,
+      openerTabId: tab.openerTabId ?? null,
+      windowId: tab.windowId,
+      url: tab.url ?? "",
+      title: tab.title ?? ""
+    });
+  });
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    void broadcast({ type: "tabs.removed", tabId });
+  });
+}
+
+async function broadcast(msg: unknown): Promise<void> {
+  try {
+    await chrome.runtime.sendMessage(msg);
+  } catch {
+    // sidepanel 不在听就 swallow
+  }
 }
