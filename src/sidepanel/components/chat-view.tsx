@@ -7,7 +7,11 @@ import { autoApproves, classifyTool } from "../chat/severity";
 import { AssistantBubble } from "./assistant-bubble";
 
 type Props = {
-  onApprove: (id: string, decision: "run" | "skip" | "deny") => void;
+  onApprove: (
+    id: string,
+    decision: "run" | "run-and-always-allow" | "skip" | "deny",
+    toolName?: string
+  ) => void;
 };
 
 export function ChatView({ onApprove }: Props) {

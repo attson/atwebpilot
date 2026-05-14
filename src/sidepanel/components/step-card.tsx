@@ -6,7 +6,11 @@ import { StaticScanBadge } from "./static-scan-badge";
 
 type Props = {
   card: StepCardState;
-  onApprove: (id: string, decision: "run" | "skip" | "deny") => void;
+  onApprove: (
+    id: string,
+    decision: "run" | "run-and-always-allow" | "skip" | "deny",
+    toolName?: string
+  ) => void;
   needsManualApproval: boolean;
 };
 
@@ -53,6 +57,16 @@ export function StepCard({ card, onApprove, needsManualApproval }: Props) {
           >
             ✓ 通过
           </button>
+          {card.name === "attachTab" && (
+            <button
+              onClick={() =>
+                onApprove(card.toolUseId, "run-and-always-allow", card.name)
+              }
+              className="px-2 py-0.5 bg-emerald-800 rounded"
+            >
+              ✓ 允许并始终通过
+            </button>
+          )}
           <button
             onClick={() => onApprove(card.toolUseId, "skip")}
             className="px-2 py-0.5 bg-zinc-700 rounded"

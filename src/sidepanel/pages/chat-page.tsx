@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getGlobalApprover } from "../chat/approval";
+import { getGlobalApprover, type Decision } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
 import {
   attachTab,
@@ -90,13 +90,27 @@ export function ChatPage({
   }, []);
 
   const handleApprove = useCallback(
-    (id: string, decision: "run" | "skip" | "deny") => {
-      approver.resolve(id, { kind: decision });
+    (
+      id: string,
+      decision: "run" | "run-and-always-allow" | "skip" | "deny",
+      toolName?: string
+    ) => {
+      if (decision === "run-and-always-allow" && toolName) {
+        void settings.save({
+          autoApproveDangerous: Array.from(
+            new Set([...(settings.autoApproveDangerous ?? []), toolName])
+          )
+        });
+        approver.resolve(id, { kind: "run-and-always-allow", toolName });
+        session.setCardStatus(id, { status: "running" });
+        return;
+      }
+      approver.resolve(id, { kind: decision } as Decision);
       session.setCardStatus(id, {
         status: decision === "run" ? "running" : decision === "skip" ? "skipped" : "denied"
       });
     },
-    [session, approver]
+    [session, approver, settings]
   );
 
   const clearChat = useCallback(() => {

@@ -1,4 +1,8 @@
-export type Decision = { kind: "run" } | { kind: "skip" } | { kind: "deny" };
+export type Decision =
+  | { kind: "run" }
+  | { kind: "run-and-always-allow"; toolName: string }
+  | { kind: "skip" }
+  | { kind: "deny" };
 
 export class Approver {
   private pending = new Map<string, (d: Decision) => void>();

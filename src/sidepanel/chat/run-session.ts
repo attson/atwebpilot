@@ -10,7 +10,7 @@ import type {
 } from "@/shared/types";
 import type { LlmClient, LlmTool } from "@/sidepanel/llm/types";
 import type { ToolRunner } from "./tool-runner";
-import { Approver } from "./approval";
+import { Approver, type Decision } from "./approval";
 import { autoApproves, classifyTool } from "./severity";
 
 export type SessionRpc = {
@@ -222,7 +222,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
     const results: ToolResultPart[] = [];
     for (const tu of completedToolUses) {
       const sev = classifyTool(tu.name, tu.input);
-      let decision: { kind: "run" | "skip" | "deny" };
+      let decision: Decision;
       if (autoApproves(sev, tu.name, args.approveAllSafe, args.settings.autoApproveDangerous)) {
         decision = { kind: "run" };
       } else {
