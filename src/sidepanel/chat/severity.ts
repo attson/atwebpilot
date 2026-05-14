@@ -59,8 +59,9 @@ export function autoApproves(
   dangerousAllowlist: string[]
 ): boolean {
   if (severity === "safe") return true;
+  if (dangerousAllowlist.includes(toolName)) return true;
   if (severity === "caution") return approveAllSafe;
-  if (severity === "dangerous") return dangerousAllowlist.includes(toolName);
+  if (severity === "dangerous") return false;
   return false;
 }
 
