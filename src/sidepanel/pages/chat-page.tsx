@@ -23,6 +23,8 @@ import { LogsDrawer } from "../components/logs-drawer";
 import { RecommendationsBanner } from "../components/recommendations-banner";
 import { SaveAsToolDialog } from "../components/save-as-tool-dialog";
 import { StatusBar } from "../components/status-bar";
+import { TabChipsBar } from "../components/tab-chips-bar";
+import { TabPicker } from "../components/tab-picker";
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "../rpc";
 import type { BuiltinTool, Json, Step, Tool } from "@/shared/types";
 
@@ -48,6 +50,7 @@ export function ChatPage({
   const currentTabId = useCurrentTabId();
   const [input, setInput] = useState(initialPrompt ?? session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const approver = getGlobalApprover();
   const autoSentRef = useRef(false);
 
@@ -336,6 +339,13 @@ export function ChatPage({
         }}
         onRunPromptTool={onRunPromptTool ?? (() => undefined)}
       />
+      <TabChipsBar
+        attachedTabs={session.attachedTabs}
+        onDetach={(id) => {
+          if (currentTabId != null) detachTab(currentTabId, id);
+        }}
+        onPick={() => setPickerOpen(true)}
+      />
       <StatusBar
         status={session.status}
         roundCount={session.roundCount}
@@ -428,8 +438,12 @@ export function ChatPage({
         <textarea
           value={input}
           onChange={(e) => {
-            setInput(e.target.value);
-            session.setInputDraft(e.target.value);
+            const v = e.target.value;
+            setInput(v);
+            session.setInputDraft(v);
+            if (v.endsWith("@")) {
+              setPickerOpen(true);
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -460,6 +474,29 @@ export function ChatPage({
           </button>
         </div>
       </div>
+      {pickerOpen && currentTabId != null && (
+        <TabPicker
+          listTabs={(wid) => rpc.listTabs(wid)}
+          attachedIds={session.attachedTabs.map((a) => a.tabId)}
+          currentTabId={currentTabId}
+          onSelect={(t) => {
+            attachTab(currentTabId, {
+              tabId: t.tabId,
+              windowId: t.windowId,
+              source: "mention",
+              lastSeenUrl: t.url,
+              lastSeenTitle: t.title
+            });
+            if (input.endsWith("@")) {
+              const stripped = input.slice(0, -1);
+              setInput(stripped);
+              session.setInputDraft(stripped);
+            }
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
       {session.showSaveDialog && (
         <SaveAsToolDialog
           initialName={
