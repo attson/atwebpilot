@@ -92,3 +92,39 @@ describe("tabs.list", () => {
     }
   });
 });
+
+describe("tabs.open", () => {
+  it("creates a tab via chrome.tabs.create and returns {tabId, url, title}", async () => {
+    const created: unknown[] = [];
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(),
+        create: vi.fn(async (info: chrome.tabs.CreateProperties) => {
+          created.push(info);
+          return { id: 42, windowId: 1, url: info.url ?? "", title: "" };
+        })
+      }
+    });
+    const res = await handleRpc({ type: "tabs.open", url: "https://x.com" });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      const d = res.data as { tabId: number; url: string };
+      expect(d.tabId).toBe(42);
+      expect(d.url).toBe("https://x.com");
+    }
+    expect(created).toHaveLength(1);
+  });
+
+  it("rejects chrome:// URLs", async () => {
+    // Note: zod's z.string().url() accepts "chrome://flags" as a valid URL,
+    // so this passes parse and reaches the handler. The handler then
+    // rejects via isAccessibleUrl.
+    vi.stubGlobal("chrome", {
+      tabs: { get: vi.fn(), sendMessage: vi.fn(), create: vi.fn() }
+    });
+    const res = await handleRpc({ type: "tabs.open", url: "chrome://flags" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/scheme/i);
+  });
+});

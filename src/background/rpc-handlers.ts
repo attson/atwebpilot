@@ -97,8 +97,7 @@ async function dispatch(req: RpcRequest): Promise<Json> {
     case "tabs.list":
       return (await listTabsRpc(req.windowId)) as unknown as Json;
     case "tabs.open":
-      // wired in Task 8
-      throw new Error(`${req.type}: not implemented yet`);
+      return (await openTabRpc(req.url, req.active ?? false)) as unknown as Json;
     case "http.fetchBinary": {
       return (await fetchAsBase64(req.url)) as unknown as Json;
     }
@@ -305,6 +304,15 @@ async function listTabsRpc(windowId?: number): Promise<{
       title: t.title ?? ""
     }));
   return { tabs };
+}
+
+async function openTabRpc(url: string, active: boolean): Promise<{
+  tabId: number; url: string; title: string;
+}> {
+  if (!isAccessibleUrl(url)) throw new Error("openTab: URL scheme not allowed");
+  const tab = await chrome.tabs.create({ url, active });
+  if (tab.id == null) throw new Error("openTab: chrome did not return a tab id");
+  return { tabId: tab.id, url: tab.url ?? url, title: tab.title ?? "" };
 }
 
 function isAccessibleUrl(url: string): boolean {
