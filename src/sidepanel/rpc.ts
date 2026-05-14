@@ -120,3 +120,20 @@ export function onTabRecommendations(
   chrome.runtime.onMessage.addListener(listener);
   return () => chrome.runtime.onMessage.removeListener(listener);
 }
+
+export type TabEvent =
+  | { type: "tabs.spawned"; tabId: number; openerTabId: number | null; windowId: number; url: string; title: string }
+  | { type: "tabs.urlChanged"; tabId: number; newUrl: string; newTitle: string }
+  | { type: "tabs.removed"; tabId: number };
+
+export function onTabEvents(cb: (ev: TabEvent) => void): () => void {
+  const listener = (msg: unknown) => {
+    if (typeof msg !== "object" || msg === null) return;
+    const t = (msg as { type?: string }).type;
+    if (t === "tabs.spawned" || t === "tabs.urlChanged" || t === "tabs.removed") {
+      cb(msg as TabEvent);
+    }
+  };
+  chrome.runtime.onMessage.addListener(listener);
+  return () => chrome.runtime.onMessage.removeListener(listener);
+}
