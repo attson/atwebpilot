@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatMessage, Json, Step, ToolUsePart } from "@/shared/types";
+import type { AttachedTab, ChatMessage, Json, Step, ToolUsePart } from "@/shared/types";
 
 export type StepCardState = {
   toolUseId: string;
@@ -55,6 +55,7 @@ export type SessionData = {
   logsOpen: boolean;
 
   inputDraft: string;
+  attachedTabs: AttachedTab[];
 };
 
 export type ClosedSession = {
@@ -83,7 +84,8 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     abortController: null,
     logs: [],
     logsOpen: false,
-    inputDraft: ""
+    inputDraft: "",
+    attachedTabs: []
   };
 }
 

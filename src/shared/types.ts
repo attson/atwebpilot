@@ -170,3 +170,15 @@ export type LlmSettings = {
   /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
   maxTokens?: number;
 };
+
+export type AttachedTabSource = "mention" | "ai-open" | "approval";
+
+export type AttachedTab = {
+  tabId: number;
+  windowId: number;
+  source: AttachedTabSource;
+  addedAt: number;
+  lastSeenUrl: string;
+  lastSeenTitle: string;
+  urlChanged?: boolean;
+};

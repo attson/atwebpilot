@@ -21,6 +21,12 @@ function reset() {
 describe("session-store per-tab", () => {
   beforeEach(reset);
 
+  it("makeEmptySession seeds an empty attachedTabs list", () => {
+    ensureSession(7, "https://x.com");
+    const s = getSessionFor(7);
+    expect(s.attachedTabs).toEqual([]);
+  });
+
   it("ensureSession creates empty SessionData and is idempotent", () => {
     ensureSession(7, "https://x.com");
     const s = getSessionFor(7);
