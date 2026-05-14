@@ -1,5 +1,6 @@
 import { runStaticScan } from "@/shared/static-scan";
 import type { ScanFinding } from "@/shared/types";
+import { useSession } from "../chat/session-store";
 import type { StepCardState } from "../chat/session-store";
 import { classifyTool } from "../chat/severity";
 import { StaticScanBadge } from "./static-scan-badge";
@@ -16,6 +17,9 @@ type Props = {
 
 export function StepCard({ card, onApprove, needsManualApproval }: Props) {
   const severity = classifyTool(card.name, card.input);
+  const session = useSession();
+  const argTab = (card.input as { tabId?: number } | null | undefined)?.tabId;
+  const showCrossTab = typeof argTab === "number" && argTab !== session.tabId;
   const findings: ScanFinding[] =
     card.name === "runJS" && typeof (card.input as { source?: string })?.source === "string"
       ? runStaticScan((card.input as { source: string }).source)
@@ -33,6 +37,9 @@ export function StepCard({ card, onApprove, needsManualApproval }: Props) {
       <div className="flex items-center gap-2">
         <span className="text-zinc-400">tool:</span>
         <span className="font-medium">{card.name}</span>
+        {showCrossTab && (
+          <span className="text-blue-400 text-[10px]">→ Tab #{argTab}</span>
+        )}
         <SeverityPill severity={severity} />
         <CardStatus card={card} />
       </div>
