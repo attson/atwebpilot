@@ -84,3 +84,15 @@ describe("autoApproves", () => {
     expect(autoApproves("caution", "fillInput", false, ["fillInput"])).toBe(false);
   });
 });
+
+describe("control-plane tools", () => {
+  it("listTabs / openTab / attachTab are caution", () => {
+    expect(classifyTool("listTabs", {})).toBe("caution");
+    expect(classifyTool("openTab", { url: "https://x" })).toBe("caution");
+    expect(classifyTool("attachTab", { tabId: 1 })).toBe("caution");
+  });
+
+  it("detachTab is safe", () => {
+    expect(classifyTool("detachTab", { tabId: 1 })).toBe("safe");
+  });
+});

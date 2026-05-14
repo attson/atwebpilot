@@ -14,14 +14,18 @@ const SAFE = new Set([
   "hover",
   "focus",
   "getValue",
-  "extractFormState"
+  "extractFormState",
+  "detachTab"
 ]);
 
 const CAUTION = new Set([
   "click",
   "fillInput",
   "setCheckbox",
-  "selectOption"
+  "selectOption",
+  "listTabs",
+  "openTab",
+  "attachTab"
 ]);
 
 const DANGEROUS_FIXED = new Set([
