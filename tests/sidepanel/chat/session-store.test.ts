@@ -15,7 +15,8 @@ import {
   setCurrentTab,
   setInputDraft,
   setUrl,
-  useStore
+  useStore,
+  validateAttachedTabs
 } from "@/sidepanel/chat/session-store";
 
 function reset() {
@@ -204,5 +205,25 @@ describe("attachedTabs actions", () => {
     removeAttachedTab(167);
     expect(getSessionFor(7).attachedTabs).toEqual([]);
     expect(getSessionFor(8).attachedTabs).toEqual([]);
+  });
+});
+
+describe("validateAttachedTabs", () => {
+  beforeEach(reset);
+  it("removes attached tabs not in known set", () => {
+    ensureSession(7, "https://x");
+    attachTab(7, { tabId: 100, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t" });
+    attachTab(7, { tabId: 200, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t" });
+    validateAttachedTabs(new Set([100]));
+    expect(getSessionFor(7).attachedTabs.map((a) => a.tabId)).toEqual([100]);
+  });
+
+  it("is a no-op when nothing changes", () => {
+    ensureSession(7, "https://x");
+    attachTab(7, { tabId: 100, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t" });
+    const before = getSessionFor(7);
+    validateAttachedTabs(new Set([100]));
+    const after = getSessionFor(7);
+    expect(after).toBe(before);
   });
 });

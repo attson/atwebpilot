@@ -458,6 +458,21 @@ export function removeAttachedTab(attachedTabId: number): void {
   });
 }
 
+export function validateAttachedTabs(knownTabIds: Set<number>): void {
+  useStore.setState((state) => {
+    let mutated = false;
+    const sessionsByTab: Record<number, SessionData> = { ...state.sessionsByTab };
+    for (const [k, s] of Object.entries(state.sessionsByTab)) {
+      const next = s.attachedTabs.filter((a) => knownTabIds.has(a.tabId));
+      if (next.length !== s.attachedTabs.length) {
+        sessionsByTab[Number(k)] = { ...s, attachedTabs: next };
+        mutated = true;
+      }
+    }
+    return mutated ? { ...state, sessionsByTab } : state;
+  });
+}
+
 // === selectors ===
 
 export function getSessionFor(tabId: number): SessionData {
