@@ -25,6 +25,11 @@ const ITEMS: Array<{ name: string; label: string; description: string }> = [
     name: "runJS",
     label: "runJS(扫描命中)",
     description: "含 cookie/eval/storage 的脚本（任何 dangerous 级别 runJS）"
+  },
+  {
+    name: "attachTab",
+    label: "始终允许 AI 跨 tab 访问 (attachTab)",
+    description: "AI 调用 attachTab 不再每次弹审批；@ 选中和 AI 自开新 tab 不受此项影响"
   }
 ];
 
