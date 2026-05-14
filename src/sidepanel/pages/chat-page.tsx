@@ -2,12 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getGlobalApprover } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
 import {
+  attachTab,
+  detachTab,
   ensureSession,
+  getSessionFor,
   setCurrentTab,
   useCurrentTabId,
   useSession,
   useStore
 } from "../chat/session-store";
+import { handleTabEvent } from "../chat/cross-tab-events";
 import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
 import { TOOL_DEFS } from "../llm/tool-schema";
@@ -19,7 +23,7 @@ import { LogsDrawer } from "../components/logs-drawer";
 import { RecommendationsBanner } from "../components/recommendations-banner";
 import { SaveAsToolDialog } from "../components/save-as-tool-dialog";
 import { StatusBar } from "../components/status-bar";
-import { currentTabInfo, onTabRecommendations, rpc } from "../rpc";
+import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "../rpc";
 import type { BuiltinTool, Json, Step, Tool } from "@/shared/types";
 
 type ChatPageProps = {
@@ -76,9 +80,11 @@ export function ChatPage({
         })
         .catch(() => {});
     });
+    const offEvents = onTabEvents(handleTabEvent);
     return () => {
       active = false;
       off();
+      offEvents();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -107,6 +113,9 @@ export function ChatPage({
         return;
       }
       const { tabId, url } = await currentTabInfo();
+      const session0 = getSessionFor(tabId);
+      const attachedTabs = session0.attachedTabs;
+      const attachedTabIds = attachedTabs.map((a) => a.tabId);
       session.setIdentity({ tabId, url, runRecordId: "" });
       session.setError(null);
       session.setStatus("streaming");
@@ -244,13 +253,42 @@ export function ChatPage({
               name: t.name,
               description: t.description ?? "",
               version: t.versions.at(-1)?.version ?? 1
-            }))
+            })),
+            attachedTabs
           }),
           tools: TOOL_DEFS,
           approveAllSafe: session.approveAllSafe,
           abortSignal: ac.signal,
           onEvent,
-          initialMessages: initialContext ? [{ role: "user", content: initialContext }] : undefined
+          initialMessages: initialContext ? [{ role: "user", content: initialContext }] : undefined,
+          attachedTabIds,
+          tabsRpc: { listTabs: rpc.listTabs, openTab: rpc.openTab },
+          onCrossTabResult: (r) => {
+            if (r.kind === "opened") {
+              attachTab(tabId, {
+                tabId: r.tabId,
+                windowId: r.windowId ?? -1,
+                source: "ai-open",
+                lastSeenUrl: r.url ?? "",
+                lastSeenTitle: r.title ?? ""
+              });
+            } else if (r.kind === "attached") {
+              chrome.tabs
+                .get(r.tabId)
+                .then((t) =>
+                  attachTab(tabId, {
+                    tabId: r.tabId,
+                    windowId: t.windowId,
+                    source: "approval",
+                    lastSeenUrl: t.url ?? "",
+                    lastSeenTitle: t.title ?? ""
+                  })
+                )
+                .catch(() => {});
+            } else if (r.kind === "detached") {
+              detachTab(tabId, r.tabId);
+            }
+          }
         });
       } catch (e) {
         session.setError(e instanceof Error ? e.message : String(e));
