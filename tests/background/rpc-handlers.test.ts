@@ -128,3 +128,57 @@ describe("tabs.open", () => {
     if (!res.ok) expect(res.error).toMatch(/scheme/i);
   });
 });
+
+describe("runs.runOneStep tabId gate", () => {
+  it("rejects tabId not in attachedTabIds and not equal to RPC.tabId", async () => {
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "snapshotDOM", args: { tabId: 999 } },
+      tabId: 1,
+      attachedTabIds: [2, 3]
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/tab 999 not attached/);
+  });
+
+  it("accepts args.tabId in attachedTabIds (dispatches to that tab)", async () => {
+    const sends: Array<{ tabId: number }> = [];
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(async (tabId: number) => {
+          sends.push({ tabId });
+          return { ok: true, data: null };
+        })
+      }
+    });
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "snapshotDOM", args: { tabId: 2 } },
+      tabId: 1,
+      attachedTabIds: [2, 3]
+    });
+    expect(res.ok).toBe(true);
+    expect(sends[0].tabId).toBe(2);
+  });
+
+  it("kind=js never uses args.tabId; always RPC.tabId", async () => {
+    const sends: Array<{ tabId: number }> = [];
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(async (tabId: number) => {
+          sends.push({ tabId });
+          return { ok: true, data: null };
+        })
+      }
+    });
+    await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "js", source: "return 1" },
+      tabId: 1,
+      attachedTabIds: [2]
+    });
+    expect(sends[0].tabId).toBe(1);
+  });
+});

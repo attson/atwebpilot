@@ -91,6 +91,7 @@ async function dispatch(req: RpcRequest): Promise<Json> {
       return (await runOneStep(
         req.step as Step,
         req.tabId,
+        req.attachedTabIds,
         req.bindings as Record<string, Json>
       )) as unknown as Json;
     }
@@ -106,9 +107,20 @@ async function dispatch(req: RpcRequest): Promise<Json> {
 
 async function runOneStep(
   step: Step,
-  tabId: number,
+  rpcTabId: number,
+  attachedTabIds: number[],
   bindings: Record<string, Json>
 ): Promise<Json> {
+  let targetTabId = rpcTabId;
+  if (step.kind === "tool") {
+    const argsObj = (step.args ?? {}) as Record<string, Json>;
+    const declared = argsObj.tabId;
+    if (typeof declared === "number") targetTabId = declared;
+  }
+  if (targetTabId !== rpcTabId && !attachedTabIds.includes(targetTabId)) {
+    throw new Error(`tab ${targetTabId} not attached; call attachTab first or omit tabId`);
+  }
+
   const stepReq = ContentRequestSchema.parse({
     type: "content.runStep",
     step,
@@ -116,19 +128,19 @@ async function runOneStep(
   });
   let res: { ok: true; data: Json } | { ok: false; error: string };
   try {
-    res = (await chrome.tabs.sendMessage(tabId, stepReq)) as typeof res;
+    res = (await chrome.tabs.sendMessage(targetTabId, stepReq)) as typeof res;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (!isReceiverMissing(msg)) throw e;
     // content script 还没在该 tab 上加载——尝试动态注入
-    const injected = await injectContentScript(tabId);
+    const injected = await injectContentScript(targetTabId);
     if (!injected) {
       throw new Error(
         "Content script 无法注入到此页面（可能是 chrome:// 或受限页面）。请在普通网页上重试。"
       );
     }
     // 注入完成后 listener 注册可能还需要几百 ms（@crxjs ESM loader 异步）
-    res = await retryUntilReady(tabId, stepReq);
+    res = await retryUntilReady(targetTabId, stepReq);
   }
   if (!res.ok) throw new Error(res.error);
   return res.data;
