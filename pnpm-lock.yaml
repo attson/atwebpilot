@@ -6,11 +6,13 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  packages/extension:
     dependencies:
       '@webpilot/shared':
         specifier: workspace:*
-        version: link:packages/shared
+        version: link:../shared
       idb:
         specifier: ^8.0.0
         version: 8.0.3
