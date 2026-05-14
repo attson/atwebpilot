@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   appendUserMessage,
+  attachTab,
   closeTab,
+  detachTab,
   ensureSession,
   getSessionFor,
+  markAttachedUrlChanged,
   pruneClosed,
+  removeAttachedTab,
   resetSession,
   restoreClosed,
   setAbortController,
@@ -139,5 +143,66 @@ describe("session-store per-tab", () => {
     expect(s.messages).toHaveLength(0);
     expect(s.url).toBe("u");
     expect(s.status).toBe("idle");
+  });
+});
+
+describe("attachedTabs actions", () => {
+  beforeEach(reset);
+
+  it("attachTab adds a tab with given source and metadata", () => {
+    ensureSession(7, "https://main");
+    attachTab(7, {
+      tabId: 167,
+      windowId: 1,
+      source: "mention",
+      lastSeenUrl: "https://taobao",
+      lastSeenTitle: "TB"
+    });
+    const a = getSessionFor(7).attachedTabs;
+    expect(a).toHaveLength(1);
+    expect(a[0]).toMatchObject({
+      tabId: 167,
+      source: "mention",
+      lastSeenUrl: "https://taobao",
+      lastSeenTitle: "TB"
+    });
+    expect(typeof a[0].addedAt).toBe("number");
+  });
+
+  it("attachTab on same tabId keeps first source", () => {
+    ensureSession(7, "https://main");
+    attachTab(7, { tabId: 167, windowId: 1, source: "mention", lastSeenUrl: "u1", lastSeenTitle: "t1" });
+    attachTab(7, { tabId: 167, windowId: 1, source: "ai-open", lastSeenUrl: "u2", lastSeenTitle: "t2" });
+    const a = getSessionFor(7).attachedTabs;
+    expect(a).toHaveLength(1);
+    expect(a[0].source).toBe("mention");
+    expect(a[0].lastSeenUrl).toBe("u1");
+  });
+
+  it("detachTab removes by tabId", () => {
+    ensureSession(7, "https://main");
+    attachTab(7, { tabId: 167, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t" });
+    detachTab(7, 167);
+    expect(getSessionFor(7).attachedTabs).toEqual([]);
+  });
+
+  it("markAttachedUrlChanged sets urlChanged and updates lastSeenUrl/Title", () => {
+    ensureSession(7, "https://main");
+    attachTab(7, { tabId: 167, windowId: 1, source: "mention", lastSeenUrl: "u1", lastSeenTitle: "t1" });
+    markAttachedUrlChanged(7, 167, "u2", "t2");
+    const a = getSessionFor(7).attachedTabs[0];
+    expect(a.urlChanged).toBe(true);
+    expect(a.lastSeenUrl).toBe("u2");
+    expect(a.lastSeenTitle).toBe("t2");
+  });
+
+  it("removeAttachedTab affects every session that holds it", () => {
+    ensureSession(7, "https://a");
+    ensureSession(8, "https://b");
+    attachTab(7, { tabId: 167, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t" });
+    attachTab(8, { tabId: 167, windowId: 1, source: "approval", lastSeenUrl: "u", lastSeenTitle: "t" });
+    removeAttachedTab(167);
+    expect(getSessionFor(7).attachedTabs).toEqual([]);
+    expect(getSessionFor(8).attachedTabs).toEqual([]);
   });
 });

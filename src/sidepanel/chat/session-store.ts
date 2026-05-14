@@ -402,6 +402,62 @@ export function pruneClosed(now: number): void {
   });
 }
 
+// === attachedTabs actions ===
+
+export function attachTab(
+  tabId: number,
+  attached: Omit<AttachedTab, "addedAt" | "urlChanged">
+): void {
+  patchSession(tabId, (s) => {
+    if (s.attachedTabs.some((a) => a.tabId === attached.tabId)) return s;
+    return {
+      ...s,
+      attachedTabs: [
+        ...s.attachedTabs,
+        { ...attached, addedAt: Date.now() }
+      ]
+    };
+  });
+}
+
+export function detachTab(tabId: number, attachedTabId: number): void {
+  patchSession(tabId, (s) => {
+    const next = s.attachedTabs.filter((a) => a.tabId !== attachedTabId);
+    if (next.length === s.attachedTabs.length) return s;
+    return { ...s, attachedTabs: next };
+  });
+}
+
+export function markAttachedUrlChanged(
+  sessionTabId: number,
+  attachedTabId: number,
+  newUrl: string,
+  newTitle: string
+): void {
+  patchSession(sessionTabId, (s) => {
+    const idx = s.attachedTabs.findIndex((a) => a.tabId === attachedTabId);
+    if (idx === -1) return s;
+    const next = s.attachedTabs.slice();
+    next[idx] = { ...next[idx], lastSeenUrl: newUrl, lastSeenTitle: newTitle, urlChanged: true };
+    return { ...s, attachedTabs: next };
+  });
+}
+
+export function removeAttachedTab(attachedTabId: number): void {
+  useStore.setState((state) => {
+    let mutated = false;
+    const sessionsByTab: Record<number, SessionData> = { ...state.sessionsByTab };
+    for (const [k, s] of Object.entries(state.sessionsByTab)) {
+      const next = s.attachedTabs.filter((a) => a.tabId !== attachedTabId);
+      if (next.length !== s.attachedTabs.length) {
+        sessionsByTab[Number(k)] = { ...s, attachedTabs: next };
+        mutated = true;
+      }
+    }
+    return mutated ? { ...state, sessionsByTab } : state;
+  });
+}
+
 // === selectors ===
 
 export function getSessionFor(tabId: number): SessionData {
