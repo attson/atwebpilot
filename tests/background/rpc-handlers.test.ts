@@ -48,3 +48,47 @@ describe("rpc handlers tool kinds", () => {
     if (!res.ok) expect(res.error).toContain("prompt tools run in chat");
   });
 });
+
+describe("tabs.list", () => {
+  it("returns tabs across windows, excluding chrome:// and incognito", async () => {
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(),
+        query: vi.fn(async () => [
+          { id: 1, windowId: 10, url: "https://a.com/x", title: "A", incognito: false },
+          { id: 2, windowId: 10, url: "chrome://flags", title: "F", incognito: false },
+          { id: 3, windowId: 11, url: "https://b.com",  title: "B", incognito: true },
+          { id: 4, windowId: 11, url: "about:blank",    title: "",  incognito: false },
+          { id: 5, windowId: 11, url: "https://c.com",  title: "C", incognito: false }
+        ])
+      }
+    });
+    const res = await handleRpc({ type: "tabs.list" });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      const ids = (res.data as { tabs: Array<{ tabId: number }> }).tabs.map((t) => t.tabId);
+      expect(ids.sort()).toEqual([1, 5]);
+    }
+  });
+
+  it("filters by windowId when provided", async () => {
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(),
+        query: vi.fn(async (q: chrome.tabs.QueryInfo) => {
+          const all = [
+            { id: 1, windowId: 10, url: "https://a.com", title: "A", incognito: false },
+            { id: 2, windowId: 11, url: "https://b.com", title: "B", incognito: false }
+          ];
+          return q.windowId == null ? all : all.filter((t) => t.windowId === q.windowId);
+        })
+      }
+    });
+    const res = await handleRpc({ type: "tabs.list", windowId: 11 });
+    if (res.ok) {
+      expect((res.data as { tabs: Array<{ tabId: number }> }).tabs.map((t) => t.tabId)).toEqual([2]);
+    }
+  });
+});

@@ -95,10 +95,10 @@ async function dispatch(req: RpcRequest): Promise<Json> {
       )) as unknown as Json;
     }
     case "tabs.list":
-    case "tabs.open": {
-      // wired in Tasks 7/8
+      return (await listTabsRpc(req.windowId)) as unknown as Json;
+    case "tabs.open":
+      // wired in Task 8
       throw new Error(`${req.type}: not implemented yet`);
-    }
     case "http.fetchBinary": {
       return (await fetchAsBase64(req.url)) as unknown as Json;
     }
@@ -289,4 +289,25 @@ async function injectMainWorld(tabId: number, source: string, args: Json): Promi
     throw new Error(`runJS error: ${wrapped.error ?? "(unknown)"}`);
   }
   return (result ?? null) as Json;
+}
+
+async function listTabsRpc(windowId?: number): Promise<{
+  tabs: Array<{ tabId: number; windowId: number; url: string; title: string }>;
+}> {
+  const query: chrome.tabs.QueryInfo = windowId == null ? {} : { windowId };
+  const all = await chrome.tabs.query(query);
+  const tabs = all
+    .filter((t) => t.id != null && !t.incognito && isAccessibleUrl(t.url ?? ""))
+    .map((t) => ({
+      tabId: t.id as number,
+      windowId: t.windowId,
+      url: t.url ?? "",
+      title: t.title ?? ""
+    }));
+  return { tabs };
+}
+
+function isAccessibleUrl(url: string): boolean {
+  if (!url) return false;
+  return /^https?:|^file:|^ftp:/.test(url);
 }
