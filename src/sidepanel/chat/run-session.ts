@@ -32,6 +32,13 @@ export type SessionRpc = {
   ) => Promise<unknown>;
 };
 
+export type CrossTabRpc = {
+  listTabs: (
+    windowId?: number
+  ) => Promise<{ tabs: Array<{ tabId: number; windowId: number; url: string; title: string }> }>;
+  openTab: (url: string, active?: boolean) => Promise<{ tabId: number; url: string; title: string }>;
+};
+
 export type RunSessionInput = {
   userPrompt: string;
   tabId: number;
@@ -67,6 +74,15 @@ export type RunSessionArgs = {
   abortSignal?: AbortSignal;
   onEvent?: (e: SessionEvent) => void;
   initialMessages?: ChatMessage[];
+  attachedTabIds?: number[];
+  tabsRpc?: CrossTabRpc;
+  onCrossTabResult?: (result: {
+    kind: "attached" | "detached" | "opened";
+    tabId: number;
+    url?: string;
+    title?: string;
+    windowId?: number;
+  }) => void;
 };
 
 export type RunSessionResult = {
@@ -229,6 +245,88 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       }
 
       args.onEvent?.({ type: "tool_running", id: tu.id });
+
+      if (
+        tu.name === "listTabs" ||
+        tu.name === "openTab" ||
+        tu.name === "attachTab" ||
+        tu.name === "detachTab"
+      ) {
+        const start = Date.now();
+        try {
+          let out: Json;
+          switch (tu.name) {
+            case "listTabs": {
+              if (!args.tabsRpc) throw new Error("listTabs: tabsRpc not provided");
+              const r = await args.tabsRpc.listTabs(
+                (tu.input as { windowId?: number }).windowId
+              );
+              out = r as unknown as Json;
+              break;
+            }
+            case "openTab": {
+              if (!args.tabsRpc) throw new Error("openTab: tabsRpc not provided");
+              const r = await args.tabsRpc.openTab(
+                (tu.input as { url: string }).url,
+                (tu.input as { active?: boolean }).active
+              );
+              out = r as unknown as Json;
+              args.onCrossTabResult?.({
+                kind: "opened",
+                tabId: r.tabId,
+                url: r.url,
+                title: r.title
+              });
+              break;
+            }
+            case "attachTab": {
+              const tabId = (tu.input as { tabId: number }).tabId;
+              out = { ok: true, tabId } as unknown as Json;
+              args.onCrossTabResult?.({ kind: "attached", tabId });
+              break;
+            }
+            case "detachTab": {
+              const tabId = (tu.input as { tabId: number }).tabId;
+              out = { ok: true, tabId } as unknown as Json;
+              args.onCrossTabResult?.({ kind: "detached", tabId });
+              break;
+            }
+          }
+          const ms = Date.now() - start;
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: out,
+            ms
+          });
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: JSON.stringify(out)
+          });
+          lastOutput = out;
+          args.onEvent?.({ type: "tool_done", id: tu.id, output: out, ms });
+        } catch (e) {
+          const ms = Date.now() - start;
+          const errStr = e instanceof Error ? e.message : String(e);
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: null,
+            ms,
+            error: errStr
+          });
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: JSON.stringify({ error: errStr }),
+            is_error: true
+          });
+          args.onEvent?.({ type: "tool_error", id: tu.id, error: errStr, ms });
+        }
+        continue;
+      }
+
       const step: Step =
         tu.name === "runJS"
           ? { kind: "js", source: (tu.input as { source: string }).source }
@@ -236,7 +334,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
 
       const start = Date.now();
       try {
-        const out = await args.runner.runStep(step, args.input.tabId, {});
+        const out = await args.runner.runStep(step, args.input.tabId, args.attachedTabIds ?? [], {});
         const ms = Date.now() - start;
         await args.rpc.appendStepLog(runRecordId, {
           stepIndex: stepIndexGlobal++,
