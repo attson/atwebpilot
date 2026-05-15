@@ -9,7 +9,10 @@
     "./messages": "./src/messages.ts",
     "./static-scan": "./src/static-scan.ts",
     "./url-pattern": "./src/url-pattern.ts",
-    "./infer-json-schema": "./src/infer-json-schema.ts"
+    "./infer-json-schema": "./src/infer-json-schema.ts",
+    "./protocol": "./src/protocol/index.ts",
+    "./capability": "./src/capability/index.ts",
+    "./mcp-tools": "./src/mcp-tools/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
