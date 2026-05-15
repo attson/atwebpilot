@@ -1,0 +1,25 @@
+{
+  "name": "@webpilot/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./messages": "./src/messages.ts",
+    "./static-scan": "./src/static-scan.ts",
+    "./url-pattern": "./src/url-pattern.ts",
+    "./infer-json-schema": "./src/infer-json-schema.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

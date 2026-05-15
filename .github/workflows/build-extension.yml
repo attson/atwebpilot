@@ -46,14 +46,14 @@ jobs:
       - name: Read package version
         id: package
         run: |
-          version=$(node -p "require('./package.json').version")
+          version=$(node -p "require('./packages/extension/package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "zip_name=webpilot-$version.zip" >> "$GITHUB_OUTPUT"
 
       - name: Package dist
         run: |
-          cd dist
-          zip -r "../${{ steps.package.outputs.zip_name }}" .
+          cd packages/extension/dist
+          zip -r "${{ github.workspace }}/${{ steps.package.outputs.zip_name }}" .
 
       - name: Upload packaged extension
         uses: actions/upload-artifact@v4
