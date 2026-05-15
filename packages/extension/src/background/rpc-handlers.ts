@@ -105,7 +105,7 @@ async function dispatch(req: RpcRequest): Promise<Json> {
   }
 }
 
-async function runOneStep(
+export async function runOneStep(
   step: Step,
   rpcTabId: number,
   attachedTabIds: number[],

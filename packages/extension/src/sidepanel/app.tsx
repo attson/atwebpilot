@@ -5,6 +5,7 @@ import { installTabTracker } from "./chat/tab-tracker";
 import { ClosedSessionsBanner } from "./components/closed-sessions-banner";
 import { TabInfoBar } from "./components/tab-info-bar";
 import { ChatPage } from "./pages/chat-page";
+import { CoordinatorSettingsPage } from "./pages/coordinator-settings-page";
 import { RunPage } from "./pages/run-page";
 import { SettingsPage } from "./pages/settings-page";
 import { ToolDetailPage } from "./pages/tool-detail-page";
@@ -21,7 +22,8 @@ type Route =
   | { name: "run" }
   | { name: "tools" }
   | { name: "tool"; id: string; autoRun?: boolean }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "coordinator" };
 
 export function App() {
   const [route, setRoute] = useState<Route>({ name: "chat" });
@@ -101,6 +103,12 @@ export function App() {
         <NavBtn active={route.name === "settings"} onClick={() => setRoute({ name: "settings" })}>
           设置
         </NavBtn>
+        <NavBtn
+          active={route.name === "coordinator"}
+          onClick={() => setRoute({ name: "coordinator" })}
+        >
+          Coordinator
+        </NavBtn>
       </nav>
       {route.name === "chat" && (
         <>
@@ -133,6 +141,7 @@ export function App() {
           />
         )}
         {route.name === "settings" && <SettingsPage />}
+        {route.name === "coordinator" && <CoordinatorSettingsPage />}
       </main>
     </div>
   );

@@ -1,6 +1,10 @@
 import { RpcRequest as RpcRequestSchema } from "@webpilot/shared/messages";
 import { handleRpc } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
+import { CoordinatorClient } from "./coordinator-client";
+import { getOrCreateWorkerId, loadConfig, loadToken } from "./coordinator-state";
+import { handleExec } from "./coordinator-exec";
+import { listTools } from "./storage/tools";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[webpilot] service worker installed");
@@ -28,4 +32,66 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   handleRpc(req).then(sendResponse);
   return true;
+});
+
+// --- Coordinator client (Phase 2) ---
+let activeClient: CoordinatorClient | null = null;
+
+async function buildSavedToolsMetadata(): Promise<
+  Array<{ id: string; version: number; hash: string; url_pattern: string[]; description?: string }>
+> {
+  const tools = await listTools();
+  return tools.map((t) => ({
+    id: t.id,
+    version: t.versions?.length ?? 1,
+    // Phase 2 stub: hash from id. Phase 3 will introduce real content hashing.
+    hash: t.id,
+    url_pattern: t.urlPatterns,
+    description: t.description
+  }));
+}
+
+export async function startCoordinatorClient(): Promise<void> {
+  if (activeClient) return;
+  const config = await loadConfig();
+  if (!config?.enabled || !config.ws_url) return;
+  const token = await loadToken();
+  if (!token) {
+    console.warn("[webpilot] coordinator enabled but no token saved");
+    return;
+  }
+  const worker_id = await getOrCreateWorkerId();
+  activeClient = new CoordinatorClient({
+    ws_url: config.ws_url,
+    token,
+    worker_id,
+    savedToolsProvider: buildSavedToolsMetadata,
+    labelsProvider: async () => [],
+    onExec: handleExec
+  });
+  await activeClient.connect();
+}
+
+export async function stopCoordinatorClient(): Promise<void> {
+  if (!activeClient) return;
+  await activeClient.disconnect();
+  activeClient = null;
+}
+
+void startCoordinatorClient();
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  const keys = Object.keys(changes);
+  if (
+    keys.some(
+      (k) =>
+        k === "webpilot.coordinator.config" || k === "webpilot.coordinator.token"
+    )
+  ) {
+    void (async () => {
+      await stopCoordinatorClient();
+      await startCoordinatorClient();
+    })();
+  }
 });
