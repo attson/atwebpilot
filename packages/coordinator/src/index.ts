@@ -1,2 +1,8 @@
-/** Placeholder. Real exports added in Tasks 6-11. */
-export const COORDINATOR_PACKAGE_VERSION = "0.0.0";
+export * from "./types";
+export * from "./clock";
+export * from "./ws-hub";
+export * from "./worker-registry";
+export * from "./session-manager";
+export * from "./catalog";
+export * from "./dispatcher";
+export * from "./coordinator";
