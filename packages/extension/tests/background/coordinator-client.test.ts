@@ -118,7 +118,39 @@ describe("CoordinatorClient.connect", () => {
     expect(client.status).toBe("connected");
   });
 
-  it("PING from server triggers PONG response", async () => {
+  it("chrome.alarms fires a PING from client to server (keepalive)", async () => {
+    const client = new CoordinatorClient({
+      ws_url: "ws://localhost:7842",
+      token: "t",
+      worker_id: "w1",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => []
+    });
+    await client.connect();
+    const ws = FakeWS.instances[0];
+    ws.fakeOpen();
+    await new Promise((r) => setTimeout(r, 0));
+    ws.fakeMessage({
+      type: "WELCOME",
+      nonce: "n",
+      ts: 1,
+      protocol_version: PROTOCOL_VERSION,
+      server_time: 1,
+      heartbeat_interval_ms: 20000
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    ws.sent.length = 0; // clear HELLO
+    // Trigger the heartbeat alarm
+    const chromeMock = (globalThis as unknown as { chrome: { alarms: { _fire: (name: string) => void } } }).chrome;
+    chromeMock.alarms._fire("webpilot-coordinator-heartbeat");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ws.sent.length).toBe(1);
+    const ping = JSON.parse(ws.sent[0]);
+    expect(ping.type).toBe("PING");
+    expect(ping.protocol_version).toBe(PROTOCOL_VERSION);
+  });
+
+  it("ignores server PONG (no client reply)", async () => {
     const client = new CoordinatorClient({
       ws_url: "ws://localhost:7842",
       token: "t",
@@ -140,15 +172,15 @@ describe("CoordinatorClient.connect", () => {
     });
     ws.sent.length = 0;
     ws.fakeMessage({
-      type: "PING",
-      nonce: "ping-nonce",
+      type: "PONG",
+      nonce: "pong-nonce",
       ts: 2,
-      protocol_version: PROTOCOL_VERSION
+      protocol_version: PROTOCOL_VERSION,
+      echo_nonce: "client-ping-nonce"
     });
     await new Promise((r) => setTimeout(r, 0));
-    const pong = JSON.parse(ws.sent[0]);
-    expect(pong.type).toBe("PONG");
-    expect(pong.echo_nonce).toBe("ping-nonce");
+    expect(ws.sent.length).toBe(0); // No reply
+    expect(client.status).toBe("connected");
   });
 
   it("disconnect closes the socket and sets status=disconnected", async () => {

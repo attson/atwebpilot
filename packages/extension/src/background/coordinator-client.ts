@@ -1,8 +1,7 @@
 import {
   PROTOCOL_VERSION,
-  ProtocolMessageSchema,
+  ClientToServerSchema,
   ServerToClientSchema,
-  PingSchema,
   type Exec,
   type Hello,
   type Result,
@@ -96,21 +95,6 @@ export class CoordinatorClient {
       return;
     }
 
-    // PING is defined as client→server in the schema but the server also sends it.
-    // Handle it before the ServerToClientSchema discriminated union check.
-    const pingCheck = PingSchema.safeParse(parsed);
-    if (pingCheck.success) {
-      const pingMsg = pingCheck.data;
-      this.send({
-        type: "PONG",
-        nonce: randomNonce(),
-        ts: Date.now(),
-        protocol_version: PROTOCOL_VERSION,
-        echo_nonce: pingMsg.nonce
-      });
-      return;
-    }
-
     const result = ServerToClientSchema.safeParse(parsed);
     if (!result.success) {
       console.warn("[coordinator-client] failed to validate server message", parsed);
@@ -130,7 +114,7 @@ export class CoordinatorClient {
         this.setStatus("connected");
         return;
       case "PONG":
-        // server PONG response to our PING — nothing to do
+        // Server acknowledged our PING — connection is alive. Nothing to do.
         return;
       case "OPEN_TAB":
         // Phase 2: ignore — tab management is a Phase 3 concern when daemon ships
@@ -154,10 +138,8 @@ export class CoordinatorClient {
   }
 
   private send(msg: unknown): void {
-    if (this.ws?.readyState !== 1 /* WebSocket.OPEN */) return;
-    // Validate against ProtocolMessageSchema (union of both directions) — PONG is
-    // defined as server→client but the client also sends it in response to a server PING.
-    const r = ProtocolMessageSchema.safeParse(msg);
+    if (this.ws?.readyState !== 1) return; // 1 = WebSocket.OPEN
+    const r = ClientToServerSchema.safeParse(msg);
     if (!r.success) {
       console.error("[coordinator-client] outgoing message failed schema", r.error);
       return;
