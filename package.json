@@ -1,7 +1,7 @@
 {
   "name": "webpilot-monorepo",
   "private": true,
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "WebPilot — AI 网页助手（侧边面板）monorepo root",
   "type": "module",
   "scripts": {
