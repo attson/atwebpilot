@@ -8,6 +8,22 @@ importers:
 
   .: {}
 
+  packages/coordinator:
+    dependencies:
+      '@webpilot/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@25.8.0)(happy-dom@15.11.7)
+
   packages/extension:
     dependencies:
       '@webpilot/shared':
