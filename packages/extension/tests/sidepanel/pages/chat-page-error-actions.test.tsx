@@ -21,7 +21,7 @@ describe("ChatPage error actions", () => {
 
   beforeEach(() => {
     useSettings.setState({ loaded: true });
-    useStore.setState({ sessionsByTab: {}, closedSessions: [], currentTabId: null });
+    useStore.setState({ sessionsByTab: {}, currentTabId: null });
     ensureSession(1, "https://example.com/");
     setCurrentTab(1);
     const s = useStore.getState().sessionsByTab[1];

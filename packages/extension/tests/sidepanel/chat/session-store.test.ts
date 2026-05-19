@@ -2,25 +2,23 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   appendUserMessage,
   attachTab,
-  closeTab,
   detachTab,
   ensureSession,
   getSessionFor,
   markAttachedUrlChanged,
-  pruneClosed,
+  rehydrateFromPersisted,
   removeAttachedTab,
   resetSession,
-  restoreClosed,
-  setAbortController,
   setCurrentTab,
   setInputDraft,
   setUrl,
+  startNewSession,
   useStore,
   validateAttachedTabs
 } from "@/sidepanel/chat/session-store";
 
 function reset() {
-  useStore.setState({ sessionsByTab: {}, closedSessions: [], currentTabId: null });
+  useStore.setState({ sessionsByTab: {}, currentTabId: null });
 }
 
 describe("session-store per-tab", () => {
@@ -66,66 +64,6 @@ describe("session-store per-tab", () => {
     setUrl(1, "a2");
     expect(getSessionFor(1).url).toBe("a2");
     expect(getSessionFor(2).url).toBe("b");
-  });
-
-  it("closeTab moves non-empty session into closedSessions", () => {
-    ensureSession(9, "https://x");
-    appendUserMessage(9, "hello");
-    closeTab(9);
-    const s = useStore.getState();
-    expect(s.sessionsByTab[9]).toBeUndefined();
-    expect(s.closedSessions).toHaveLength(1);
-    expect(s.closedSessions[0].tabId).toBe(9);
-    expect(s.closedSessions[0].data.messages).toHaveLength(1);
-  });
-
-  it("closeTab drops empty session without enqueueing", () => {
-    ensureSession(3, "u");
-    closeTab(3);
-    expect(useStore.getState().sessionsByTab[3]).toBeUndefined();
-    expect(useStore.getState().closedSessions).toHaveLength(0);
-  });
-
-  it("closeTab aborts active controller", () => {
-    ensureSession(1, "u");
-    const ac = new AbortController();
-    setAbortController(1, ac);
-    appendUserMessage(1, "x");
-    closeTab(1);
-    expect(ac.signal.aborted).toBe(true);
-  });
-
-  it("restoreClosed copies data to target tab and clears volatile fields", () => {
-    ensureSession(1, "u1");
-    appendUserMessage(1, "old");
-    closeTab(1);
-    ensureSession(2, "u2");
-    restoreClosed(0, 2);
-    const s2 = getSessionFor(2);
-    expect(
-      s2.messages.find((m) => typeof m.content === "string" && m.content === "old")
-    ).toBeTruthy();
-    expect(
-      s2.messages.at(-1)?.content
-    ).toEqual(expect.stringContaining("[已恢复]"));
-    expect(s2.abortController).toBeNull();
-    expect(s2.status).toBe("idle");
-    expect(useStore.getState().closedSessions).toHaveLength(0);
-  });
-
-  it("pruneClosed removes entries older than 5 minutes", () => {
-    ensureSession(1, "u");
-    appendUserMessage(1, "x");
-    closeTab(1);
-    useStore.setState((s) => ({
-      ...s,
-      closedSessions: s.closedSessions.map((c) => ({
-        ...c,
-        closedAt: c.closedAt - 6 * 60 * 1000
-      }))
-    }));
-    pruneClosed(Date.now());
-    expect(useStore.getState().closedSessions).toHaveLength(0);
   });
 
   it("setInputDraft scopes to tab", () => {
@@ -225,5 +163,75 @@ describe("validateAttachedTabs", () => {
     validateAttachedTabs(new Set([100]));
     const after = getSessionFor(7);
     expect(after).toBe(before);
+  });
+});
+
+describe("session-store persistence-aware methods", () => {
+  beforeEach(reset);
+
+  it("startNewSession returns the archived session and resets sessionsByTab[tabId]", () => {
+    ensureSession(7, "https://x.com");
+    useStore.setState((state) => ({
+      ...state,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        7: { ...state.sessionsByTab[7], messages: [{ role: "user", content: "hello" }] }
+      }
+    }));
+    expect(useStore.getState().sessionsByTab[7].messages.length).toBe(1);
+
+    const archivedData = startNewSession(7);
+    expect(archivedData?.messages.length).toBe(1);
+    expect(useStore.getState().sessionsByTab[7].messages.length).toBe(0);
+    expect(useStore.getState().sessionsByTab[7].url).toBe("https://x.com");
+  });
+
+  it("startNewSession on a missing tab is a no-op (returns null)", () => {
+    const result = startNewSession(999);
+    expect(result).toBeNull();
+  });
+
+  it("rehydrateFromPersisted overwrites sessionsByTab[tabId] preserving tabId", () => {
+    ensureSession(7, "https://x.com");
+    rehydrateFromPersisted(7, {
+      messages: [{ role: "user", content: "restored" }],
+      cards: [],
+      executedSteps: [],
+      tokenUsage: { input: 0, output: 0 },
+      roundCount: 1,
+      attachedTabs: [],
+      url: "https://x.com",
+      runRecordId: null,
+      errorMessage: null
+    });
+    const s = useStore.getState().sessionsByTab[7];
+    expect(s.tabId).toBe(7);
+    expect(s.messages.length).toBe(1);
+    expect(s.roundCount).toBe(1);
+    expect(s.status).toBe("idle");
+    expect(s.abortController).toBeNull();
+  });
+
+  it("rehydrateFromPersisted sanitizes any stale streaming/running status to idle", () => {
+    ensureSession(7, "https://x.com");
+    useStore.setState((state) => ({
+      ...state,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        7: { ...state.sessionsByTab[7], status: "streaming" }
+      }
+    }));
+    rehydrateFromPersisted(7, {
+      messages: [{ role: "user", content: "stale" }],
+      cards: [],
+      executedSteps: [],
+      tokenUsage: { input: 0, output: 0 },
+      roundCount: 0,
+      attachedTabs: [],
+      url: "https://x.com",
+      runRecordId: null,
+      errorMessage: null
+    });
+    expect(useStore.getState().sessionsByTab[7].status).toBe("idle");
   });
 });

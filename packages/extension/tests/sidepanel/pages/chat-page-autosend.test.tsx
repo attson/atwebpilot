@@ -42,7 +42,7 @@ describe("ChatPage autoSend", () => {
       maxTokens: 1000,
       autoApproveDangerous: []
     });
-    useStore.setState({ sessionsByTab: {}, closedSessions: [], currentTabId: null });
+    useStore.setState({ sessionsByTab: {}, currentTabId: null });
     ensureSession(1, "https://example.com/");
     setCurrentTab(1);
     container = document.createElement("div");

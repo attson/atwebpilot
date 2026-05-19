@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { useClosedSessionsPruner } from "./chat/closed-sessions-pruner";
 import { validateAttachedTabs } from "./chat/session-store";
 import { installTabTracker } from "./chat/tab-tracker";
-import { ClosedSessionsBanner } from "./components/closed-sessions-banner";
 import { TabInfoBar } from "./components/tab-info-bar";
 import { ChatPage } from "./pages/chat-page";
 import { CoordinatorSettingsPage } from "./pages/coordinator-settings-page";
@@ -43,8 +41,6 @@ export function App() {
       }
     })();
   }, []);
-  useClosedSessionsPruner();
-
   function fixWithAi(opts: { initialPrompt: string; initialContext: string }) {
     setRoute({
       name: "chat",
@@ -112,7 +108,7 @@ export function App() {
       </nav>
       {route.name === "chat" && (
         <>
-          <ClosedSessionsBanner />
+          {/* TODO Task 11: <UrlRecoveryBanner /> mounted here */}
           <TabInfoBar />
         </>
       )}

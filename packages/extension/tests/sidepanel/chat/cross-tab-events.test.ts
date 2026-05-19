@@ -9,7 +9,7 @@ import {
 import { handleTabEvent } from "@/sidepanel/chat/cross-tab-events";
 
 function reset() {
-  useStore.setState({ sessionsByTab: {}, closedSessions: [], currentTabId: null });
+  useStore.setState({ sessionsByTab: {}, currentTabId: null });
 }
 
 describe("handleTabEvent", () => {
