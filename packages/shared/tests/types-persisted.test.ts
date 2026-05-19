@@ -23,5 +23,8 @@ describe("PersistedSession", () => {
       updatedAt: 0
     };
     expect(p.status).toBe("active");
+    expect(p.url).toBe("https://x.com");
+    expect(p.lastTabId).toBe(1);
+    expect(p.id).toBe("uuid");
   });
 });
