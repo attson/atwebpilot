@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { useClosedSessionsPruner } from "./chat/closed-sessions-pruner";
-import { validateAttachedTabs } from "./chat/session-store";
+import { validateAttachedTabs, useStore } from "./chat/session-store";
 import { installTabTracker } from "./chat/tab-tracker";
-import { ClosedSessionsBanner } from "./components/closed-sessions-banner";
+import { installAutoPersist } from "./chat/persistence/auto-persist";
+import { hydrateOnBoot, type HydrateResult } from "./chat/persistence/hydrate";
 import { TabInfoBar } from "./components/tab-info-bar";
+import { UrlRecoveryBanner } from "./components/url-recovery-banner";
+import { SessionHistoryDrawer } from "./components/session-history-drawer";
 import { ChatPage } from "./pages/chat-page";
 import { CoordinatorSettingsPage } from "./pages/coordinator-settings-page";
 import { RunPage } from "./pages/run-page";
@@ -27,10 +29,49 @@ type Route =
 
 export function App() {
   const [route, setRoute] = useState<Route>({ name: "chat" });
+  const [hydrate, setHydrate] = useState<HydrateResult | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const currentUrl = useStore((s) =>
+    s.currentTabId != null ? s.sessionsByTab[s.currentTabId]?.url ?? "" : ""
+  );
 
   useEffect(() => {
     const off = installTabTracker();
     return () => off();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsub: (() => void) | null = null;
+
+    async function tryHydrate(): Promise<boolean> {
+      const state = useStore.getState();
+      const tabId = state.currentTabId;
+      if (tabId == null) return false;
+      const url = state.sessionsByTab[tabId]?.url ?? "";
+      if (!url) return false;
+      const result = await hydrateOnBoot(tabId, url);
+      if (!cancelled) setHydrate(result);
+      return true;
+    }
+
+    void tryHydrate().then((ok) => {
+      if (ok || cancelled) return;
+      unsub = useStore.subscribe((s) => {
+        if (s.currentTabId != null && s.sessionsByTab[s.currentTabId]?.url) {
+          unsub?.();
+          unsub = null;
+          void tryHydrate();
+        }
+      });
+    });
+
+    const offPersist = installAutoPersist();
+    return () => {
+      cancelled = true;
+      unsub?.();
+      offPersist();
+    };
   }, []);
   useEffect(() => {
     void (async () => {
@@ -43,8 +84,6 @@ export function App() {
       }
     })();
   }, []);
-  useClosedSessionsPruner();
-
   function fixWithAi(opts: { initialPrompt: string; initialContext: string }) {
     setRoute({
       name: "chat",
@@ -112,7 +151,13 @@ export function App() {
       </nav>
       {route.name === "chat" && (
         <>
-          <ClosedSessionsBanner />
+          {hydrate?.kind === "url-candidates" && (
+            <UrlRecoveryBanner
+              candidates={hydrate.candidates}
+              onOpenDrawer={() => setDrawerOpen(true)}
+              onDismiss={() => setHydrate({ kind: "empty" })}
+            />
+          )}
           <TabInfoBar />
         </>
       )}
@@ -126,6 +171,7 @@ export function App() {
             sourceTool={route.sourceTool}
             onOpenTool={openTool}
             onRunPromptTool={runPromptTool}
+            onOpenHistory={() => setDrawerOpen(true)}
           />
         )}
         {route.name === "run" && <RunPage />}
@@ -143,6 +189,11 @@ export function App() {
         {route.name === "settings" && <SettingsPage />}
         {route.name === "coordinator" && <CoordinatorSettingsPage />}
       </main>
+      <SessionHistoryDrawer
+        url={currentUrl}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   );
 }

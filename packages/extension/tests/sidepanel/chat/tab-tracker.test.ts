@@ -54,7 +54,7 @@ function setupChromeMock() {
 
 describe("tab-tracker", () => {
   beforeEach(() => {
-    useStore.setState({ sessionsByTab: {}, closedSessions: [], currentTabId: null });
+    useStore.setState({ sessionsByTab: {}, currentTabId: null });
   });
 
   it("onActivated sets currentTabId and ensures session", async () => {
@@ -89,14 +89,13 @@ describe("tab-tracker", () => {
     expect(getSessionFor(1).messages).toHaveLength(0);
   });
 
-  it("onRemoved closes the tab session", () => {
+  it("onRemoved removes the tab session", () => {
     const m = setupChromeMock();
     installTabTracker();
     ensureSession(2, "u");
     appendUserMessage(2, "x");
     m.fire.removed(2);
     expect(useStore.getState().sessionsByTab[2]).toBeUndefined();
-    expect(useStore.getState().closedSessions).toHaveLength(1);
   });
 
   it("uninstall stops dispatching", () => {

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AttachedTab, ChatMessage, Json, Step, ToolUsePart } from "@webpilot/shared/types";
+import type { AttachedTab, ChatMessage, Json, PersistedSessionData, Step, ToolUsePart } from "@webpilot/shared/types";
 
 export type StepCardState = {
   toolUseId: string;
@@ -58,13 +58,6 @@ export type SessionData = {
   attachedTabs: AttachedTab[];
 };
 
-export type ClosedSession = {
-  tabId: number;
-  url: string;
-  closedAt: number;
-  data: SessionData;
-};
-
 export function makeEmptySession(tabId: number, url = ""): SessionData {
   return {
     tabId,
@@ -94,17 +87,13 @@ export const EMPTY_SESSION: SessionData = Object.freeze(makeEmptySession(-1)) as
 /** @deprecated 兼容 Plan 1-3 命名；新代码用 SessionData */
 export type ChatSessionState = SessionData;
 
-const CLOSED_TTL_MS = 5 * 60 * 1000;
-
 type StoreShape = {
   sessionsByTab: Record<number, SessionData>;
-  closedSessions: ClosedSession[];
   currentTabId: number | null;
 };
 
 export const useStore = create<StoreShape>(() => ({
   sessionsByTab: {},
-  closedSessions: [],
   currentTabId: null
 }));
 
@@ -340,65 +329,52 @@ export function resetSession(tabId: number): void {
   patchSession(tabId, (s) => ({ ...makeEmptySession(tabId, s.url) }));
 }
 
-// === closed sessions ===
+// === persistence-aware session ops ===
 
-export function closeTab(tabId: number): void {
+/**
+ * Snapshot the current SessionData for archiving, then reset sessionsByTab[tabId] to empty
+ * (preserving url). Returns the snapshot or null if no session exists.
+ *
+ * Caller (chat-page.tsx) handles the IDB archive.
+ */
+export function startNewSession(tabId: number): SessionData | null {
+  let archived: SessionData | null = null;
   useStore.setState((state) => {
-    const s = state.sessionsByTab[tabId];
-    if (!s) return state;
-    s.abortController?.abort();
-    const { [tabId]: _gone, ...rest } = state.sessionsByTab;
-    void _gone;
-    if (s.messages.length === 0) {
-      return { ...state, sessionsByTab: rest };
-    }
+    const cur = state.sessionsByTab[tabId];
+    if (!cur) return state;
+    archived = cur;
+    cur.abortController?.abort();
     return {
       ...state,
-      sessionsByTab: rest,
-      closedSessions: [
-        ...state.closedSessions,
-        { tabId, url: s.url, closedAt: Date.now(), data: s }
-      ]
+      sessionsByTab: { ...state.sessionsByTab, [tabId]: makeEmptySession(tabId, cur.url) }
     };
   });
+  return archived;
 }
 
-export function restoreClosed(closedIndex: number, targetTabId: number): void {
+/**
+ * Overwrite sessionsByTab[tabId] with persisted data. Forces transient fields
+ * (status / abortController / streamingAssistantText) to fresh values via
+ * makeEmptySession; any stale streaming/running status is dropped.
+ */
+export function rehydrateFromPersisted(tabId: number, data: PersistedSessionData): void {
   useStore.setState((state) => {
-    const c = state.closedSessions[closedIndex];
-    if (!c) return state;
-    const restored: SessionData = {
-      ...c.data,
-      tabId: targetTabId,
-      abortController: null,
-      status: "idle",
-      showSaveDialog: false,
-      streamingAssistantText: "",
-      runRecordId: null,
-      messages: [
-        ...c.data.messages,
-        {
-          role: "user",
-          content: `[已恢复] 来自原 tab ${c.tabId}（${c.url}）的会话，请继续`
-        }
-      ]
+    state.sessionsByTab[tabId]?.abortController?.abort();
+    const rehydrated: SessionData = {
+      ...makeEmptySession(tabId, data.url),
+      messages: data.messages,
+      cards: data.cards,
+      executedSteps: data.executedSteps,
+      tokenUsage: data.tokenUsage,
+      roundCount: data.roundCount,
+      attachedTabs: data.attachedTabs,
+      runRecordId: data.runRecordId,
+      errorMessage: data.errorMessage
     };
-    const closedSessions = state.closedSessions.slice();
-    closedSessions.splice(closedIndex, 1);
     return {
       ...state,
-      sessionsByTab: { ...state.sessionsByTab, [targetTabId]: restored },
-      closedSessions
+      sessionsByTab: { ...state.sessionsByTab, [tabId]: rehydrated }
     };
-  });
-}
-
-export function pruneClosed(now: number): void {
-  useStore.setState((state) => {
-    const next = state.closedSessions.filter((c) => now - c.closedAt < CLOSED_TTL_MS);
-    return next.length === state.closedSessions.length
-      ? state
-      : { ...state, closedSessions: next };
   });
 }
 
@@ -549,8 +525,4 @@ export function useSession(): LegacySession {
 
 export function useCurrentTabId(): number | null {
   return useStore((s) => s.currentTabId);
-}
-
-export function useClosedSessions(): ClosedSession[] {
-  return useStore((s) => s.closedSessions);
 }

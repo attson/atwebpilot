@@ -182,3 +182,39 @@ export type AttachedTab = {
   lastSeenTitle: string;
   urlChanged?: boolean;
 };
+
+// === Persistence (see specs/2026-05-19-sidepanel-session-persistence-design.md) ===
+
+export type PersistedCard = {
+  toolUseId: string;
+  name: string;
+  input: Json;
+  partialJson: string;
+  inputReady: boolean;
+  status: "draft" | "awaiting" | "running" | "ok" | "error" | "skipped" | "denied";
+  output?: Json;
+  error?: string;
+  ms?: number;
+};
+
+export type PersistedSessionData = {
+  messages: ChatMessage[];
+  cards: PersistedCard[];
+  executedSteps: Step[];
+  tokenUsage: { input: number; output: number };
+  roundCount: number;
+  attachedTabs: AttachedTab[];
+  url: string;
+  runRecordId: string | null;
+  errorMessage: string | null;
+};
+
+export type PersistedSession = {
+  id: string;
+  url: string;
+  lastTabId: number;
+  status: "active" | "archived";
+  data: PersistedSessionData;
+  createdAt: number;
+  updatedAt: number;
+};

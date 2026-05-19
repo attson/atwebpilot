@@ -1,10 +1,10 @@
 import {
   appendSystemNote,
-  closeTab,
   ensureSession,
   getSessionFor,
   setCurrentTab,
-  setUrl
+  setUrl,
+  useStore
 } from "./session-store";
 import { disposeApproverForTab } from "./approval";
 
@@ -30,7 +30,14 @@ export function installTabTracker(): () => void {
   };
 
   const onRem = (tabId: number) => {
-    closeTab(tabId);
+    useStore.setState((state) => {
+      const s = state.sessionsByTab[tabId];
+      if (!s) return state;
+      s.abortController?.abort();
+      const { [tabId]: _gone, ...rest } = state.sessionsByTab;
+      void _gone;
+      return { ...state, sessionsByTab: rest };
+    });
     disposeApproverForTab(tabId);
   };
 
