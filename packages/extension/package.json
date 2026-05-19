@@ -1,6 +1,6 @@
 {
   "name": "@webpilot/extension",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": true,
   "type": "module",
   "description": "WebPilot — AI 网页助手（侧边面板）",
