@@ -1,6 +1,7 @@
 import { RpcRequest as RpcRequestSchema } from "@webpilot/shared/messages";
 import { handleRpc } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
+import { installTabCloseArchiver } from "./tab-close-archiver";
 import { CoordinatorClient } from "./coordinator-client";
 import { getOrCreateWorkerId, loadConfig, loadToken } from "./coordinator-state";
 import { handleExec } from "./coordinator-exec";
@@ -20,6 +21,7 @@ chrome.sidePanel
   .catch((e) => console.error("[webpilot] sidePanel setPanelBehavior", e));
 
 installTabWatcher();
+installTabCloseArchiver();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const parsed = RpcRequestSchema.safeParse(msg);
