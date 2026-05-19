@@ -162,6 +162,48 @@ describe("runs.runOneStep tabId gate", () => {
     expect(sends[0].tabId).toBe(2);
   });
 
+  it("tolerates args.tabId === 0 by treating as 'omitted' and using session tab", async () => {
+    const sends: Array<{ tabId: number }> = [];
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(async (tabId: number) => {
+          sends.push({ tabId });
+          return { ok: true, data: null };
+        })
+      }
+    });
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "snapshotDOM", args: { tabId: 0 } },
+      tabId: 1,
+      attachedTabIds: []
+    });
+    expect(res.ok).toBe(true);
+    expect(sends[0].tabId).toBe(1);
+  });
+
+  it("tolerates negative args.tabId by treating as 'omitted' and using session tab", async () => {
+    const sends: Array<{ tabId: number }> = [];
+    vi.stubGlobal("chrome", {
+      tabs: {
+        get: vi.fn(),
+        sendMessage: vi.fn(async (tabId: number) => {
+          sends.push({ tabId });
+          return { ok: true, data: null };
+        })
+      }
+    });
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "snapshotDOM", args: { tabId: -1 } },
+      tabId: 1,
+      attachedTabIds: []
+    });
+    expect(res.ok).toBe(true);
+    expect(sends[0].tabId).toBe(1);
+  });
+
   it("kind=js never uses args.tabId; always RPC.tabId", async () => {
     const sends: Array<{ tabId: number }> = [];
     vi.stubGlobal("chrome", {

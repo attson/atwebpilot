@@ -9,7 +9,7 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         maxDepth: { type: "integer", default: 3 },
         root: { type: "string", description: "可选的 CSS 选择器；找不到时退回到 <html>" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       }
     }
   },
@@ -21,7 +21,7 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         root: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -35,7 +35,7 @@ export const TOOL_DEFS: LlmTool[] = [
         selector: { type: "string" },
         root: { type: "string" },
         limit: { type: "integer" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -49,7 +49,7 @@ export const TOOL_DEFS: LlmTool[] = [
         selector: { type: "string" },
         root: { type: "string" },
         single: { type: "boolean" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -62,7 +62,7 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         root: { type: "string" },
         includeBg: { type: "boolean", default: false },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       }
     }
   },
@@ -76,7 +76,7 @@ export const TOOL_DEFS: LlmTool[] = [
         max: { type: "integer", default: 1 },
         intervalMs: { type: "integer", default: 250 },
         untilSelector: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["to"]
     }
@@ -90,7 +90,7 @@ export const TOOL_DEFS: LlmTool[] = [
         ms: { type: "integer" },
         selector: { type: "string" },
         timeoutMs: { type: "integer", default: 5000 },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       }
     }
   },
@@ -102,7 +102,7 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         required: { type: "boolean", default: true },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -118,7 +118,7 @@ export const TOOL_DEFS: LlmTool[] = [
         headers: { type: "object" },
         body: { type: "string" },
         withCredentials: { type: "boolean", default: false },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["url"]
     }
@@ -131,7 +131,7 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         store: { type: "string", enum: ["local", "session"] },
         key: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["store", "key"]
     }
@@ -145,7 +145,7 @@ export const TOOL_DEFS: LlmTool[] = [
         selector: { type: "string" },
         value: { type: "string" },
         clear: { type: "boolean", default: true },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector", "value"]
     }
@@ -158,7 +158,7 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         checked: { type: "boolean" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector", "checked"]
     }
@@ -172,7 +172,7 @@ export const TOOL_DEFS: LlmTool[] = [
         selector: { type: "string" },
         value: { type: "string" },
         label: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -184,7 +184,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string", default: "form" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       }
     }
   },
@@ -195,7 +195,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -207,7 +207,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -222,7 +222,7 @@ export const TOOL_DEFS: LlmTool[] = [
         url: { type: "string" },
         filename: { type: "string" },
         mime: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector", "url"]
     }
@@ -234,7 +234,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["selector"]
     }
@@ -246,7 +246,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         selector: { type: "string", default: "form" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       }
     }
   },
@@ -257,7 +257,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         source: { type: "string", description: "async function body" },
-        tabId: { type: "integer", description: "目标 tab；省略=当前焦点 tab（始终允许）；指定其它 tabId 必须已在 attachedTabs 中（可调用 attachTab 申请）" }
+        tabId: { type: "integer", description: "目标 tab。要操作非本会话 tab 才填，且必须已在 attachedTabs（可调用 attachTab 申请）。操作本会话 tab 请整个不带此字段，不要传 0 或 null" }
       },
       required: ["source"]
     }

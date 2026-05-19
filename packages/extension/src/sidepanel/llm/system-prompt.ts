@@ -38,8 +38,8 @@ export function buildSystemPrompt(input: {
   const crossTabProtocol = [
     "",
     "[Cross-tab protocol]",
-    "- Pass `tabId` in any tool input to act on a non-focused tab.",
-    "- Allowed tabIds: the focused tab + the attached list above.",
+    "- This session is bound to one tab (the session tab). To act on it, OMIT `tabId` — do not pass 0 or null.",
+    "- Set `tabId` only to act on a different tab; that tab must already be in the attached list above.",
     "- Call listTabs() to discover other open tabs.",
     "- Call attachTab(tabId) to request access; user must approve.",
     "- Call openTab(url) to spawn a new tab; it auto-attaches."
