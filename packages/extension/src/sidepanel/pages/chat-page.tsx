@@ -7,10 +7,18 @@ import {
   ensureSession,
   getSessionFor,
   setCurrentTab,
+  startNewSession,
   useCurrentTabId,
   useSession,
   useStore
 } from "../chat/session-store";
+import {
+  archiveActive,
+  cascadeDeleteRuns,
+  getActiveByTabId,
+  pruneOverLimit
+} from "../chat/persistence/sessions-storage";
+import { flushAllPending } from "../chat/persistence/auto-persist";
 import { handleTabEvent } from "../chat/cross-tab-events";
 import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
@@ -35,6 +43,7 @@ type ChatPageProps = {
   sourceTool?: { id: string; name: string; description: string; urlPatterns: string[] };
   onRunPromptTool?: (tool: Extract<Tool, { kind: "prompt" }>) => void;
   onOpenTool?: (id: string, autoRun: boolean) => void;
+  onOpenHistory?: () => void;
 };
 
 export function ChatPage({
@@ -43,7 +52,8 @@ export function ChatPage({
   autoSend,
   sourceTool,
   onRunPromptTool,
-  onOpenTool
+  onOpenTool,
+  onOpenHistory
 }: ChatPageProps) {
   const session = useSession();
   const settings = useSettings();
@@ -332,6 +342,28 @@ export function ChatPage({
 
   return (
     <div className="h-full flex flex-col">
+      <div className="flex items-center gap-2 p-2 border-b border-zinc-800 text-xs">
+        <button
+          onClick={async () => {
+            const tabId = useStore.getState().currentTabId;
+            if (tabId == null) return;
+            await flushAllPending();
+            const cur = await getActiveByTabId(tabId);
+            if (cur) {
+              await archiveActive(cur.id);
+              const evicted = await pruneOverLimit(cur.url);
+              if (evicted.length) await cascadeDeleteRuns(evicted);
+            }
+            startNewSession(tabId);
+          }}
+          className="px-2 py-0.5 bg-zinc-800 rounded"
+        >
+          ➕ 新建会话
+        </button>
+        <button onClick={onOpenHistory} className="px-2 py-0.5 bg-zinc-800 rounded">
+          ≡ 历史
+        </button>
+      </div>
       <RecommendationsBanner
         tools={recommendations}
         onOpenTool={(id, autoRun) => {
