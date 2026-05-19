@@ -10,7 +10,7 @@
 | 4 | [`2026-05-10-plan4-per-tab-sessions.md`](./2026-05-10-plan4-per-tab-sessions.md) | 13 | +16 | 150 |
 | 5 | [`2026-05-10-plan5-summary-step.md`](./2026-05-10-plan5-summary-step.md) | 6 | +18 | 168 |
 | 6 | [`2026-05-14-multi-tab-context.md`](./2026-05-14-multi-tab-context.md) | 23 | +69 | 237 |
-| 7 | [`2026-05-19-sidepanel-session-persistence.md`](./2026-05-19-sidepanel-session-persistence.md) | 12 | +36 | ~273 |
+| 7 | [`2026-05-19-sidepanel-session-persistence.md`](./2026-05-19-sidepanel-session-persistence.md) | 12 | +40 / -5 | 285 |
 
 各 plan 的 task 严格 TDD：写失败测试 → 实现 → 验证通过 → commit。每 task 一组 commit；plan 内的 commit 加起来构成一次完整 feature。
 
