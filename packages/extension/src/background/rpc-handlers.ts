@@ -115,7 +115,8 @@ export async function runOneStep(
   if (step.kind === "tool") {
     const argsObj = (step.args ?? {}) as Record<string, Json>;
     const declared = argsObj.tabId;
-    if (typeof declared === "number") targetTabId = declared;
+    // 模型常把 tabId 误填为 0/null 表示"当前 tab"——视为未传，用会话 tab。
+    if (typeof declared === "number" && declared > 0) targetTabId = declared;
   }
   if (targetTabId !== rpcTabId && !attachedTabIds.includes(targetTabId)) {
     throw new Error(`tab ${targetTabId} not attached; call attachTab first or omit tabId`);
