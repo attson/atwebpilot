@@ -11,6 +11,7 @@
 | 5 | AI 生成汇总 step | [`2026-05-10-plan5-summary-step-design.md`](./2026-05-10-plan5-summary-step-design.md) | 保存对话框增 [让 AI 生成汇总步骤]；一次性非流式 LLM call 产出 runJS source；append 为最后一步使重放产物结构稳定 |
 | 6 | AI 生成两类工具 | [`2026-05-12-ai-generated-tool-types-design.md`](./2026-05-12-ai-generated-tool-types-design.md) | 保存为工具先选提示词/纯函数；AI 总结多轮对话生成 name/description/prompt 或 steps；提示词工具运行时跳聊天自动发送 |
 | 7 | 多 tab 上下文 | [`2026-05-14-multi-tab-context-design.md`](./2026-05-14-multi-tab-context-design.md) | 一个会话内 `attachedTabs` 集合 + 三种信任入口（@ / openTab / attachTab）；现有 19 工具加可选 `tabId`；新增 listTabs/openTab/attachTab/detachTab 控制面；跨窗口、URL 变更显式追踪 |
+| 8 | 侧边面板会话持久化与多会话历史 | [`2026-05-19-sidepanel-session-persistence-design.md`](./2026-05-19-sidepanel-session-persistence-design.md) | IDB `chat_sessions` store；按 tabId 主 URL 副；同 tab 多 archived 历史 + 新建会话；URL banner 与历史 drawer 替代 5 分钟内存 closedSessions；每 URL ≤20 + cascade 删 runs |
 
 ## 不在 spec 里的细节修复
 
