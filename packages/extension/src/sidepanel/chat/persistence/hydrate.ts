@@ -1,5 +1,6 @@
 import type { PersistedSession } from "@webpilot/shared/types";
 import { rehydrateFromPersisted } from "@/sidepanel/chat/session-store";
+import { setPersistIdFor } from "./auto-persist";
 import * as ss from "./sessions-storage";
 
 export type HydrateResult =
@@ -20,6 +21,7 @@ export async function hydrateOnBoot(tabId: number, url: string): Promise<Hydrate
     const active = await ss.getActiveByTabId(tabId);
     if (active && active.url === url) {
       rehydrateFromPersisted(tabId, active.data);
+      setPersistIdFor(tabId, active.id);
       return { kind: "rehydrated", persistedId: active.id };
     }
     const candidates = await ss.listArchivedByUrl(url, 5);

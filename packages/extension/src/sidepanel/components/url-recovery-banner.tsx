@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PersistedSession } from "@webpilot/shared/types";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
+import { setPersistIdFor } from "@/sidepanel/chat/persistence/auto-persist";
 import { rehydrateFromPersisted, useStore } from "@/sidepanel/chat/session-store";
 
 function firstUserText(s: PersistedSession): string {
@@ -31,6 +32,7 @@ export function UrlRecoveryBanner(props: {
     if (tabId == null) return;
     await ss.restoreArchived(top.id, tabId);
     rehydrateFromPersisted(tabId, top.data);
+    setPersistIdFor(tabId, top.id);
     setHidden(true);
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { PersistedSession } from "@webpilot/shared/types";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
+import { setPersistIdFor } from "@/sidepanel/chat/persistence/auto-persist";
 import { rehydrateFromPersisted, useStore } from "@/sidepanel/chat/session-store";
 
 function firstUserText(s: PersistedSession): string {
@@ -52,6 +53,7 @@ export function SessionHistoryDrawer(props: {
     }
     await ss.restoreArchived(target.id, tabId);
     rehydrateFromPersisted(tabId, target.data);
+    setPersistIdFor(tabId, target.id);
     await refresh();
     props.onClose();
   }

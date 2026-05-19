@@ -18,7 +18,7 @@ import {
   getActiveByTabId,
   pruneOverLimit
 } from "../chat/persistence/sessions-storage";
-import { flushAllPending } from "../chat/persistence/auto-persist";
+import { flushAllPending, clearPersistStateFor } from "../chat/persistence/auto-persist";
 import { handleTabEvent } from "../chat/cross-tab-events";
 import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
@@ -355,6 +355,7 @@ export function ChatPage({
               if (evicted.length) await cascadeDeleteRuns(evicted);
             }
             startNewSession(tabId);
+            clearPersistStateFor(tabId);
           }}
           className="px-2 py-0.5 bg-zinc-800 rounded"
         >

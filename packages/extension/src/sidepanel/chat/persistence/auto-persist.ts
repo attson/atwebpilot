@@ -113,6 +113,40 @@ export async function flushAllPending(): Promise<void> {
   }
 }
 
+/**
+ * Reset auto-persist state for a tab after starting a new session.
+ * Clears any pending timer and sets persistedId to null so the next
+ * mutation creates a fresh row instead of overwriting the archived one.
+ */
+export function clearPersistStateFor(tabId: number): void {
+  const entry = state.get(tabId);
+  if (entry) {
+    if (entry.timer != null) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
+    }
+    entry.persistedId = null;
+  }
+}
+
+/**
+ * Tell auto-persist that tabId is now backed by a specific persisted row.
+ * Must be called after restoring an archived session so subsequent mutations
+ * update the restored row instead of creating a duplicate active row.
+ */
+export function setPersistIdFor(tabId: number, persistedId: string): void {
+  let entry = state.get(tabId);
+  if (!entry) {
+    entry = { timer: null, persistedId: null };
+    state.set(tabId, entry);
+  }
+  if (entry.timer != null) {
+    clearTimeout(entry.timer);
+    entry.timer = null;
+  }
+  entry.persistedId = persistedId;
+}
+
 /** Test helper — clears module-level state map. */
 export function _resetAutoPersistForTests(): void {
   for (const entry of state.values()) {

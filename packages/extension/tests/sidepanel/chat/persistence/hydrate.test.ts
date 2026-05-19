@@ -4,6 +4,7 @@ import { _resetDBForTests } from "@/background/storage/db";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
 import { ensureSession, useStore } from "@/sidepanel/chat/session-store";
 import { hydrateOnBoot } from "@/sidepanel/chat/persistence/hydrate";
+import { _resetAutoPersistForTests } from "@/sidepanel/chat/persistence/auto-persist";
 import type { PersistedSession } from "@webpilot/shared/types";
 
 const URL = "https://example.com";
@@ -37,6 +38,7 @@ describe("hydrateOnBoot", () => {
     globalThis.indexedDB = new IDBFactory();
     _resetDBForTests();
     useStore.setState({ sessionsByTab: {}, currentTabId: null });
+    _resetAutoPersistForTests();
   });
 
   it("scenario 1: tabId active match → rehydrates silently", async () => {
@@ -102,5 +104,42 @@ describe("hydrateOnBoot", () => {
     const result = await hydrateOnBoot(7, URL);
     expect(result.kind).toBe("empty");
     vi.restoreAllMocks();
+  });
+
+  it("scenario 1: after rehydrate, next mutation updates the same persistedId row", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    const { installAutoPersist, flushAllPending } = await import("@/sidepanel/chat/persistence/auto-persist");
+
+    await ss.putSession(makeRow({
+      id: "rehy",
+      lastTabId: 7,
+      status: "active",
+      data: { ...EMPTY_DATA, messages: [{ role: "user", content: "hi" }] }
+    }));
+    ensureSession(7, URL);
+    await hydrateOnBoot(7, URL);
+
+    // Now install auto-persist and mutate
+    const off = installAutoPersist();
+    useStore.setState((state) => ({
+      ...state,
+      currentTabId: 7,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        7: {
+          ...state.sessionsByTab[7],
+          messages: [
+            ...state.sessionsByTab[7].messages,
+            { role: "user" as const, content: "more" }
+          ]
+        }
+      }
+    }));
+    await flushAllPending();
+
+    const got = await ss.getById("rehy");
+    expect(got?.data.messages.length).toBe(2);
+    off();
+    vi.useRealTimers();
   });
 });

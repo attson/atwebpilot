@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetDBForTests } from "@/background/storage/db";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
 import { ensureSession, useStore } from "@/sidepanel/chat/session-store";
-import { installAutoPersist, flushAllPending, _resetAutoPersistForTests } from "@/sidepanel/chat/persistence/auto-persist";
+import { installAutoPersist, flushAllPending, _resetAutoPersistForTests, clearPersistStateFor, setPersistIdFor } from "@/sidepanel/chat/persistence/auto-persist";
 
 const URL = "https://example.com";
 
@@ -114,6 +114,79 @@ describe("auto-persist", () => {
     ensureSession(7, URL);  // empty session created
     await vi.advanceTimersByTimeAsync(300);
     expect(spy).not.toHaveBeenCalled();
+    off();
+  });
+
+  it("clearPersistStateFor: after explicit reset, next mutation creates a new row instead of overwriting old one", async () => {
+    const off = installAutoPersist();
+    ensureSession(7, URL);
+    addMessage(7, "first session");
+    await vi.advanceTimersByTimeAsync(300);
+    await flushMicrotasks();
+    const firstActive = await ss.getActiveByTabId(7);
+    expect(firstActive).toBeDefined();
+
+    // Simulate "新建会话": archive + reset
+    await ss.archiveActive(firstActive!.id);
+    // Reset zustand session
+    useStore.setState({ sessionsByTab: {}, currentTabId: 7 });
+    ensureSession(7, URL);
+    // Critical: clear auto-persist state for this tab
+    clearPersistStateFor(7);
+
+    // New mutation
+    addMessage(7, "second session");
+    await vi.advanceTimersByTimeAsync(300);
+    await flushMicrotasks();
+
+    const newActive = await ss.getActiveByTabId(7);
+    expect(newActive).toBeDefined();
+    expect(newActive!.id).not.toBe(firstActive!.id);  // distinct row
+    const oldArchived = await ss.getById(firstActive!.id);
+    expect(oldArchived?.data.messages[0]?.content).toBe("first session");  // archive untouched
+    off();
+  });
+
+  it("setPersistIdFor: after restore, next mutation updates the same row (no duplicate active)", async () => {
+    const off = installAutoPersist();
+    // Set up an archived row
+    await ss.putSession({
+      id: "archived-x",
+      url: URL,
+      lastTabId: 999,
+      status: "archived",
+      data: {
+        messages: [{ role: "user", content: "old" }],
+        cards: [], executedSteps: [], tokenUsage: { input: 0, output: 0 },
+        roundCount: 0, attachedTabs: [], url: URL, runRecordId: null, errorMessage: null
+      },
+      createdAt: 0,
+      updatedAt: 0
+    });
+    // Simulate restore for tabId 7
+    await ss.restoreArchived("archived-x", 7);
+    ensureSession(7, URL);
+    useStore.setState((state) => ({
+      ...state,
+      currentTabId: 7,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        7: { ...state.sessionsByTab[7], messages: [{ role: "user", content: "old" }] }
+      }
+    }));
+    setPersistIdFor(7, "archived-x");
+
+    // New mutation — use flushAllPending to force-write synchronously
+    addMessage(7, "continued");
+    await flushAllPending();
+
+    // Verify no duplicate active rows — only one active row for tabId 7
+    const db = await (await import("@/background/storage/db")).getDB();
+    const all = await db.getAll("chat_sessions");
+    const actives = all.filter((s) => s.status === "active" && s.lastTabId === 7);
+    expect(actives.length).toBe(1);
+    expect(actives[0].id).toBe("archived-x");
+    expect(actives[0].data.messages.length).toBe(2);
     off();
   });
 });
