@@ -169,6 +169,11 @@ export type LlmSettings = {
   autoApproveDangerous: string[];
   /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
   maxTokens?: number;
+  /**
+   * 当模型某轮不调用任何工具（疑似提前收尾）时，最多连续追问几次让它确认/继续。
+   * 模型只要再执行一次工具（取得进展），该计数就清零。留空 = 默认 1。0 = 关闭（旧行为：纯文本即结束）。
+   */
+  maxContinuationNudges?: number;
 };
 
 export type AttachedTabSource = "mention" | "ai-open" | "approval";

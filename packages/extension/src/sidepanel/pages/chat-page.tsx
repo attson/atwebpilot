@@ -230,6 +230,13 @@ export function ChatPage({
           case "usage":
             session.addUsage({ input_tokens: e.input_tokens, output_tokens: e.output_tokens });
             break;
+          case "continuation_nudge":
+            log(
+              "warn",
+              `第 ${e.round + 1} 轮未调用工具，疑似提前收尾，已追问让其确认/继续（第 ${e.attempt} 次）`
+            );
+            session.setStatus("streaming");
+            break;
           case "stream_error":
             log("error", "LLM stream error", e.error);
             session.setError(e.error);

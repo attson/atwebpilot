@@ -157,6 +157,23 @@ export function SettingsPage() {
             className="bg-zinc-800 px-2 py-1 rounded w-24"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <span className="w-20 text-zinc-400">继续追问</span>
+          <input
+            type="number"
+            min={0}
+            max={5}
+            value={settings.maxContinuationNudges ?? 1}
+            onChange={(e) => {
+              const v = parseInt(e.target.value || "1", 10);
+              settings.save({ maxContinuationNudges: Number.isFinite(v) && v >= 0 ? v : 1 });
+            }}
+            className="bg-zinc-800 px-2 py-1 rounded w-24"
+          />
+          <span className="text-zinc-500 text-[11px]">
+            模型不调工具就停下（疑似提前收尾）时，最多连续追问几次让它确认/继续。0 = 关闭
+          </span>
+        </div>
       </section>
 
       <DangerApprovalGroup />
