@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getGlobalApprover, type Decision } from "../chat/approval";
 import { runChatSession, type SessionEvent } from "../chat/run-session";
 import {
+  addLlmExchange,
   attachTab,
   detachTab,
   ensureSession,
@@ -24,8 +25,10 @@ import { useSettings } from "../chat/settings-store";
 import { RpcToolRunner } from "../chat/tool-runner";
 import { TOOL_DEFS } from "../llm/tool-schema";
 import { pickClient } from "../llm/client";
+import { createRecordingClient } from "../llm/recording-client";
 import { buildSystemPrompt } from "../llm/system-prompt";
 import { ChatView } from "../components/chat-view";
+import { LlmExchangePanel } from "../components/llm-exchange-panel";
 import { DangerApprovalPopover } from "../components/danger-approval-popover";
 import { LogsDrawer } from "../components/logs-drawer";
 import { RecommendationsBanner } from "../components/recommendations-banner";
@@ -61,6 +64,7 @@ export function ChatPage({
   const [input, setInput] = useState(initialPrompt ?? session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [exchangePanelOpen, setExchangePanelOpen] = useState(false);
   const approver = getGlobalApprover();
   const autoSentRef = useRef(false);
 
@@ -156,7 +160,11 @@ export function ChatPage({
       setInput("");
       const ac = new AbortController();
       session.setAbortController(ac);
-      const client = pickClient(settings.provider);
+      const client = createRecordingClient(
+        pickClient(settings.provider),
+        (ex) => addLlmExchange(tabId, ex),
+        { provider: settings.provider }
+      );
       const runner = new RpcToolRunner((req) =>
         chrome.runtime.sendMessage(req) as Promise<{ ok: true; data: Json } | { ok: false; error: string }>
       );
@@ -348,7 +356,7 @@ export function ChatPage({
   }, [autoSend, initialPrompt, currentTabId, settings.loaded, send, session, sourceTool]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       <div className="flex items-center gap-2 p-2 border-b border-zinc-800 text-xs">
         <button
           onClick={async () => {
@@ -370,6 +378,12 @@ export function ChatPage({
         </button>
         <button onClick={onOpenHistory} className="px-2 py-0.5 bg-zinc-800 rounded">
           ≡ 历史
+        </button>
+        <button
+          onClick={() => setExchangePanelOpen(true)}
+          className="px-2 py-0.5 bg-zinc-800 rounded"
+        >
+          🗎 原始日志
         </button>
       </div>
       <RecommendationsBanner
@@ -463,6 +477,11 @@ export function ChatPage({
       )}
       <ChatView onApprove={handleApprove} />
       <LogsDrawer />
+      <LlmExchangePanel
+        open={exchangePanelOpen}
+        exchanges={session.llmExchanges}
+        onClose={() => setExchangePanelOpen(false)}
+      />
       <div className="border-t border-zinc-800 p-2 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2 text-xs text-zinc-400">
           <label className="flex items-center gap-1">
