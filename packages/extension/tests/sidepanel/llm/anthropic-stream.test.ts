@@ -51,7 +51,7 @@ describe("parseAnthropicStream", () => {
     expect(events).toEqual([
       { type: "text_delta", text: "Hi" },
       { type: "text_delta", text: " there" },
-      { type: "message_end", usage: { input_tokens: 5, output_tokens: 3 } }
+      { type: "message_end", usage: { input_tokens: 5, output_tokens: 3 }, stop_reason: "end_turn" }
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("parseAnthropicStream", () => {
       { type: "tool_use_input_delta", id: "t1", partial_json: "{\"max" },
       { type: "tool_use_input_delta", id: "t1", partial_json: "Depth\":3}" },
       { type: "tool_use_end", id: "t1", input: { maxDepth: 3 } },
-      { type: "message_end", usage: { input_tokens: 7, output_tokens: 4 } }
+      { type: "message_end", usage: { input_tokens: 7, output_tokens: 4 }, stop_reason: "tool_use" }
     ]);
   });
 

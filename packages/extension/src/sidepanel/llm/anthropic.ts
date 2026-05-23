@@ -18,6 +18,7 @@ export async function* parseAnthropicStream(
   >();
   let usageInput = 0;
   let usageOutput = 0;
+  let stopReason: string | undefined;
 
   for await (const event of readSseEvents(stream)) {
     if (!event.data) continue;
@@ -76,12 +77,15 @@ export async function* parseAnthropicStream(
       }
       blocks.delete(idx);
     } else if (type === "message_delta") {
+      const delta = payload.delta as { stop_reason?: string } | undefined;
+      if (delta?.stop_reason) stopReason = delta.stop_reason;
       const usage = payload.usage as { output_tokens?: number } | undefined;
       if (usage?.output_tokens != null) usageOutput = usage.output_tokens;
     } else if (type === "message_stop") {
       yield {
         type: "message_end",
-        usage: { input_tokens: usageInput, output_tokens: usageOutput }
+        usage: { input_tokens: usageInput, output_tokens: usageOutput },
+        ...(stopReason ? { stop_reason: stopReason } : {})
       };
     }
   }
