@@ -30,7 +30,11 @@ export async function* parseOpenAiStream(
             }
           }
         }
-        yield { type: "message_end", usage: { input_tokens: usageIn, output_tokens: usageOut } };
+        yield {
+          type: "message_end",
+          usage: { input_tokens: usageIn, output_tokens: usageOut },
+          ...(finishReason ? { stop_reason: finishReason } : {})
+        };
         messageEnded = true;
       }
       return;
@@ -100,7 +104,11 @@ export async function* parseOpenAiStream(
         }
       }
     }
-    yield { type: "message_end", usage: { input_tokens: usageIn, output_tokens: usageOut } };
+    yield {
+      type: "message_end",
+      usage: { input_tokens: usageIn, output_tokens: usageOut },
+      ...(finishReason ? { stop_reason: finishReason } : {})
+    };
   }
 }
 

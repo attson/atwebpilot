@@ -17,7 +17,8 @@ describe("PersistedSession", () => {
         attachedTabs: [],
         url: "https://x.com",
         runRecordId: null,
-        errorMessage: null
+        errorMessage: null,
+        llmExchanges: []
       },
       createdAt: 0,
       updatedAt: 0

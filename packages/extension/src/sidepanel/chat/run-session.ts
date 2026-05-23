@@ -57,6 +57,7 @@ export type SessionEvent =
   | { type: "tool_error"; id: string; error: string; ms: number }
   | { type: "tool_skipped"; id: string }
   | { type: "usage"; input_tokens: number; output_tokens: number }
+  | { type: "continuation_nudge"; round: number; attempt: number }
   | { type: "stream_error"; error: string }
   | { type: "exception"; error: string }
   | { type: "session_end"; status: "done" | "aborted" | "max_rounds" | "error"; lastOutput: Json; reason?: string };
@@ -95,6 +96,19 @@ export type RunSessionResult = {
 
 const MAX_PARSE_RETRIES = 3;
 
+const DEFAULT_MAX_CONTINUATION_NUDGES = 1;
+
+/**
+ * Sent as a user turn when the model stops calling tools but the task may not
+ * actually be finished. It asks the model to verify completeness (especially
+ * for collection tasks) and either resume tool calls or give the final result.
+ */
+export const CONTINUATION_NUDGE_PROMPT = [
+  "系统检查：你这一轮没有调用任何工具就停下了。请先确认任务是否真的已经全部完成——",
+  "尤其是数据采集类任务：所有评论 / 分页 / 懒加载内容是否都已拉全？是否已按用户要求把数据完整返回、没有省略？",
+  "如果还有没做完的部分，请继续调用工具把任务做完；如果确认已全部完成，再用一段文本给出最终完整结果即可。"
+].join("\n");
+
 export async function runChatSession(args: RunSessionArgs): Promise<RunSessionResult> {
   const messages: ChatMessage[] = [
     ...(args.initialMessages ?? []),
@@ -106,6 +120,8 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
 
   let parseFailures = 0;
   let stepIndexGlobal = 0;
+  const maxNudges = args.settings.maxContinuationNudges ?? DEFAULT_MAX_CONTINUATION_NUDGES;
+  let nudgesSinceProgress = 0;
 
   for (let round = 0; round < args.settings.maxRounds; round++) {
     args.onEvent?.({ type: "round_start", round });
@@ -213,11 +229,20 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
     args.onEvent?.({ type: "assistant_turn_end", toolUses: completedToolUses });
 
     if (completedToolUses.length === 0) {
-      lastOutput = textBuf;
+      if (textBuf) lastOutput = textBuf;
+      if (nudgesSinceProgress < maxNudges) {
+        nudgesSinceProgress++;
+        args.onEvent?.({ type: "continuation_nudge", round, attempt: nudgesSinceProgress });
+        messages.push({ role: "user", content: CONTINUATION_NUDGE_PROMPT });
+        continue;
+      }
       await args.rpc.finalizeSession(runRecordId, "ok", lastOutput);
       args.onEvent?.({ type: "session_end", status: "done", lastOutput });
       return { status: "done", runRecordId, messages, executedSteps, lastOutput };
     }
+
+    // The model made progress (executed ≥1 tool), so refresh the nudge budget.
+    nudgesSinceProgress = 0;
 
     const results: ToolResultPart[] = [];
     for (const tu of completedToolUses) {

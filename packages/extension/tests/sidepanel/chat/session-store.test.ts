@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  addLlmExchange,
   appendUserMessage,
   attachTab,
   detachTab,
   ensureSession,
   getSessionFor,
   markAttachedUrlChanged,
+  MAX_EXCHANGES,
   rehydrateFromPersisted,
   removeAttachedTab,
   resetSession,
@@ -16,6 +18,7 @@ import {
   useStore,
   validateAttachedTabs
 } from "@/sidepanel/chat/session-store";
+import type { LlmExchange } from "@webpilot/shared/types";
 
 function reset() {
   useStore.setState({ sessionsByTab: {}, currentTabId: null });
@@ -202,7 +205,8 @@ describe("session-store persistence-aware methods", () => {
       attachedTabs: [],
       url: "https://x.com",
       runRecordId: null,
-      errorMessage: null
+      errorMessage: null,
+      llmExchanges: []
     });
     const s = useStore.getState().sessionsByTab[7];
     expect(s.tabId).toBe(7);
@@ -230,8 +234,57 @@ describe("session-store persistence-aware methods", () => {
       attachedTabs: [],
       url: "https://x.com",
       runRecordId: null,
-      errorMessage: null
+      errorMessage: null,
+      llmExchanges: []
     });
     expect(useStore.getState().sessionsByTab[7].status).toBe("idle");
+  });
+});
+
+describe("llmExchanges", () => {
+  beforeEach(reset);
+
+  function makeExchange(round: number): LlmExchange {
+    return {
+      id: `ex-${round}`,
+      round,
+      kind: "main",
+      startedAt: 0,
+      durationMs: 1,
+      request: { provider: "anthropic", model: "m", system: "s", messages: [], toolNames: [] },
+      response: { text: "t", toolUses: [] }
+    };
+  }
+
+  it("appends exchanges to the session", () => {
+    ensureSession(1, "u");
+    addLlmExchange(1, makeExchange(0));
+    addLlmExchange(1, makeExchange(1));
+    expect(getSessionFor(1).llmExchanges.map((e) => e.round)).toEqual([0, 1]);
+  });
+
+  it("caps retained exchanges at MAX_EXCHANGES (FIFO)", () => {
+    ensureSession(2, "u");
+    for (let i = 0; i < MAX_EXCHANGES + 5; i++) addLlmExchange(2, makeExchange(i));
+    const got = getSessionFor(2).llmExchanges;
+    expect(got.length).toBe(MAX_EXCHANGES);
+    expect(got[0].round).toBe(5);
+    expect(got[got.length - 1].round).toBe(MAX_EXCHANGES + 4);
+  });
+
+  it("rehydrate restores llmExchanges (defaults to [] when absent)", () => {
+    rehydrateFromPersisted(3, {
+      messages: [],
+      cards: [],
+      executedSteps: [],
+      tokenUsage: { input: 0, output: 0 },
+      roundCount: 0,
+      attachedTabs: [],
+      url: "u",
+      runRecordId: null,
+      errorMessage: null,
+      llmExchanges: [makeExchange(7)]
+    });
+    expect(getSessionFor(3).llmExchanges.map((e) => e.round)).toEqual([7]);
   });
 });

@@ -38,7 +38,7 @@ describe("parseOpenAiStream", () => {
     expect(events).toEqual([
       { type: "text_delta", text: "Hi" },
       { type: "text_delta", text: " there" },
-      { type: "message_end", usage: { input_tokens: 5, output_tokens: 2 } }
+      { type: "message_end", usage: { input_tokens: 5, output_tokens: 2 }, stop_reason: "stop" }
     ]);
   });
 
@@ -63,7 +63,7 @@ describe("parseOpenAiStream", () => {
       { type: "tool_use_input_delta", id: "call_1", partial_json: "{\"max" },
       { type: "tool_use_input_delta", id: "call_1", partial_json: "Depth\":3}" },
       { type: "tool_use_end", id: "call_1", input: { maxDepth: 3 } },
-      { type: "message_end", usage: { input_tokens: 7, output_tokens: 4 } }
+      { type: "message_end", usage: { input_tokens: 7, output_tokens: 4 }, stop_reason: "tool_calls" }
     ]);
   });
 

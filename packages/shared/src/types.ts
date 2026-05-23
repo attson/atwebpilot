@@ -169,6 +169,42 @@ export type LlmSettings = {
   autoApproveDangerous: string[];
   /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
   maxTokens?: number;
+  /**
+   * 当模型某轮不调用任何工具（疑似提前收尾）时，最多连续追问几次让它确认/继续。
+   * 模型只要再执行一次工具（取得进展），该计数就清零。留空 = 默认 1。0 = 关闭（旧行为：纯文本即结束）。
+   */
+  maxContinuationNudges?: number;
+};
+
+// === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===
+
+export type LlmExchangeRequest = {
+  provider: LlmProvider;
+  model: string;
+  endpoint?: string;
+  maxTokens?: number;
+  system: string;
+  messages: ChatMessage[]; // 完整上下文，单块内容按上限截断
+  toolNames: string[];
+};
+
+export type LlmExchangeResponse = {
+  text: string;
+  toolUses: { id: string; name: string; input: Json }[];
+  usage?: { input_tokens: number; output_tokens: number };
+  stopReason?: string;
+  error?: string;
+  aborted?: boolean;
+};
+
+export type LlmExchange = {
+  id: string;
+  round: number;
+  kind: "main";
+  startedAt: number;
+  durationMs: number;
+  request: LlmExchangeRequest;
+  response: LlmExchangeResponse;
 };
 
 export type AttachedTabSource = "mention" | "ai-open" | "approval";
@@ -207,6 +243,8 @@ export type PersistedSessionData = {
   url: string;
   runRecordId: string | null;
   errorMessage: string | null;
+  /** 自 2026-05-23 起新增；旧持久化记录可能没有，读时默认 []。 */
+  llmExchanges?: LlmExchange[];
 };
 
 export type PersistedSession = {

@@ -1,5 +1,7 @@
 import { create } from "zustand";
-import type { AttachedTab, ChatMessage, Json, PersistedSessionData, Step, ToolUsePart } from "@webpilot/shared/types";
+import type { AttachedTab, ChatMessage, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@webpilot/shared/types";
+
+export const MAX_EXCHANGES = 60;
 
 export type StepCardState = {
   toolUseId: string;
@@ -56,6 +58,8 @@ export type SessionData = {
 
   inputDraft: string;
   attachedTabs: AttachedTab[];
+
+  llmExchanges: LlmExchange[];
 };
 
 export function makeEmptySession(tabId: number, url = ""): SessionData {
@@ -78,7 +82,8 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     logs: [],
     logsOpen: false,
     inputDraft: "",
-    attachedTabs: []
+    attachedTabs: [],
+    llmExchanges: []
   };
 }
 
@@ -270,6 +275,13 @@ export function addUsage(
   }));
 }
 
+export function addLlmExchange(tabId: number, ex: LlmExchange): void {
+  patchSession(tabId, (s) => ({
+    ...s,
+    llmExchanges: [...s.llmExchanges, ex].slice(-MAX_EXCHANGES)
+  }));
+}
+
 export function setStatus(tabId: number, status: SessionStatus): void {
   patchSession(tabId, (s) => ({ ...s, status }));
 }
@@ -369,7 +381,8 @@ export function rehydrateFromPersisted(tabId: number, data: PersistedSessionData
       roundCount: data.roundCount,
       attachedTabs: data.attachedTabs,
       runRecordId: data.runRecordId,
-      errorMessage: data.errorMessage
+      errorMessage: data.errorMessage,
+      llmExchanges: data.llmExchanges ?? []
     };
     return {
       ...state,
@@ -479,6 +492,7 @@ type LegacySession = SessionData & {
   setLastOutput: (v: Json) => void;
   incrementRound: () => void;
   addUsage: (u: { input_tokens: number; output_tokens: number }) => void;
+  addLlmExchange: (ex: LlmExchange) => void;
   setAbortController: (c: AbortController | null) => void;
   showSave: () => void;
   hideSave: () => void;
@@ -513,6 +527,7 @@ export function useSession(): LegacySession {
     setLastOutput: (v) => setLastOutput(tabId, v),
     incrementRound: () => incrementRound(tabId),
     addUsage: (u) => addUsage(tabId, u),
+    addLlmExchange: (ex) => addLlmExchange(tabId, ex),
     setAbortController: (ac) => setAbortController(tabId, ac),
     showSave: () => showSave(tabId),
     hideSave: () => hideSave(tabId),

@@ -9,7 +9,8 @@ const DEFAULTS: LlmSettings = {
   apiKey: "",
   apiKeyMode: "persistent",
   maxRounds: 20,
-  autoApproveDangerous: []
+  autoApproveDangerous: [],
+  maxContinuationNudges: 1
 };
 
 type StoreShape = LlmSettings & {

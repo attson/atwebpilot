@@ -11,7 +11,7 @@ export type LlmStreamEvent =
   | { type: "tool_use_start"; id: string; name: string }
   | { type: "tool_use_input_delta"; id: string; partial_json: string }
   | { type: "tool_use_end"; id: string; input: Json }
-  | { type: "message_end"; usage?: { input_tokens: number; output_tokens: number } }
+  | { type: "message_end"; usage?: { input_tokens: number; output_tokens: number }; stop_reason?: string }
   | { type: "error"; error: string };
 
 export interface LlmClient {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runChatSession } from "@/sidepanel/chat/run-session";
+import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
 import { Approver } from "@/sidepanel/chat/approval";
 import type { LlmClient, LlmStreamEvent } from "@/sidepanel/llm/types";
 import type { ToolRunner } from "@/sidepanel/chat/tool-runner";
@@ -297,6 +297,134 @@ describe("runChatSession", () => {
 
       expect(tabsRpc.openTab).toHaveBeenCalledWith("https://new", undefined);
       expect(events).toContainEqual({ kind: "opened", tabId: 99, url: "https://new", title: "" });
+    });
+  });
+
+  describe("continuation guard", () => {
+    const baseSettings = {
+      provider: "anthropic" as const,
+      model: "m",
+      apiKey: "k",
+      apiKeyMode: "session" as const,
+      maxRounds: 20,
+      autoApproveDangerous: [] as string[]
+    };
+
+    it("nudges when the model stops with text-only, then continues when it resumes calling tools", async () => {
+      const client = makeClient([
+        // round 0: premature text-only stop
+        [{ type: "text_delta", text: "我先看了前 10 条评论。" }, { type: "message_end" }],
+        // round 1: after the nudge the model resumes and calls a tool
+        [
+          { type: "tool_use_start", id: "t1", name: "snapshotDOM" },
+          { type: "tool_use_input_delta", id: "t1", partial_json: "{}" },
+          { type: "tool_use_end", id: "t1", input: {} },
+          { type: "message_end" }
+        ],
+        // round 2: final text-only
+        [{ type: "text_delta", text: "全部完成。" }, { type: "message_end" }]
+      ]);
+      let runnerCalls = 0;
+      const runner = makeRunner(async () => {
+        runnerCalls++;
+        return { ok: true };
+      });
+      const approver = new Approver();
+      const events: SessionEvent[] = [];
+
+      const result = await runChatSession({
+        client,
+        runner,
+        approver,
+        rpc: {
+          startSession: vi.fn().mockResolvedValue({ id: "r" }),
+          appendStepLog: vi.fn().mockResolvedValue(null),
+          finalizeSession: vi.fn().mockResolvedValue(null)
+        },
+        input: { userPrompt: "采集所有评论", tabId: 1, url: "u" },
+        settings: { ...baseSettings, maxContinuationNudges: 1 },
+        systemPrompt: "sys",
+        tools: [],
+        approveAllSafe: true,
+        onEvent: (e) => events.push(e)
+      });
+
+      expect(result.status).toBe("done");
+      // the premature text-only round did NOT end the session — the nudge made it resume
+      expect(runnerCalls).toBe(1);
+      expect(events.some((e) => e.type === "continuation_nudge")).toBe(true);
+    });
+
+    it("does not nudge when maxContinuationNudges is 0 (legacy immediate stop)", async () => {
+      const client = makeClient([
+        [
+          { type: "tool_use_start", id: "t1", name: "snapshotDOM" },
+          { type: "tool_use_input_delta", id: "t1", partial_json: "{}" },
+          { type: "tool_use_end", id: "t1", input: {} },
+          { type: "message_end" }
+        ],
+        [{ type: "text_delta", text: "done" }, { type: "message_end" }]
+      ]);
+      let runnerCalls = 0;
+      const runner = makeRunner(async () => {
+        runnerCalls++;
+        return null;
+      });
+      const approver = new Approver();
+      const events: SessionEvent[] = [];
+
+      const result = await runChatSession({
+        client,
+        runner,
+        approver,
+        rpc: {
+          startSession: vi.fn().mockResolvedValue({ id: "r" }),
+          appendStepLog: vi.fn().mockResolvedValue(null),
+          finalizeSession: vi.fn().mockResolvedValue(null)
+        },
+        input: { userPrompt: "x", tabId: 1, url: "u" },
+        settings: { ...baseSettings, maxContinuationNudges: 0 },
+        systemPrompt: "sys",
+        tools: [],
+        approveAllSafe: true,
+        onEvent: (e) => events.push(e)
+      });
+
+      expect(result.status).toBe("done");
+      expect(runnerCalls).toBe(1);
+      expect(events.some((e) => e.type === "continuation_nudge")).toBe(false);
+    });
+
+    it("stops after exhausting the nudge budget when the model keeps returning text only", async () => {
+      const textOnly: import("@/sidepanel/llm/types").LlmStreamEvent[] = [
+        { type: "text_delta", text: "我觉得差不多了" },
+        { type: "message_end" }
+      ];
+      const client = makeClient([textOnly, textOnly, textOnly, textOnly, textOnly]);
+      const runner = makeRunner(async () => null);
+      const approver = new Approver();
+      const events: SessionEvent[] = [];
+
+      const result = await runChatSession({
+        client,
+        runner,
+        approver,
+        rpc: {
+          startSession: vi.fn().mockResolvedValue({ id: "r" }),
+          appendStepLog: vi.fn().mockResolvedValue(null),
+          finalizeSession: vi.fn().mockResolvedValue(null)
+        },
+        input: { userPrompt: "x", tabId: 1, url: "u" },
+        settings: { ...baseSettings, maxRounds: 20, maxContinuationNudges: 1 },
+        systemPrompt: "sys",
+        tools: [],
+        approveAllSafe: true,
+        onEvent: (e) => events.push(e)
+      });
+
+      // exactly one nudge, then accept done — must NOT run to maxRounds
+      expect(result.status).toBe("done");
+      expect(events.filter((e) => e.type === "continuation_nudge").length).toBe(1);
     });
   });
 

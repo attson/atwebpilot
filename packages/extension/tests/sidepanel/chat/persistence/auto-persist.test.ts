@@ -2,8 +2,9 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetDBForTests } from "@/background/storage/db";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
-import { ensureSession, useStore } from "@/sidepanel/chat/session-store";
-import { installAutoPersist, flushAllPending, _resetAutoPersistForTests, clearPersistStateFor, setPersistIdFor } from "@/sidepanel/chat/persistence/auto-persist";
+import { ensureSession, makeEmptySession, useStore } from "@/sidepanel/chat/session-store";
+import { installAutoPersist, flushAllPending, _resetAutoPersistForTests, clearPersistStateFor, setPersistIdFor, toPersistedData } from "@/sidepanel/chat/persistence/auto-persist";
+import type { LlmExchange } from "@webpilot/shared/types";
 
 const URL = "https://example.com";
 
@@ -158,7 +159,7 @@ describe("auto-persist", () => {
       data: {
         messages: [{ role: "user", content: "old" }],
         cards: [], executedSteps: [], tokenUsage: { input: 0, output: 0 },
-        roundCount: 0, attachedTabs: [], url: URL, runRecordId: null, errorMessage: null
+        roundCount: 0, attachedTabs: [], url: URL, runRecordId: null, errorMessage: null, llmExchanges: []
       },
       createdAt: 0,
       updatedAt: 0
@@ -188,5 +189,17 @@ describe("auto-persist", () => {
     expect(actives[0].id).toBe("archived-x");
     expect(actives[0].data.messages.length).toBe(2);
     off();
+  });
+});
+
+describe("toPersistedData", () => {
+  it("includes llmExchanges", () => {
+    const ex: LlmExchange = {
+      id: "e1", round: 0, kind: "main", startedAt: 0, durationMs: 1,
+      request: { provider: "anthropic", model: "m", system: "s", messages: [], toolNames: [] },
+      response: { text: "t", toolUses: [] }
+    };
+    const s = { ...makeEmptySession(1, "u"), llmExchanges: [ex] };
+    expect(toPersistedData(s).llmExchanges).toEqual([ex]);
   });
 });
