@@ -7,7 +7,7 @@ const DEBOUNCE_MS = 300;
 type Entry = { timer: ReturnType<typeof setTimeout> | null; persistedId: string | null };
 const state = new Map<number, Entry>();
 
-function toPersistedData(s: SessionData): PersistedSessionData {
+export function toPersistedData(s: SessionData): PersistedSessionData {
   return {
     messages: s.messages,
     cards: s.cards,
@@ -17,7 +17,8 @@ function toPersistedData(s: SessionData): PersistedSessionData {
     attachedTabs: s.attachedTabs,
     url: s.url,
     runRecordId: s.runRecordId,
-    errorMessage: s.errorMessage
+    errorMessage: s.errorMessage,
+    llmExchanges: s.llmExchanges
   };
 }
 

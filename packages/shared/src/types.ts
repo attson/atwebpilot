@@ -243,7 +243,8 @@ export type PersistedSessionData = {
   url: string;
   runRecordId: string | null;
   errorMessage: string | null;
-  llmExchanges: LlmExchange[];
+  /** 自 2026-05-23 起新增；旧持久化记录可能没有，读时默认 []。 */
+  llmExchanges?: LlmExchange[];
 };
 
 export type PersistedSession = {
