@@ -176,6 +176,37 @@ export type LlmSettings = {
   maxContinuationNudges?: number;
 };
 
+// === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===
+
+export type LlmExchangeRequest = {
+  provider: LlmProvider;
+  model: string;
+  endpoint?: string;
+  maxTokens?: number;
+  system: string;
+  messages: ChatMessage[]; // 完整上下文，单块内容按上限截断
+  toolNames: string[];
+};
+
+export type LlmExchangeResponse = {
+  text: string;
+  toolUses: { id: string; name: string; input: Json }[];
+  usage?: { input_tokens: number; output_tokens: number };
+  stopReason?: string;
+  error?: string;
+  aborted?: boolean;
+};
+
+export type LlmExchange = {
+  id: string;
+  round: number;
+  kind: "main";
+  startedAt: number;
+  durationMs: number;
+  request: LlmExchangeRequest;
+  response: LlmExchangeResponse;
+};
+
 export type AttachedTabSource = "mention" | "ai-open" | "approval";
 
 export type AttachedTab = {
@@ -212,6 +243,7 @@ export type PersistedSessionData = {
   url: string;
   runRecordId: string | null;
   errorMessage: string | null;
+  llmExchanges: LlmExchange[];
 };
 
 export type PersistedSession = {
