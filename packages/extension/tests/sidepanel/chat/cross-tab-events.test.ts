@@ -4,6 +4,7 @@ import {
   ensureSession,
   getSessionFor,
   setCurrentTab,
+  setStatus,
   useStore
 } from "@/sidepanel/chat/session-store";
 import { handleTabEvent } from "@/sidepanel/chat/cross-tab-events";
@@ -15,9 +16,10 @@ function reset() {
 describe("handleTabEvent", () => {
   beforeEach(reset);
 
-  it("tabs.spawned auto-attaches to session whose main tab is opener", () => {
+  it("tabs.spawned auto-attaches to running session whose main tab is opener", () => {
     ensureSession(100, "https://main");
     setCurrentTab(100);
+    setStatus(100, "running");
     // seed a message so appendSystemNote isn't a no-op (it ignores empty conversations)
     useStore.setState((state) => ({
       ...state,
@@ -45,6 +47,33 @@ describe("handleTabEvent", () => {
     expect(JSON.stringify(last)).toMatch(/AI 在 #200/);
   });
 
+  it("tabs.spawned is ignored when session is idle (user manually opened the tab)", () => {
+    ensureSession(100, "https://main");
+    setCurrentTab(100);
+    // session stays at default status "idle"
+    useStore.setState((state) => ({
+      ...state,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        100: {
+          ...state.sessionsByTab[100],
+          messages: [{ role: "user", content: "hi" }]
+        }
+      }
+    }));
+    handleTabEvent({
+      type: "tabs.spawned",
+      tabId: 200,
+      openerTabId: 100,
+      windowId: 1,
+      url: "https://child",
+      title: "Child"
+    });
+    expect(getSessionFor(100).attachedTabs).toEqual([]);
+    const last = getSessionFor(100).messages.at(-1);
+    expect(JSON.stringify(last)).not.toMatch(/AI 在 #200/);
+  });
+
   it("tabs.spawned with non-matching opener is ignored", () => {
     ensureSession(100, "https://main");
     handleTabEvent({
@@ -60,6 +89,7 @@ describe("handleTabEvent", () => {
 
   it("tabs.spawned auto-attaches to session whose attached tab is opener", () => {
     ensureSession(100, "https://main");
+    setStatus(100, "streaming");
     attachTab(100, {
       tabId: 150, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t"
     });
