@@ -121,7 +121,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
   let parseFailures = 0;
   let stepIndexGlobal = 0;
   const maxNudges = args.settings.maxContinuationNudges ?? DEFAULT_MAX_CONTINUATION_NUDGES;
-  let nudgesSinceProgress = 0;
+  let totalNudges = 0;
 
   for (let round = 0; round < args.settings.maxRounds; round++) {
     args.onEvent?.({ type: "round_start", round });
@@ -230,9 +230,9 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
 
     if (completedToolUses.length === 0) {
       if (textBuf) lastOutput = textBuf;
-      if (nudgesSinceProgress < maxNudges) {
-        nudgesSinceProgress++;
-        args.onEvent?.({ type: "continuation_nudge", round, attempt: nudgesSinceProgress });
+      if (totalNudges < maxNudges) {
+        totalNudges++;
+        args.onEvent?.({ type: "continuation_nudge", round, attempt: totalNudges });
         messages.push({ role: "user", content: CONTINUATION_NUDGE_PROMPT });
         continue;
       }
@@ -240,9 +240,6 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       args.onEvent?.({ type: "session_end", status: "done", lastOutput });
       return { status: "done", runRecordId, messages, executedSteps, lastOutput };
     }
-
-    // The model made progress (executed ≥1 tool), so refresh the nudge budget.
-    nudgesSinceProgress = 0;
 
     const results: ToolResultPart[] = [];
     for (const tu of completedToolUses) {
