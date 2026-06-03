@@ -18,6 +18,11 @@ export function handleTabEvent(ev: TabEvent): void {
           sid === ev.openerTabId ||
           s.attachedTabs.some((a) => a.tabId === ev.openerTabId);
         if (!owns) continue;
+        // Only attribute opener-matched spawns to AI when the session is
+        // actively running. Otherwise the user opened the tab manually
+        // (Ctrl/middle/right-click on a link in the session tab), and
+        // chrome.tabs.create from the openTab tool doesn't set openerTabId.
+        if (s.status !== "running" && s.status !== "streaming") continue;
         attachTab(sid, {
           tabId: ev.tabId,
           windowId: ev.windowId,
