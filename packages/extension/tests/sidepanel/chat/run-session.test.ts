@@ -395,6 +395,57 @@ describe("runChatSession", () => {
       expect(events.some((e) => e.type === "continuation_nudge")).toBe(false);
     });
 
+    it("does not re-nudge when the model alternates text-only with verification tool calls", async () => {
+      // Regression for "确认完成有好多遍": before the fix, any tool call reset
+      // the nudge budget, so a model in a "claim done → verify → claim done" loop
+      // got nudged every other round until maxRounds.
+      const client = makeClient([
+        // R0: premature text-only "done"
+        [{ type: "text_delta", text: "采集完成 152 条。" }, { type: "message_end" }],
+        // R1: nudged → runs one verification tool
+        [
+          { type: "tool_use_start", id: "t1", name: "httpRequest" },
+          { type: "tool_use_input_delta", id: "t1", partial_json: "{}" },
+          { type: "tool_use_end", id: "t1", input: {} },
+          { type: "message_end" }
+        ],
+        // R2: text-only "done" again — this MUST terminate, not trigger another nudge
+        [{ type: "text_delta", text: "确认已完成。" }, { type: "message_end" }],
+        // sentinel: if the loop wrongly continues, it'd consume more rounds
+        [{ type: "text_delta", text: "再次确认。" }, { type: "message_end" }],
+        [{ type: "text_delta", text: "三次确认。" }, { type: "message_end" }]
+      ]);
+      let runnerCalls = 0;
+      const runner = makeRunner(async () => {
+        runnerCalls++;
+        return { ok: true };
+      });
+      const approver = new Approver();
+      const events: SessionEvent[] = [];
+
+      const result = await runChatSession({
+        client,
+        runner,
+        approver,
+        rpc: {
+          startSession: vi.fn().mockResolvedValue({ id: "r" }),
+          appendStepLog: vi.fn().mockResolvedValue(null),
+          finalizeSession: vi.fn().mockResolvedValue(null)
+        },
+        input: { userPrompt: "采集所有评论", tabId: 1, url: "u" },
+        settings: { ...baseSettings, maxContinuationNudges: 1 },
+        systemPrompt: "sys",
+        tools: [],
+        approveAllSafe: true,
+        onEvent: (e) => events.push(e)
+      });
+
+      expect(result.status).toBe("done");
+      // exactly one nudge across the whole session, even though a tool ran between text-only turns
+      expect(events.filter((e) => e.type === "continuation_nudge").length).toBe(1);
+      expect(runnerCalls).toBe(1);
+    });
+
     it("stops after exhausting the nudge budget when the model keeps returning text only", async () => {
       const textOnly: import("@/sidepanel/llm/types").LlmStreamEvent[] = [
         { type: "text_delta", text: "我觉得差不多了" },
