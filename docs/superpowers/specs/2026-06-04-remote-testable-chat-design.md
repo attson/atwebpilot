@@ -354,6 +354,8 @@ Documented in this spec but not enforced in CI. Steps:
 6. With an idle session for tab T open, manually Ctrl-click a link in tab T → confirm sidepanel shows **no** "AI 在 #X 打开了" system note.
 7. Coordinator sends `READ_SIDEPANEL_STATE { tab_id: T }` → expect `attachedTabs: []`.
 
+> The mini-coordinator helper script is at `docs/superpowers/scripts/mini-coordinator.mjs`. Run `node docs/superpowers/scripts/mini-coordinator.mjs` after `pnpm build` and loading `packages/extension/dist` unpacked.
+
 ### CI coverage
 
 Layers 1–4 run under existing `pnpm test`. Layer 5 is manual.
