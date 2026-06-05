@@ -11,6 +11,13 @@
 | 5 | [`2026-05-10-plan5-summary-step.md`](./2026-05-10-plan5-summary-step.md) | 6 | +18 | 168 |
 | 6 | [`2026-05-14-multi-tab-context.md`](./2026-05-14-multi-tab-context.md) | 23 | +69 | 237 |
 | 7 | [`2026-05-19-sidepanel-session-persistence.md`](./2026-05-19-sidepanel-session-persistence.md) | 12 | +43 / -5 | 288 |
+| 8 | [`2026-05-11-github-actions-extension-package.md`](./2026-05-11-github-actions-extension-package.md) | 3 | 0 (CI workflow) | 288 |
+| 9 | [`2026-05-12-ai-generated-tool-types.md`](./2026-05-12-ai-generated-tool-types.md) | 7 | +12 | 300 |
+| 10 | [`2026-05-15-phase0-monorepo-restructure.md`](./2026-05-15-phase0-monorepo-restructure.md) | 8 | 0 (重组) | 300 |
+| 11 | [`2026-05-15-phase1-protocol-coordinator-core.md`](./2026-05-15-phase1-protocol-coordinator-core.md) | 16 | +65 shared + 45 coord | 410 |
+| 12 | [`2026-05-15-phase2-extension-coordinator-client.md`](./2026-05-15-phase2-extension-coordinator-client.md) | 14 | +30 | 440 |
+| 13 | [`2026-05-23-raw-llm-exchange-log.md`](./2026-05-23-raw-llm-exchange-log.md) | 9 | +29 + continuation guard 3 | 472 |
+| 14 | [`2026-06-04-remote-testable-chat.md`](./2026-06-04-remote-testable-chat.md) | 17 | +20 (shared) +27 (extension) | ~492 |
 
 各 plan 的 task 严格 TDD：写失败测试 → 实现 → 验证通过 → commit。每 task 一组 commit；plan 内的 commit 加起来构成一次完整 feature。
 

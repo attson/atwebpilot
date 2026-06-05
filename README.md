@@ -6,7 +6,7 @@
 - **写**：填表、勾选、选下拉、点击按钮、提交表单、上传文件
 - **采**：抓主图、详情图、评论列表等结构化数据
 
-任意一段成功对话都能一键固化为 URL 模式匹配的可重放工具。每个浏览器 tab 有独立的对话上下文，互不干扰；关掉 tab 后会话进入 5 分钟「近期会话」，可一键恢复。
+任意一段成功对话都能一键固化为 URL 模式匹配的可重放工具。每个浏览器 tab 有独立的对话上下文，互不干扰；按 URL 持久化历史会话（每个 URL ≤20 条），切回时通过顶部历史 drawer 一键恢复，关 tab 不丢。
 
 ---
 
@@ -14,10 +14,10 @@
 
 ```bash
 pnpm install
-pnpm build           # 产出 dist/
+pnpm build           # 产出 packages/extension/dist/
 ```
 
-1. `chrome://extensions` → 「开发者模式」 → 「加载已解压的扩展程序」选 `dist/`
+1. `chrome://extensions` → 「开发者模式」 → 「加载已解压的扩展程序」选 `packages/extension/dist/`
 2. 任意页面右上角点扩展图标 → 侧边面板打开
 
 刷新扩展（reload 按钮）后，已打开的页面**第一次执行 step 时**扩展会自动注入 content script + 重试，无需手动刷新页面。
@@ -51,6 +51,7 @@ git push origin v0.0.1
 | API Key | 「仅本次会话保存」勾选 = 关浏览器即清；否则存 `chrome.storage.local` |
 | max_tokens | 单次 LLM 响应上限（默认 4096，长任务可调 8192/16k） |
 | 最大轮数 | 一次会话最多 LLM round 数，默认 20 |
+| 续作 nudge 次数 | 模型说完没调工具时再问一遍是否真完成；默认 1，session-total 上限 |
 | 自动通过策略 | safe 永远 auto；caution 看勾选；dangerous 按工具名白名单（5 选 N） |
 
 API Key 不会进 IndexedDB，也不会被「导出工具库」带走。
@@ -113,12 +114,21 @@ URL 模式   [https://*.pinduoduo.com/**]
 - 工具详情页：步骤定义折叠；运行按钮在最显眼位置；运行结果（绿框）显示在按钮正下方
 - banner 上的「运行」 = 跳工具详情页 + 自动开跑
 
-### 4. 多 tab 行为（Plan 4）
+### 4. 多 tab 与会话历史（Plan 4 + 7 + 8）
 
 - 切到另一个 tab → 看到该 tab 的独立会话（消息历史、运行中状态、待审 step）
 - 原 tab 的 LLM 调用在后台继续跑，UI 不可见
-- 关掉 tab → 非空会话进入顶部「近期会话」5 分钟可恢复（恢复到当前 tab）
+- 一个会话可以同时挂多个 tab：
+  - 在输入框 `@` 提一个 URL 把另一个 tab 拉进会话
+  - AI 可以用 `openTab(url)` 打开新 tab，成功后自动 attach（source=`ai-open`）
+  - 也可以 `attachTab(tabId)` 申请把任意 tab 纳入（需用户审阅）
+  - 19 个内置工具都接受可选 `tabId` 参数指向某个已 attached tab
+- 会话按 URL 持久化（IndexedDB `chat_sessions`，每 URL ≤20 条）→ 关 tab 不丢；切回原 URL 通过顶部历史 drawer 一键恢复，或新建会话
 - 同 tab 内 navigate（点超链接 / SPA 路由变更）→ 会话保留 + 末尾追加一条 `[页面跳转] 新 URL: ...` 的 system note
+
+### 5. 后台 LLM 交流记录（Plan 11）
+
+每次 LLM stream 的 request（去掉 apiKey）和组装后的 response 都会被 `recording-client` 抓下来，按 round 存进会话；右上角 `Exchanges N [查看]` 打开专用面板，定位 prompt cache / continuation guard / stop_reason 这类调参问题不再靠盲猜。
 
 ---
 
@@ -155,10 +165,27 @@ URL 模式   [https://*.pinduoduo.com/**]
 ## 测试与构建
 
 ```bash
-pnpm typecheck      # tsc -b --noEmit
-pnpm test           # 全量单元测试（~168 个）
+pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension
+pnpm test           # 全量测试 ~492（346 extension + 101 shared + 45 coordinator）
 pnpm test:watch
-pnpm build          # 产出 dist/
+pnpm build          # 产出 packages/extension/dist/
+```
+
+测试覆盖：纯逻辑（url-pattern / static-scan / infer-json-schema / protocol zod）+ 工具调用层（每个内置工具一组 happy-dom 测试）+ chat loop（含 continuation guard）+ WS 协议端到端（起真 `ws` server 跑 HELLO / EXEC / START_CHAT_SESSION）。无 Playwright；UI smoke 是手动。
+
+---
+
+## Coordinator 远程控制（Plan 10 + 12，opt-in）
+
+设置页有「Coordinator」子页：填一个 WS URL + token 即可让扩展挂到任意符合协议的服务器，被远程派发工具步（EXEC）。WS 协议见 `packages/shared/src/protocol/messages.ts`，参考实现见 `packages/coordinator/`。
+
+Plan 12 之后还可以远程驱动一整个 chat session（`START_CHAT_SESSION`），并把会话事件（`CHAT_EVENT`）流式发回：仅在勾上「允许 coordinator 远程驱动 chat session」之后生效，默认关闭，独立于 EXEC 工具调用。BG 端跑的是同一个 `runChatSession`，可以走真实 LLM，也可以由 server 端直接喂一段 `mock_llm: { rounds: LlmStreamEvent[][] }` 做确定性回归测试。
+
+本地 smoke：
+
+```bash
+node docs/superpowers/scripts/mini-coordinator.mjs
+# 在设置里填 ws://127.0.0.1:8787/worker + 任意 token → 连接
 ```
 
 ---
@@ -196,12 +223,16 @@ pnpm build          # 产出 dist/
 详细见 [`AGENTS.md`](./AGENTS.md)（给 AI 协作者的导航）。简版：
 
 ```
-src/
-├─ shared/                 跨入口的纯函数与类型（含 static-scan / url-pattern）
-├─ background/             Service Worker（IndexedDB / RPC / tab-watcher / scripting）
-├─ content/                Content script + 19 个内置工具（每文件一个）
-└─ sidepanel/              React UI + zustand session store + LLM 客户端
+packages/
+├─ shared/                 纯函数 + 类型 + WS 协议 zod schemas（无 chrome / 无 DOM）
+├─ coordinator/            参考 WS 服务器实现（测试用；生产可外置）
+└─ extension/
+   └─ src/
+      ├─ background/       Service Worker（IDB / RPC / tab-watcher / coordinator-client）
+      ├─ content/          Content script + 19 个内置工具（每文件一个）
+      └─ sidepanel/        React UI + zustand session store + LLM 客户端 + coordinator 设置页
 docs/superpowers/
-├─ specs/                  设计文档（5 份；见 specs/README.md）
-└─ plans/                  实施计划（每个对应一份 spec）
+├─ specs/                  设计文档（12 份；见 specs/README.md）
+├─ plans/                  实施计划（每份对应一份 spec）
+└─ scripts/                辅助脚本（含 mini-coordinator.mjs 本地 smoke）
 ```
