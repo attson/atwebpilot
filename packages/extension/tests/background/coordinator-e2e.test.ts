@@ -218,4 +218,114 @@ describe("coordinator-client end-to-end with ws server", () => {
     expect(endEvents.length).toBe(1);
     expect((endEvents[0] as { status: string }).status).toBe("done");
   });
+
+  it("rejects START_CHAT_SESSION when allow_remote_chat is false", async () => {
+    const fakeStorage = new Map<string, unknown>(); // flag absent → defaults false
+    vi.stubGlobal("chrome", {
+      ...((globalThis as { chrome?: unknown }).chrome as object),
+      storage: { local: {
+        async get(keys: string[] | string) {
+          const arr = Array.isArray(keys) ? keys : [keys];
+          const out: Record<string, unknown> = {};
+          for (const k of arr) if (fakeStorage.has(k)) out[k] = fakeStorage.get(k);
+          return out;
+        },
+        async set(obj: Record<string, unknown>) {
+          for (const [k, v] of Object.entries(obj)) fakeStorage.set(k, v);
+        }
+      }, onChanged: { addListener: vi.fn() } },
+      tabs: { query: vi.fn(async () => [{ id: 42 }]) }
+    });
+
+    const events: unknown[] = [];
+    const done = new Promise<void>((resolve) => {
+      wss!.on("connection", (socket) => {
+        socket.on("message", (raw) => {
+          const parsed = JSON.parse(raw.toString());
+          if (parsed.type === "HELLO") {
+            socket.send(JSON.stringify({
+              type: "WELCOME", nonce: "n", ts: Date.now(),
+              protocol_version: PROTOCOL_VERSION,
+              server_time: Date.now(), heartbeat_interval_ms: 20000
+            }));
+            socket.send(JSON.stringify({
+              type: "START_CHAT_SESSION", nonce: "s", ts: Date.now(),
+              protocol_version: PROTOCOL_VERSION,
+              session_id: "denied", user_prompt: "hi"
+            }));
+          } else if (parsed.type === "CHAT_EVENT") {
+            events.push(parsed.event);
+            if (parsed.event.type === "session_end") resolve();
+          }
+        });
+      });
+    });
+
+    const client = new CoordinatorClient({
+      ws_url: baseUrl, token: "t", worker_id: "w",
+      savedToolsProvider: async () => [], labelsProvider: async () => [],
+      onChat: async (msg, send) => {
+        const { CoordinatorChatHost } = await import("../../src/background/coordinator-chat");
+        await new CoordinatorChatHost().handle(msg, send);
+      }
+    });
+    await client.connect();
+    await done;
+    await client.disconnect();
+    expect(events).toHaveLength(1);
+    expect((events[0] as { type: string }).type).toBe("session_end");
+    expect((events[0] as { reason?: string }).reason).toMatch(/disabled/);
+  });
+
+  it("READ_SIDEPANEL_STATE returns found:false when no sidepanel listens", async () => {
+    vi.stubGlobal("chrome", {
+      ...((globalThis as { chrome?: unknown }).chrome as object),
+      runtime: {
+        ...((globalThis as { chrome?: { runtime?: object } }).chrome?.runtime ?? {}),
+        sendMessage: vi.fn(),                 // never triggers any pong
+        onMessage: { addListener: vi.fn() }
+      }
+    });
+
+    let replyResolve: (v: unknown) => void;
+    const replyPromise = new Promise<unknown>((r) => { replyResolve = r; });
+    wss!.on("connection", (socket) => {
+      socket.on("message", (raw) => {
+        const parsed = JSON.parse(raw.toString());
+        if (parsed.type === "HELLO") {
+          socket.send(JSON.stringify({
+            type: "WELCOME", nonce: "n", ts: Date.now(),
+            protocol_version: PROTOCOL_VERSION,
+            server_time: Date.now(), heartbeat_interval_ms: 20000
+          }));
+          socket.send(JSON.stringify({
+            type: "READ_SIDEPANEL_STATE", nonce: "r", ts: Date.now(),
+            protocol_version: PROTOCOL_VERSION,
+            req_id: "probe-1", tab_id: "42"
+          }));
+        } else if (parsed.type === "SIDEPANEL_STATE_REPLY") {
+          replyResolve(parsed);
+        }
+      });
+    });
+
+    const client = new CoordinatorClient({
+      ws_url: baseUrl, token: "t", worker_id: "w",
+      savedToolsProvider: async () => [], labelsProvider: async () => [],
+      onReadState: async (msg, send) => {
+        const { CoordinatorStateBridge } = await import("../../src/background/coordinator-state-bridge");
+        const bridge = new CoordinatorStateBridge({
+          sendRuntimeMessage: () => undefined,
+          onRuntimeMessage: () => undefined,
+          timeoutMs: 100
+        });
+        await bridge.handle(msg, send);
+      }
+    });
+    await client.connect();
+    const reply = await replyPromise;
+    await client.disconnect();
+    expect((reply as { req_id: string; found: boolean }).req_id).toBe("probe-1");
+    expect((reply as { found: boolean }).found).toBe(false);
+  });
 });
