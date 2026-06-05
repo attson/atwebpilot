@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { _resetDBForTests } from "@/background/storage/db";
+import { _resetDBForTests, getDB } from "@/background/storage/db";
+import type { RunRecord } from "@webpilot/shared/types";
 import { createRun, finalizeRun, getRun, listRuns } from "@/background/storage/runs";
 
 describe("runs storage", () => {
@@ -43,5 +44,38 @@ describe("runs storage", () => {
   it("createRun preserves source when given", async () => {
     const run = await createRun({ toolId: null, toolVersion: null, url: "u", source: "coordinator" });
     expect(run.source).toBe("coordinator");
+  });
+
+  it("getRun backfills source on a raw record that lacks the field", async () => {
+    const db = await getDB();
+    const raw = {
+      id: "legacy-1",
+      toolId: null,
+      toolVersion: null,
+      url: "u",
+      startedAt: 0,
+      status: "ok",
+      stepLog: []
+    } as unknown as RunRecord;
+    await db.put("runs", raw);
+    const read = await getRun("legacy-1");
+    expect(read?.source).toBe("user");
+  });
+
+  it("listRuns backfills source on raw records that lack the field", async () => {
+    const db = await getDB();
+    const raw = {
+      id: "legacy-2",
+      toolId: null,
+      toolVersion: null,
+      url: "u",
+      startedAt: 0,
+      status: "ok",
+      stepLog: []
+    } as unknown as RunRecord;
+    await db.put("runs", raw);
+    const all = await listRuns();
+    const found = all.find((r) => r.id === "legacy-2");
+    expect(found?.source).toBe("user");
   });
 });

@@ -24,13 +24,14 @@ export async function createRun(input: {
 
 function withSourceDefault(r: RunRecord | undefined): RunRecord | undefined {
   if (!r) return r;
-  return r.source ? r : { ...r, source: "user" };
+  return r.source === "user" || r.source === "coordinator" ? r : { ...r, source: "user" };
 }
 
 export async function appendStepLog(id: string, entry: RunStepLogEntry): Promise<void> {
   const db = await getDB();
   const run = await db.get("runs", id);
   if (!run) throw new Error(`run ${id} not found`);
+  if (!run.source) run.source = "user";
   run.stepLog.push(entry);
   await db.put("runs", run);
 }
@@ -42,6 +43,7 @@ export async function finalizeRun(
   const db = await getDB();
   const run = await db.get("runs", id);
   if (!run) throw new Error(`run ${id} not found`);
+  if (!run.source) run.source = "user";
   run.status = patch.status;
   run.output = patch.output;
   run.finishedAt = Date.now();
