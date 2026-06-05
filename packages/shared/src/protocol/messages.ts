@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EnvelopeFields } from "./envelope";
 import { ErrorBodySchema } from "./errors";
+import { ChatSessionEventSchema, ChatSessionStatusSchema } from "./chat-event";
 
 const StepSchema = z.object({
   tool: z.string(),
@@ -127,6 +128,80 @@ export const CloseSessionSchema = z.object({
   session_id: z.string()
 });
 
+// === Mock LLM stream event (subset re-checked here so messages.ts is self-contained) ===
+
+const LlmStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text_delta"), text: z.string() }),
+  z.object({ type: z.literal("tool_use_start"), id: z.string(), name: z.string() }),
+  z.object({ type: z.literal("tool_use_input_delta"), id: z.string(), partial_json: z.string() }),
+  z.object({ type: z.literal("tool_use_end"), id: z.string(), input: z.unknown() }),
+  z.object({
+    type: z.literal("message_end"),
+    usage: z.object({
+      input_tokens: z.number().int(),
+      output_tokens: z.number().int()
+    }).optional(),
+    stop_reason: z.string().optional()
+  }),
+  z.object({ type: z.literal("error"), error: z.string() })
+]);
+
+// === New S → C ===
+
+export const StartChatSessionSchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("START_CHAT_SESSION"),
+  session_id: z.string().min(1),
+  user_prompt: z.string(),
+  tab_id: z.string().optional(),
+  mock_llm: z.object({
+    rounds: z.array(z.array(LlmStreamEventSchema))
+  }).optional(),
+  settings_override: z.object({
+    maxRounds: z.number().int().positive().optional(),
+    maxContinuationNudges: z.number().int().nonnegative().optional()
+  }).optional()
+});
+
+export const AbortSessionSchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("ABORT_SESSION"),
+  session_id: z.string().min(1)
+});
+
+export const ReadSidepanelStateSchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("READ_SIDEPANEL_STATE"),
+  req_id: z.string().min(1),
+  tab_id: z.string().min(1)
+});
+
+// === New C → S ===
+
+export const ChatEventSchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("CHAT_EVENT"),
+  session_id: z.string().min(1),
+  event: ChatSessionEventSchema
+});
+
+export const SidepanelStateReplySchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("SIDEPANEL_STATE_REPLY"),
+  req_id: z.string().min(1),
+  found: z.boolean(),
+  snapshot: z.object({
+    status: ChatSessionStatusSchema,
+    messagesCount: z.number().int().nonnegative(),
+    attachedTabs: z.array(z.object({
+      tabId: z.number().int(),
+      source: z.string(),
+      lastSeenUrl: z.string()
+    })),
+    lastSystemNote: z.string().optional()
+  }).optional()
+});
+
 // === Discriminated unions ===
 
 export const ClientToServerSchema = z.discriminatedUnion("type", [
@@ -136,7 +211,9 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
   ProgressSchema,
   ResultSchema,
   SessionEventSchema,
-  StateSnapshotSchema
+  StateSnapshotSchema,
+  ChatEventSchema,
+  SidepanelStateReplySchema
 ]);
 
 export const ServerToClientSchema = z.discriminatedUnion("type", [
@@ -144,7 +221,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   PongSchema,
   OpenTabSchema,
   ExecSchema,
-  CloseSessionSchema
+  CloseSessionSchema,
+  StartChatSessionSchema,
+  AbortSessionSchema,
+  ReadSidepanelStateSchema
 ]);
 
 export const ProtocolMessageSchema = z.union([ClientToServerSchema, ServerToClientSchema]);
@@ -158,3 +238,9 @@ export type Welcome = z.infer<typeof WelcomeSchema>;
 export type Exec = z.infer<typeof ExecSchema>;
 export type Result = z.infer<typeof ResultSchema>;
 export type Progress = z.infer<typeof ProgressSchema>;
+
+export type StartChatSession = z.infer<typeof StartChatSessionSchema>;
+export type AbortSession = z.infer<typeof AbortSessionSchema>;
+export type ReadSidepanelState = z.infer<typeof ReadSidepanelStateSchema>;
+export type ChatEvent = z.infer<typeof ChatEventSchema>;
+export type SidepanelStateReply = z.infer<typeof SidepanelStateReplySchema>;
