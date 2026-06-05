@@ -18,6 +18,7 @@ interface PongMessage {
 export interface CoordinatorStateBridgeOptions {
   sendRuntimeMessage: (msg: unknown) => void | Promise<unknown>;
   onRuntimeMessage: (fn: (msg: unknown) => void) => void;
+  offRuntimeMessage?: (fn: (msg: unknown) => void) => void;
   timeoutMs?: number;
 }
 
@@ -29,9 +30,15 @@ function randomNonce(): string {
 
 export class CoordinatorStateBridge {
   private pending = new Map<string, (pong: PongMessage) => void>();
+  private readonly listener: (msg: unknown) => void;
 
   constructor(private opts: CoordinatorStateBridgeOptions) {
-    opts.onRuntimeMessage((msg) => this.maybePong(msg));
+    this.listener = (msg) => this.maybePong(msg);
+    opts.onRuntimeMessage(this.listener);
+  }
+
+  dispose(): void {
+    this.opts.offRuntimeMessage?.(this.listener);
   }
 
   async handle(

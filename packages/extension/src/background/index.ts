@@ -40,6 +40,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // --- Coordinator client (Phase 2) ---
 let activeClient: CoordinatorClient | null = null;
+let activeStateBridge: CoordinatorStateBridge | null = null;
 
 async function buildSavedToolsMetadata(): Promise<
   Array<{ id: string; version: number; hash: string; url_pattern: string[]; description?: string }>
@@ -66,9 +67,10 @@ export async function startCoordinatorClient(): Promise<void> {
   }
   const worker_id = await getOrCreateWorkerId();
   const chatHost = new CoordinatorChatHost();
-  const stateBridge = new CoordinatorStateBridge({
+  activeStateBridge = new CoordinatorStateBridge({
     sendRuntimeMessage: (m) => chrome.runtime.sendMessage(m),
-    onRuntimeMessage: (fn) => chrome.runtime.onMessage.addListener(fn)
+    onRuntimeMessage: (fn) => chrome.runtime.onMessage.addListener(fn),
+    offRuntimeMessage: (fn) => chrome.runtime.onMessage.removeListener(fn)
   });
   activeClient = new CoordinatorClient({
     ws_url: config.ws_url,
@@ -78,12 +80,16 @@ export async function startCoordinatorClient(): Promise<void> {
     labelsProvider: async () => [],
     onExec: handleExec,
     onChat: (m, send) => chatHost.handle(m, send),
-    onReadState: (m, send) => stateBridge.handle(m, send)
+    onReadState: (m, send) => activeStateBridge!.handle(m, send)
   });
   await activeClient.connect();
 }
 
 export async function stopCoordinatorClient(): Promise<void> {
+  if (activeStateBridge) {
+    activeStateBridge.dispose();
+    activeStateBridge = null;
+  }
   if (!activeClient) return;
   await activeClient.disconnect();
   activeClient = null;

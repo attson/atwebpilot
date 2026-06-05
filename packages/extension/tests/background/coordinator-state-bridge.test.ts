@@ -69,6 +69,21 @@ describe("CoordinatorStateBridge", () => {
     expect(out[0].snapshot).toBeUndefined();
   });
 
+  it("dispose() removes the runtime listener", () => {
+    const removed: Array<(m: unknown) => void> = [];
+    const added: Array<(m: unknown) => void> = [];
+    const bridge = new CoordinatorStateBridge({
+      sendRuntimeMessage: () => undefined,
+      onRuntimeMessage: (fn) => { added.push(fn); },
+      offRuntimeMessage: (fn) => { removed.push(fn); }
+    });
+    expect(added).toHaveLength(1);
+    expect(removed).toHaveLength(0);
+    bridge.dispose();
+    expect(removed).toHaveLength(1);
+    expect(removed[0]).toBe(added[0]);
+  });
+
   it("ignores pongs for mismatched req_id", async () => {
     const out: ClientToServer[] = [];
     const rt = fakeRuntime();
