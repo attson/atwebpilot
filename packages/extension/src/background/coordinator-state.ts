@@ -53,3 +53,14 @@ export async function saveToken(token: string): Promise<void> {
 export async function clearToken(): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEYS.token);
 }
+
+const ALLOW_REMOTE_CHAT_KEY = "webpilot.coordinator.allow_remote_chat";
+
+export async function loadAllowRemoteChat(): Promise<boolean> {
+  const got = await chrome.storage.local.get([ALLOW_REMOTE_CHAT_KEY]);
+  return got[ALLOW_REMOTE_CHAT_KEY] === true;
+}
+
+export async function saveAllowRemoteChat(value: boolean): Promise<void> {
+  await chrome.storage.local.set({ [ALLOW_REMOTE_CHAT_KEY]: value });
+}
