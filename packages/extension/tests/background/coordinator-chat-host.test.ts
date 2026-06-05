@@ -3,6 +3,7 @@ import { CoordinatorChatHost } from "@/background/coordinator-chat";
 import * as state from "@/background/coordinator-state";
 import type { ServerToClient, ClientToServer } from "@webpilot/shared/protocol";
 import { PROTOCOL_VERSION } from "@webpilot/shared/protocol";
+import type { Approver } from "@/sidepanel/chat/approval";
 
 function makeEnv() {
   return { nonce: "n", ts: 0, protocol_version: PROTOCOL_VERSION };
@@ -95,5 +96,16 @@ describe("CoordinatorChatHost.handle", () => {
     const chatEvents = sent.filter((m) => m.type === "CHAT_EVENT");
     expect(chatEvents).toHaveLength(3);
     expect(chatEvents.every((m) => m.type === "CHAT_EVENT" && m.session_id === "s1")).toBe(true);
+  });
+
+  it("auto-approves dangerous tools via injected approver", async () => {
+    let approverDecision: unknown = null;
+    const fakeRun = vi.fn(async ({ approver }: { approver: Approver }) => {
+      // Simulate run-session needing to approve a dangerous tool
+      approverDecision = await approver.request("tool-use-id-1");
+    });
+    const host = new CoordinatorChatHost({ runChatSession: fakeRun as never });
+    await host.handle(startMsg("s1", { rounds: [] }), () => undefined);
+    expect(approverDecision).toEqual({ kind: "run" });
   });
 });

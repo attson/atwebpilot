@@ -10,12 +10,21 @@ import type { RunSessionArgs, SessionEvent } from "@/sidepanel/chat/run-session"
 import { runChatSession as defaultRunChatSession } from "@/sidepanel/chat/run-session";
 import { MockLlmClient } from "./mock-llm-client";
 import { BackgroundToolRunner } from "./bg-tool-runner";
-import { Approver } from "@/sidepanel/chat/approval";
+import { Approver, type Decision } from "@/sidepanel/chat/approval";
 import type { ToolRunner } from "@/sidepanel/chat/tool-runner";
 import { TOOL_DEFS } from "@/sidepanel/llm/tool-schema";
 import { loadAllowRemoteChat } from "./coordinator-state";
 import { createRun, appendStepLog, finalizeRun } from "./storage/runs";
 import type { Json, RunStepLogEntry } from "@webpilot/shared/types";
+
+// Auto-approves every tool request. Used in coordinator-driven sessions
+// where the user has already opted in via the allow_remote_chat flag —
+// no further per-tool approval should be required.
+class AutoApprover extends Approver {
+  request(_id: string): Promise<Decision> {
+    return Promise.resolve({ kind: "run" });
+  }
+}
 
 type RunChatSessionFn = (args: RunSessionArgs) => Promise<unknown>;
 
@@ -120,7 +129,7 @@ export class CoordinatorChatHost {
       await this.run({
         client,
         runner: this.runner ?? new BackgroundToolRunner(),
-        approver: new Approver(),       // unused — autoApproves catches everything below
+        approver: new AutoApprover(),
         rpc: makeBgRpc(),
         input: { userPrompt: msg.user_prompt, tabId, url },
         settings: {
