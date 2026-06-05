@@ -6,6 +6,8 @@ import { CoordinatorClient } from "./coordinator-client";
 import { getOrCreateWorkerId, loadConfig, loadToken } from "./coordinator-state";
 import { handleExec } from "./coordinator-exec";
 import { listTools } from "./storage/tools";
+import { CoordinatorChatHost } from "./coordinator-chat";
+import { CoordinatorStateBridge } from "./coordinator-state-bridge";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[webpilot] service worker installed");
@@ -38,6 +40,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // --- Coordinator client (Phase 2) ---
 let activeClient: CoordinatorClient | null = null;
+let activeStateBridge: CoordinatorStateBridge | null = null;
 
 async function buildSavedToolsMetadata(): Promise<
   Array<{ id: string; version: number; hash: string; url_pattern: string[]; description?: string }>
@@ -63,18 +66,30 @@ export async function startCoordinatorClient(): Promise<void> {
     return;
   }
   const worker_id = await getOrCreateWorkerId();
+  const chatHost = new CoordinatorChatHost();
+  activeStateBridge = new CoordinatorStateBridge({
+    sendRuntimeMessage: (m) => chrome.runtime.sendMessage(m),
+    onRuntimeMessage: (fn) => chrome.runtime.onMessage.addListener(fn),
+    offRuntimeMessage: (fn) => chrome.runtime.onMessage.removeListener(fn)
+  });
   activeClient = new CoordinatorClient({
     ws_url: config.ws_url,
     token,
     worker_id,
     savedToolsProvider: buildSavedToolsMetadata,
     labelsProvider: async () => [],
-    onExec: handleExec
+    onExec: handleExec,
+    onChat: (m, send) => chatHost.handle(m, send),
+    onReadState: (m, send) => activeStateBridge!.handle(m, send)
   });
   await activeClient.connect();
 }
 
 export async function stopCoordinatorClient(): Promise<void> {
+  if (activeStateBridge) {
+    activeStateBridge.dispose();
+    activeStateBridge = null;
+  }
   if (!activeClient) return;
   await activeClient.disconnect();
   activeClient = null;

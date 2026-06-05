@@ -5,7 +5,9 @@ import {
   saveConfig,
   loadToken,
   saveToken,
-  clearToken
+  clearToken,
+  loadAllowRemoteChat,
+  saveAllowRemoteChat
 } from "../../src/background/coordinator-state";
 
 function fakeStorage() {
@@ -73,5 +75,20 @@ describe("loadToken / saveToken / clearToken", () => {
     await saveToken("wpk_abc");
     await clearToken();
     expect(await loadToken()).toBeUndefined();
+  });
+});
+
+describe("allow_remote_chat", () => {
+  it("defaults to false when unset", async () => {
+    expect(await loadAllowRemoteChat()).toBe(false);
+  });
+  it("round-trips true", async () => {
+    await saveAllowRemoteChat(true);
+    expect(await loadAllowRemoteChat()).toBe(true);
+  });
+  it("round-trips false", async () => {
+    await saveAllowRemoteChat(true);
+    await saveAllowRemoteChat(false);
+    expect(await loadAllowRemoteChat()).toBe(false);
   });
 });

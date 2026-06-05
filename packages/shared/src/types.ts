@@ -113,6 +113,8 @@ export type RunStepLogEntry = {
 
 export type RunStatus = "pending-approval" | "running" | "ok" | "error" | "aborted";
 
+export type RunSource = "user" | "coordinator";
+
 export type RunRecord = {
   id: string;
   toolId: string | null;
@@ -123,6 +125,7 @@ export type RunRecord = {
   status: RunStatus;
   stepLog: RunStepLogEntry[];
   output?: Json;
+  source: RunSource;
 };
 
 export type ExportBundle = {

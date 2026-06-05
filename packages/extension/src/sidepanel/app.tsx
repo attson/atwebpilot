@@ -6,6 +6,7 @@ import { hydrateOnBoot, type HydrateResult } from "./chat/persistence/hydrate";
 import { TabInfoBar } from "./components/tab-info-bar";
 import { UrlRecoveryBanner } from "./components/url-recovery-banner";
 import { SessionHistoryDrawer } from "./components/session-history-drawer";
+import { mountSidepanelStateBridge } from "@/sidepanel/coordinator-state-bridge";
 import { ChatPage } from "./pages/chat-page";
 import { CoordinatorSettingsPage } from "./pages/coordinator-settings-page";
 import { RunPage } from "./pages/run-page";
@@ -39,6 +40,8 @@ export function App() {
     const off = installTabTracker();
     return () => off();
   }, []);
+
+  useEffect(() => mountSidepanelStateBridge(), []);
 
   useEffect(() => {
     let cancelled = false;
