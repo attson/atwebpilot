@@ -6,6 +6,8 @@ import { CoordinatorClient } from "./coordinator-client";
 import { getOrCreateWorkerId, loadConfig, loadToken } from "./coordinator-state";
 import { handleExec } from "./coordinator-exec";
 import { listTools } from "./storage/tools";
+import { CoordinatorChatHost } from "./coordinator-chat";
+import { CoordinatorStateBridge } from "./coordinator-state-bridge";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[webpilot] service worker installed");
@@ -63,13 +65,20 @@ export async function startCoordinatorClient(): Promise<void> {
     return;
   }
   const worker_id = await getOrCreateWorkerId();
+  const chatHost = new CoordinatorChatHost();
+  const stateBridge = new CoordinatorStateBridge({
+    sendRuntimeMessage: (m) => chrome.runtime.sendMessage(m),
+    onRuntimeMessage: (fn) => chrome.runtime.onMessage.addListener(fn)
+  });
   activeClient = new CoordinatorClient({
     ws_url: config.ws_url,
     token,
     worker_id,
     savedToolsProvider: buildSavedToolsMetadata,
     labelsProvider: async () => [],
-    onExec: handleExec
+    onExec: handleExec,
+    onChat: (m, send) => chatHost.handle(m, send),
+    onReadState: (m, send) => stateBridge.handle(m, send)
   });
   await activeClient.connect();
 }
