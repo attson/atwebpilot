@@ -34,4 +34,14 @@ describe("runs storage", () => {
     const got = await getRun(r.id);
     expect(got?.id).toBe(r.id);
   });
+
+  it("createRun defaults source to user when omitted", async () => {
+    const run = await createRun({ toolId: null, toolVersion: null, url: "u" });
+    expect(run.source).toBe("user");
+  });
+
+  it("createRun preserves source when given", async () => {
+    const run = await createRun({ toolId: null, toolVersion: null, url: "u", source: "coordinator" });
+    expect(run.source).toBe("coordinator");
+  });
 });

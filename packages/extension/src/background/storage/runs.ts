@@ -1,10 +1,11 @@
-import type { Json, RunRecord, RunStepLogEntry, RunStatus } from "@webpilot/shared/types";
+import type { Json, RunRecord, RunSource, RunStepLogEntry, RunStatus } from "@webpilot/shared/types";
 import { getDB } from "./db";
 
 export async function createRun(input: {
   toolId: string | null;
   toolVersion: number | null;
   url: string;
+  source?: RunSource;
 }): Promise<RunRecord> {
   const db = await getDB();
   const run: RunRecord = {
@@ -14,10 +15,16 @@ export async function createRun(input: {
     url: input.url,
     startedAt: Date.now(),
     status: "running",
-    stepLog: []
+    stepLog: [],
+    source: input.source ?? "user"
   };
   await db.put("runs", run);
   return run;
+}
+
+function withSourceDefault(r: RunRecord | undefined): RunRecord | undefined {
+  if (!r) return r;
+  return r.source ? r : { ...r, source: "user" };
 }
 
 export async function appendStepLog(id: string, entry: RunStepLogEntry): Promise<void> {
@@ -44,12 +51,14 @@ export async function finalizeRun(
 
 export async function getRun(id: string): Promise<RunRecord | undefined> {
   const db = await getDB();
-  return db.get("runs", id);
+  return withSourceDefault(await db.get("runs", id));
 }
 
 export async function listRuns(filter?: { toolId?: string }): Promise<RunRecord[]> {
   const db = await getDB();
   const all = await db.getAll("runs");
   const filtered = filter?.toolId ? all.filter((r) => r.toolId === filter.toolId) : all;
-  return filtered.sort((a, b) => b.startedAt - a.startedAt);
+  return filtered
+    .map((r) => withSourceDefault(r) as RunRecord)
+    .sort((a, b) => b.startedAt - a.startedAt);
 }
