@@ -5,6 +5,8 @@ import {
   loadToken,
   saveToken,
   clearToken,
+  loadAllowRemoteChat,
+  saveAllowRemoteChat,
   type CoordinatorConfig
 } from "../../background/coordinator-state";
 
@@ -12,6 +14,7 @@ export function CoordinatorSettingsPage() {
   const [wsUrl, setWsUrl] = useState("");
   const [token, setToken] = useState("");
   const [enabled, setEnabled] = useState(false);
+  const [allowRemoteChat, setAllowRemoteChat] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
@@ -24,6 +27,8 @@ export function CoordinatorSettingsPage() {
       }
       const t = await loadToken();
       if (t) setToken(t);
+      const allow = await loadAllowRemoteChat();
+      setAllowRemoteChat(allow);
       setLoaded(true);
     })();
   }, []);
@@ -112,6 +117,26 @@ export function CoordinatorSettingsPage() {
       </div>
 
       {savedMsg && <div className="text-sm text-green-700">{savedMsg}</div>}
+
+      <label className="flex items-start gap-2 border-t pt-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={allowRemoteChat}
+          onChange={async (e) => {
+            const v = e.target.checked;
+            setAllowRemoteChat(v);
+            await saveAllowRemoteChat(v);
+          }}
+        />
+        <span className="text-sm">
+          允许 coordinator 远程驱动 chat session 和危险工具
+          <br />
+          <span className="text-xs text-gray-500">
+            开启后，连接的 coordinator 可以在你的浏览器里运行任意工具。仅在你信任该 coordinator 时勾选。
+          </span>
+        </span>
+      </label>
 
       <div className="border-t pt-3 text-xs text-gray-500">
         <div>状态: {enabled ? "已配置（启用）" : "已配置（关闭）"}</div>

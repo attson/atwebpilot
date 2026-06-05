@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { CoordinatorSettingsPage } from "@/sidepanel/pages/coordinator-settings-page";
+import { loadAllowRemoteChat } from "@/background/coordinator-state";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -149,5 +150,30 @@ describe("CoordinatorSettingsPage", () => {
         enabled: false
       }
     });
+  });
+
+  it("toggles allow_remote_chat in storage when the checkbox flips", async () => {
+    vi.stubGlobal("chrome", fakeChromeStorage());
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+
+    const checkbox = Array.from(
+      container.querySelectorAll<HTMLInputElement>("input[type='checkbox']")
+    ).find((input) => {
+      const label = input.closest("label");
+      return /允许 coordinator 远程驱动 chat/.test(label?.textContent ?? "");
+    });
+    expect(checkbox).toBeTruthy();
+    expect(checkbox?.checked).toBe(false);
+
+    await act(async () => {
+      checkbox!.click();
+    });
+    await flushAsync();
+
+    expect(checkbox?.checked).toBe(true);
+    expect(await loadAllowRemoteChat()).toBe(true);
   });
 });
