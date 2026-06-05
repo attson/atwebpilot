@@ -222,6 +222,74 @@ describe("CoordinatorClient.connect", () => {
     expect(ws.readyState).toBe(FakeWS.CLOSED);
   });
 
+  it("routes START_CHAT_SESSION to onChat handler", async () => {
+    const onChat = vi.fn(async () => undefined);
+    const client = new CoordinatorClient({
+      ws_url: "ws://x",
+      token: "t",
+      worker_id: "w",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => [],
+      onChat
+    });
+    await (client as unknown as { handleMessage: (raw: unknown) => Promise<void> }).handleMessage(
+      JSON.stringify({
+        nonce: "n",
+        ts: 0,
+        protocol_version: PROTOCOL_VERSION,
+        type: "START_CHAT_SESSION",
+        session_id: "s1",
+        user_prompt: "hi"
+      })
+    );
+    expect(onChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes ABORT_SESSION to onChat handler", async () => {
+    const onChat = vi.fn(async () => undefined);
+    const client = new CoordinatorClient({
+      ws_url: "ws://x",
+      token: "t",
+      worker_id: "w",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => [],
+      onChat
+    });
+    await (client as unknown as { handleMessage: (raw: unknown) => Promise<void> }).handleMessage(
+      JSON.stringify({
+        nonce: "n",
+        ts: 0,
+        protocol_version: PROTOCOL_VERSION,
+        type: "ABORT_SESSION",
+        session_id: "s1"
+      })
+    );
+    expect(onChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes READ_SIDEPANEL_STATE to onReadState handler", async () => {
+    const onReadState = vi.fn(async () => undefined);
+    const client = new CoordinatorClient({
+      ws_url: "ws://x",
+      token: "t",
+      worker_id: "w",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => [],
+      onReadState
+    });
+    await (client as unknown as { handleMessage: (raw: unknown) => Promise<void> }).handleMessage(
+      JSON.stringify({
+        nonce: "n",
+        ts: 0,
+        protocol_version: PROTOCOL_VERSION,
+        type: "READ_SIDEPANEL_STATE",
+        req_id: "r1",
+        tab_id: "42"
+      })
+    );
+    expect(onReadState).toHaveBeenCalledTimes(1);
+  });
+
   it("EXEC delivery is forwarded to the injected handler", async () => {
     const execHandler = vi.fn().mockResolvedValue({
       type: "RESULT",

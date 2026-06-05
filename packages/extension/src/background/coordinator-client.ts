@@ -2,10 +2,14 @@ import {
   PROTOCOL_VERSION,
   ClientToServerSchema,
   ServerToClientSchema,
+  type AbortSession,
+  type ClientToServer,
   type Exec,
   type Hello,
+  type ReadSidepanelState,
   type Result,
-  type ServerToClient
+  type ServerToClient,
+  type StartChatSession
 } from "@webpilot/shared/protocol";
 import { buildHello } from "./coordinator-hello";
 
@@ -22,6 +26,14 @@ export interface CoordinatorClientOptions {
   savedToolsProvider: () => Promise<Hello["saved_tools"]>;
   labelsProvider: () => Promise<string[]>;
   onExec?: (exec: Exec) => Promise<Result>;
+  onChat?: (
+    msg: StartChatSession | AbortSession,
+    send: (m: ClientToServer) => void
+  ) => Promise<void>;
+  onReadState?: (
+    msg: ReadSidepanelState,
+    send: (m: ClientToServer) => void
+  ) => Promise<void>;
   onStatusChange?: (s: ClientStatus) => void;
 }
 
@@ -133,6 +145,25 @@ export class CoordinatorClient {
         return;
       case "CLOSE_SESSION":
         // Phase 2: ignore — sessions are coordinator-managed
+        return;
+      case "START_CHAT_SESSION":
+      case "ABORT_SESSION":
+        if (this.opts.onChat) {
+          try {
+            await this.opts.onChat(msg, (m) => this.send(m));
+          } catch (err) {
+            console.error("[coordinator-client] onChat threw", err);
+          }
+        }
+        return;
+      case "READ_SIDEPANEL_STATE":
+        if (this.opts.onReadState) {
+          try {
+            await this.opts.onReadState(msg, (m) => this.send(m));
+          } catch (err) {
+            console.error("[coordinator-client] onReadState threw", err);
+          }
+        }
         return;
     }
   }
