@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { MockLlmClient } from "@/background/mock-llm-client";
-import type { LlmStreamEvent } from "@webpilot/shared/llm";
+import type { LlmStreamEvent } from "@atwebpilot/shared/llm";
 
 async function collect(it: AsyncIterable<LlmStreamEvent>): Promise<LlmStreamEvent[]> {
   const out: LlmStreamEvent[] = [];

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { RunRecord, Tool } from "@webpilot/shared/types";
+import type { RunRecord, Tool } from "@atwebpilot/shared/types";
 import { ResultView } from "../components/result-view";
 import { StepList } from "../components/step-list";
 import { currentTabId, rpc } from "../rpc";

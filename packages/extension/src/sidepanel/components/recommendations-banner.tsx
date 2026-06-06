@@ -1,4 +1,4 @@
-import type { Tool } from "@webpilot/shared/types";
+import type { Tool } from "@atwebpilot/shared/types";
 
 export function RecommendationsBanner(props: {
   tools: Tool[];

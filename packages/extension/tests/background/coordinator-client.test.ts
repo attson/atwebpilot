@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CoordinatorClient } from "../../src/background/coordinator-client";
-import { PROTOCOL_VERSION } from "@webpilot/shared/protocol";
+import { PROTOCOL_VERSION } from "@atwebpilot/shared/protocol";
 
 class FakeWS {
   static instances: FakeWS[] = [];
@@ -142,7 +142,7 @@ describe("CoordinatorClient.connect", () => {
     ws.sent.length = 0; // clear HELLO
     // Trigger the heartbeat alarm
     const chromeMock = (globalThis as unknown as { chrome: { alarms: { _fire: (name: string) => void } } }).chrome;
-    chromeMock.alarms._fire("webpilot-coordinator-heartbeat");
+    chromeMock.alarms._fire("atwebpilot-coordinator-heartbeat");
     await new Promise((r) => setTimeout(r, 0));
     expect(ws.sent.length).toBe(1);
     const ping = JSON.parse(ws.sent[0]);

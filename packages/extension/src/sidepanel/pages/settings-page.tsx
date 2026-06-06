@@ -6,7 +6,7 @@ import {
   OPENAI_MODELS,
   useSettings
 } from "../chat/settings-store";
-import type { LlmProvider } from "@webpilot/shared/types";
+import type { LlmProvider } from "@atwebpilot/shared/types";
 
 export function SettingsPage() {
   const settings = useSettings();

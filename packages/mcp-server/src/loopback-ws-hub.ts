@@ -8,9 +8,9 @@ import {
   type ClientToServer,
   type ServerToClient,
   type Result,
-} from "@webpilot/shared/protocol";
-import type { Json } from "@webpilot/shared";
-import type { WSHub, Clock, IdGen } from "@webpilot/coordinator";
+} from "@atwebpilot/shared/protocol";
+import type { Json } from "@atwebpilot/shared";
+import type { WSHub, Clock, IdGen } from "@atwebpilot/coordinator";
 
 const HEARTBEAT_INTERVAL_MS = 20000;
 

@@ -18,7 +18,7 @@ import {
   useStore,
   validateAttachedTabs
 } from "@/sidepanel/chat/session-store";
-import type { LlmExchange } from "@webpilot/shared/types";
+import type { LlmExchange } from "@atwebpilot/shared/types";
 
 function reset() {
   useStore.setState({ sessionsByTab: {}, currentTabId: null });

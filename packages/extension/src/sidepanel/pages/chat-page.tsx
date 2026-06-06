@@ -37,7 +37,7 @@ import { StatusBar } from "../components/status-bar";
 import { TabChipsBar } from "../components/tab-chips-bar";
 import { TabPicker } from "../components/tab-picker";
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "../rpc";
-import type { BuiltinTool, Json, Step, Tool } from "@webpilot/shared/types";
+import type { BuiltinTool, Json, Step, Tool } from "@atwebpilot/shared/types";
 
 type ChatPageProps = {
   initialPrompt?: string;
@@ -559,7 +559,7 @@ export function ChatPage({
       {session.showSaveDialog && (
         <SaveAsToolDialog
           initialName={
-            recommendations[0]?.name ?? `WebPilot 任务 ${new Date().toISOString().slice(0, 10)}`
+            recommendations[0]?.name ?? `AtWebPilot 任务 ${new Date().toISOString().slice(0, 10)}`
           }
           initialDescription={
             (session.messages.find(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AttachedTab } from "@webpilot/shared/types";
+import type { AttachedTab } from "@atwebpilot/shared/types";
 import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
 
 function tab(tabId: number, url: string, source: AttachedTab["source"] = "mention"): AttachedTab {

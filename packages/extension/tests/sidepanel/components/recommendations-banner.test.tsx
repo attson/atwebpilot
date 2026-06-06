@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { RecommendationsBanner } from "@/sidepanel/components/recommendations-banner";
-import type { Tool } from "@webpilot/shared/types";
+import type { Tool } from "@atwebpilot/shared/types";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

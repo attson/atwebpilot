@@ -10,10 +10,10 @@ import {
   type Result,
   type ServerToClient,
   type StartChatSession
-} from "@webpilot/shared/protocol";
+} from "@atwebpilot/shared/protocol";
 import { buildHello } from "./coordinator-hello";
 
-const HEARTBEAT_ALARM = "webpilot-coordinator-heartbeat";
+const HEARTBEAT_ALARM = "atwebpilot-coordinator-heartbeat";
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 

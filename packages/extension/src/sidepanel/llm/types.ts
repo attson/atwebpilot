@@ -1,1 +1,1 @@
-export type { LlmTool, LlmStreamEvent, LlmClient } from "@webpilot/shared/llm";
+export type { LlmTool, LlmStreamEvent, LlmClient } from "@atwebpilot/shared/llm";

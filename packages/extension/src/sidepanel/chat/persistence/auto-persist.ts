@@ -1,4 +1,4 @@
-import type { PersistedSession, PersistedSessionData } from "@webpilot/shared/types";
+import type { PersistedSession, PersistedSessionData } from "@atwebpilot/shared/types";
 import { useStore, type SessionData } from "@/sidepanel/chat/session-store";
 import * as ss from "./sessions-storage";
 

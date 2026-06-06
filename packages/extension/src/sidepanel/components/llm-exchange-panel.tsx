@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ChatMessage, LlmExchange } from "@webpilot/shared/types";
+import type { ChatMessage, LlmExchange } from "@atwebpilot/shared/types";
 
 type Props = {
   open: boolean;

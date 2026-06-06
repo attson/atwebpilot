@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { truncateContent, truncateMessages } from "@/sidepanel/llm/truncate";
-import type { ChatMessage } from "@webpilot/shared/types";
+import type { ChatMessage } from "@atwebpilot/shared/types";
 
 describe("truncateContent", () => {
   it("returns as-is when within cap", () => {

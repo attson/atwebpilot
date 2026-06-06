@@ -1,7 +1,7 @@
-import type { Coordinator } from "@webpilot/coordinator";
-import { CAPABILITIES, isCapability, type Capability } from "@webpilot/shared/capability";
-import type { BuiltinTool, Json } from "@webpilot/shared/types";
-import type { Result } from "@webpilot/shared/protocol";
+import type { Coordinator } from "@atwebpilot/coordinator";
+import { CAPABILITIES, isCapability, type Capability } from "@atwebpilot/shared/capability";
+import type { BuiltinTool, Json } from "@atwebpilot/shared/types";
+import type { Result } from "@atwebpilot/shared/protocol";
 import type { GeneratedTool } from "./tool-gen";
 
 export interface Hub {

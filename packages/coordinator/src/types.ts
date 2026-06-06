@@ -1,6 +1,6 @@
-import type { Capability } from "@webpilot/shared/capability";
+import type { Capability } from "@atwebpilot/shared/capability";
 
-/** Internal coordinator types. None of these cross the WS wire — those are in @webpilot/shared/protocol. */
+/** Internal coordinator types. None of these cross the WS wire — those are in @atwebpilot/shared/protocol. */
 
 export type SessionState = "active" | "expired" | "paused" | "error" | "closed" | "orphan";
 

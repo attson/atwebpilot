@@ -2,8 +2,8 @@ import {
   ContentRequest as ContentRequestSchema,
   RpcRequest as RpcRequestSchema,
   type RpcRequest
-} from "@webpilot/shared/messages";
-import type { Json, RunRecord, Step, ToolDraft } from "@webpilot/shared/types";
+} from "@atwebpilot/shared/messages";
+import type { Json, RunRecord, Step, ToolDraft } from "@atwebpilot/shared/types";
 import { fetchAsBase64, httpRequest } from "./http-proxy";
 import { exportAll, importBundle } from "./storage/export-import";
 import { appendStepLog, createRun, finalizeRun, getRun, listRuns } from "./storage/runs";
@@ -163,7 +163,7 @@ async function injectContentScript(tabId: number): Promise<boolean> {
     await chrome.scripting.executeScript({ target: { tabId }, files });
     return true;
   } catch (e) {
-    console.warn("[webpilot] content script inject failed", e);
+    console.warn("[atwebpilot] content script inject failed", e);
     return false;
   }
 }

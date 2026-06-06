@@ -1,9 +1,9 @@
 {
-  "name": "@webpilot/mcp-server",
+  "name": "@atwebpilot/mcp-server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": { "webpilot-mcp": "./src/index.ts" },
+  "bin": { "atwebpilot-mcp": "./src/index.ts" },
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -11,8 +11,8 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@webpilot/shared": "workspace:*",
-    "@webpilot/coordinator": "workspace:*",
+    "@atwebpilot/shared": "workspace:*",
+    "@atwebpilot/coordinator": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "ws": "^8.18.0",
     "zod": "^3.23.8"

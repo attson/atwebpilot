@@ -1,16 +1,16 @@
 {
-  "name": "webpilot-monorepo",
+  "name": "atwebpilot-monorepo",
   "private": true,
   "version": "0.0.17",
-  "description": "WebPilot — AI 网页助手（侧边面板）monorepo root",
+  "description": "AtWebPilot — AI 网页助手（侧边面板）monorepo root",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @webpilot/extension dev",
-    "build": "pnpm --filter @webpilot/extension build",
-    "preview": "pnpm --filter @webpilot/extension preview",
+    "dev": "pnpm --filter @atwebpilot/extension dev",
+    "build": "pnpm --filter @atwebpilot/extension build",
+    "preview": "pnpm --filter @atwebpilot/extension preview",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:watch": "pnpm --filter @webpilot/extension test:watch"
+    "test:watch": "pnpm --filter @atwebpilot/extension test:watch"
   },
   "packageManager": "pnpm@9.0.0"
 }

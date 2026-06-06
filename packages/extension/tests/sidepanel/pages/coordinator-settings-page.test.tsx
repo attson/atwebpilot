@@ -110,23 +110,23 @@ describe("CoordinatorSettingsPage", () => {
     await flushAsync();
 
     expect(chromeMock.storage.local.set).toHaveBeenCalledWith({
-      "webpilot.coordinator.config": {
+      "atwebpilot.coordinator.config": {
         ws_url: "ws://localhost:7842/worker",
         enabled: true
       }
     });
     expect(chromeMock.storage.local.set).toHaveBeenCalledWith({
-      "webpilot.coordinator.token": "wpk_xyz"
+      "atwebpilot.coordinator.token": "wpk_xyz"
     });
   });
 
   it("断开 button writes enabled: false to config", async () => {
     const chromeMock = fakeChromeStorage({
-      "webpilot.coordinator.config": {
+      "atwebpilot.coordinator.config": {
         ws_url: "ws://localhost:7842/worker",
         enabled: true
       },
-      "webpilot.coordinator.token": "wpk_existing"
+      "atwebpilot.coordinator.token": "wpk_existing"
     });
     vi.stubGlobal("chrome", chromeMock);
     await act(async () => {
@@ -145,7 +145,7 @@ describe("CoordinatorSettingsPage", () => {
     await flushAsync();
 
     expect(chromeMock.storage.local.set).toHaveBeenCalledWith({
-      "webpilot.coordinator.config": {
+      "atwebpilot.coordinator.config": {
         ws_url: "ws://localhost:7842/worker",
         enabled: false
       }

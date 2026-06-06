@@ -1,9 +1,9 @@
 {
-  "name": "@webpilot/extension",
+  "name": "@atwebpilot/extension",
   "version": "0.0.11",
   "private": true,
   "type": "module",
-  "description": "WebPilot — AI 网页助手（侧边面板）",
+  "description": "AtWebPilot — AI 网页助手（侧边面板）",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@webpilot/shared": "workspace:*",
+    "@atwebpilot/shared": "workspace:*",
     "idb": "^8.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

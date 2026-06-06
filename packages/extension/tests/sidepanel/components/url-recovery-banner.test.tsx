@@ -6,7 +6,7 @@ import { _resetDBForTests } from "@/background/storage/db";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
 import { UrlRecoveryBanner } from "@/sidepanel/components/url-recovery-banner";
 import { useStore } from "@/sidepanel/chat/session-store";
-import type { PersistedSession } from "@webpilot/shared/types";
+import type { PersistedSession } from "@atwebpilot/shared/types";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

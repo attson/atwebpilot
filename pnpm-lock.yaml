@@ -10,7 +10,7 @@ importers:
 
   packages/coordinator:
     dependencies:
-      '@webpilot/shared':
+      '@atwebpilot/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -26,7 +26,7 @@ importers:
 
   packages/extension:
     dependencies:
-      '@webpilot/shared':
+      '@atwebpilot/shared':
         specifier: workspace:*
         version: link:../shared
       idb:
@@ -96,15 +96,15 @@ importers:
 
   packages/mcp-server:
     dependencies:
+      '@atwebpilot/coordinator':
+        specifier: workspace:*
+        version: link:../coordinator
+      '@atwebpilot/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.29.0(zod@3.25.76)
-      '@webpilot/coordinator':
-        specifier: workspace:*
-        version: link:../coordinator
-      '@webpilot/shared':
-        specifier: workspace:*
-        version: link:../shared
       ws:
         specifier: ^8.18.0
         version: 8.20.1

@@ -1,5 +1,5 @@
-import { TOOL_DEFS } from "@webpilot/shared/llm";
-import type { JsonSchema } from "@webpilot/shared/types";
+import { TOOL_DEFS } from "@atwebpilot/shared/llm";
+import type { JsonSchema } from "@atwebpilot/shared/types";
 
 /** 与 capabilityForTool 的穷尽 switch 一一对应的 19 个 BuiltinTool。 */
 export const EXEC_TOOL_NAMES = [

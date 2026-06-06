@@ -956,7 +956,7 @@ export async function generatePromptToolDraft(input: ToolDraftGenerationInput): 
   const raw = await callJson(
     input,
     [
-      "你是 WebPilot 的提示词工具生成器。",
+      "你是 AtWebPilot 的提示词工具生成器。",
       "输出 JSON: {\"name\": string, \"description\": string, \"prompt\": string}。",
       "prompt 面向未来运行，要求 AI 基于当前页面执行任务，不引用旧对话。",
       "不要包含 API key、cookie、账号密码或 token。"
@@ -978,7 +978,7 @@ export async function generateStepsToolDraft(input: ToolDraftGenerationInput): P
   const raw = await callJson(
     input,
     [
-      "你是 WebPilot 的纯函数/固定步骤工具生成器。",
+      "你是 AtWebPilot 的纯函数/固定步骤工具生成器。",
       "输出 JSON: {\"name\": string, \"description\": string, \"steps\": Step[]}。",
       "优先生成单个 runJS 函数体；需要滚动、等待、点击时可以生成多 step。",
       "runJS 不调用 LLM、扩展 API，不输出敏感凭证。"
@@ -1841,7 +1841,7 @@ Run:
 node -e "const m=require('./dist/manifest.json'); console.log(m.name, m.version)"
 ```
 
-Expected: prints WebPilot extension name and current package version.
+Expected: prints AtWebPilot extension name and current package version.
 
 - [ ] **Step 5: Manual browser verification**
 

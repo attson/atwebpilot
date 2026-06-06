@@ -6,9 +6,9 @@
  */
 
 const STORAGE_KEYS = {
-  worker_id: "webpilot.coordinator.worker_id",
-  token: "webpilot.coordinator.token",
-  config: "webpilot.coordinator.config"
+  worker_id: "atwebpilot.coordinator.worker_id",
+  token: "atwebpilot.coordinator.token",
+  config: "atwebpilot.coordinator.config"
 } as const;
 
 export interface CoordinatorConfig {
@@ -54,7 +54,7 @@ export async function clearToken(): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEYS.token);
 }
 
-const ALLOW_REMOTE_CHAT_KEY = "webpilot.coordinator.allow_remote_chat";
+const ALLOW_REMOTE_CHAT_KEY = "atwebpilot.coordinator.allow_remote_chat";
 
 export async function loadAllowRemoteChat(): Promise<boolean> {
   const got = await chrome.storage.local.get([ALLOW_REMOTE_CHAT_KEY]);

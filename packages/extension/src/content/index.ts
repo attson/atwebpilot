@@ -1,9 +1,9 @@
-import { ContentRequest } from "@webpilot/shared/messages";
-import type { Json } from "@webpilot/shared/types";
+import { ContentRequest } from "@atwebpilot/shared/messages";
+import type { Json } from "@atwebpilot/shared/types";
 import { injectMain } from "./inject-main";
 import { callTool } from "./tools";
 
-console.info("[webpilot] content script loaded on", location.href);
+console.info("[atwebpilot] content script loaded on", location.href);
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const parsed = ContentRequest.safeParse(msg);
@@ -14,7 +14,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-async function handle(req: import("@webpilot/shared/messages").ContentRequest): Promise<Json> {
+async function handle(req: import("@atwebpilot/shared/messages").ContentRequest): Promise<Json> {
   if (req.type === "content.runStep") {
     const { step, bindings } = req;
     if (step.kind === "tool") {
