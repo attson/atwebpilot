@@ -19,6 +19,7 @@
 | 13 | [`2026-05-23-raw-llm-exchange-log.md`](./2026-05-23-raw-llm-exchange-log.md) | 9 | +29 + continuation guard 3 | 472 |
 | 14 | [`2026-06-04-remote-testable-chat.md`](./2026-06-04-remote-testable-chat.md) | 17 | +20 (shared) +27 (extension) | ~492 |
 | 15 | [`2026-06-06-mcp-bridge.md`](./2026-06-06-mcp-bridge.md) | 7 | 0 (新包) | ~492 |
+| 16 | [`2026-06-06-atwebpilot-rename.md`](./2026-06-06-atwebpilot-rename.md) | 7 | 0 (rename only) | ~492 |
 
 各 plan 的 task 严格 TDD：写失败测试 → 实现 → 验证通过 → commit。每 task 一组 commit；plan 内的 commit 加起来构成一次完整 feature。
 
