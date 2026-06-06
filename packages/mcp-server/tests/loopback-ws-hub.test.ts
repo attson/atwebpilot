@@ -91,6 +91,30 @@ describe("LoopbackWSHub", () => {
       .rejects.toThrow(/disconnect/i);
   });
 
+  it("I1: reconnect rejects in-flight execs immediately (not after timeout)", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen(), execTimeoutMs: 5000 });
+    const port = await hub.ready();
+
+    // First worker connects and sends HELLO but never replies to EXEC
+    const ws1 = await connectWorker(port);
+    ws1.on("message", () => { /* never replies RESULT */ });
+    ws1.send(JSON.stringify(helloMsg()));
+    await waitForWorker(hub, "w1");
+
+    // Start an exec that will never complete (ws1 ignores EXEC messages)
+    const execP = hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: {} } });
+
+    // Wait a tick to ensure the EXEC message has been sent
+    await new Promise((r) => setTimeout(r, 20));
+
+    // Second connection with the same worker_id (reconnect)
+    const ws2 = await connectWorker(port);
+    ws2.send(JSON.stringify(helloMsg()));
+
+    // The in-flight exec should reject quickly (well before the 5s timeout) with a "reconnect" message
+    await expect(execP).rejects.toThrow(/reconnect|cancelled/i);
+  });
+
   it("reconnect with same worker_id does NOT fire disconnect handler", async () => {
     hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
     const port = await hub.ready();

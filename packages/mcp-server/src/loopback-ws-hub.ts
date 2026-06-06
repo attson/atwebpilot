@@ -111,6 +111,15 @@ export class LoopbackWSHub implements WSHub {
       const existingSocket = this.byWorker.get(msg.worker_id);
       if (existingSocket && existingSocket !== socket) {
         this.workerOf.delete(existingSocket);
+        // Reject in-flight execs for this worker — the old socket is gone and the
+        // new worker won't know those req_ids, so they would stall until timeout.
+        for (const [req_id, p] of [...this.pending]) {
+          if (p.worker_id === msg.worker_id) {
+            clearTimeout(p.timer);
+            this.pending.delete(req_id);
+            p.reject(new Error(`worker ${msg.worker_id} reconnected, exec cancelled`));
+          }
+        }
         existingSocket.terminate();
       }
       this.byWorker.set(msg.worker_id, socket);
