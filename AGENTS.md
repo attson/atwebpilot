@@ -23,7 +23,7 @@ Three personas of work the user expects help with:
 - Tailwind 3, zustand 4, zod 3, idb 8
 - vitest + happy-dom + fake-indexeddb (no Playwright; UI smoke is manual,
   but coordinator-driven E2E covers the chat loop via a real `ws` server)
-- pnpm 9 workspaces (3 packages: `shared` / `coordinator` / `extension`)
+- pnpm 9 workspaces (4 packages: `shared` / `coordinator` / `extension` / `mcp-server`)
 - LLM: Anthropic Messages API + OpenAI Chat API; both stream via fetch
   directly from the side panel (no proxy, no key on disk except
   `chrome.storage.local | session`)
@@ -47,6 +47,7 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │  │     └─ protocol/                 WS protocol：envelope / errors / messages / chat-event；ClientToServerSchema、ServerToClientSchema discriminated unions
 │  ├─ coordinator/                    参考 WS 服务器（worker registry / session manager / dispatcher / catalog / clock）
 │  │  └─ src/                         （仅供测试与本地 smoke；生产部署不在这里）
+│  ├─ mcp-server/                     stdio MCP server + LoopbackWSHub（Plan 13；Claude 经 coordinator 驱动浏览器）
 │  └─ extension/                      WebPilot 浏览器扩展（19 工具 + sidepanel + LLM agent loop + WS worker）
 │     ├─ src/
 │     │  ├─ manifest.ts               MV3 manifest (defineManifest)

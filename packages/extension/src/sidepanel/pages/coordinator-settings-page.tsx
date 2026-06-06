@@ -17,6 +17,8 @@ export function CoordinatorSettingsPage() {
   const [allowRemoteChat, setAllowRemoteChat] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -53,6 +55,17 @@ export function CoordinatorSettingsPage() {
     setSavedMsg("Token 已清除");
   }
 
+  async function handleCopyWsUrl() {
+    if (!wsUrl) return;
+    try {
+      await navigator.clipboard.writeText(wsUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
+
   if (!loaded) return <div className="p-4">载入中…</div>;
 
   return (
@@ -66,24 +79,43 @@ export function CoordinatorSettingsPage() {
 
       <label className="block">
         <span className="text-sm font-medium">WS URL</span>
-        <input
-          type="text"
-          className="mt-1 block w-full rounded border px-2 py-1"
-          placeholder="ws://localhost:7842/worker"
-          value={wsUrl}
-          onChange={(e) => setWsUrl(e.target.value)}
-        />
+        <div className="mt-1 flex gap-2">
+          <input
+            type="text"
+            className="block w-full rounded border px-2 py-1 text-gray-900 placeholder-gray-400"
+            placeholder="ws://localhost:7842/worker"
+            value={wsUrl}
+            onChange={(e) => setWsUrl(e.target.value)}
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 disabled:opacity-50"
+            disabled={!wsUrl}
+            onClick={handleCopyWsUrl}
+          >
+            {copied ? "已复制" : "复制"}
+          </button>
+        </div>
       </label>
 
       <label className="block">
         <span className="text-sm font-medium">Token</span>
-        <input
-          type="password"
-          className="mt-1 block w-full rounded border px-2 py-1"
-          placeholder="wpk_..."
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-        />
+        <div className="mt-1 flex gap-2">
+          <input
+            type={showToken ? "text" : "password"}
+            className="block w-full rounded border px-2 py-1 text-gray-900 placeholder-gray-400"
+            placeholder="wpk_..."
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded bg-gray-200 px-3 py-1 text-sm text-gray-700"
+            onClick={() => setShowToken((v) => !v)}
+          >
+            {showToken ? "隐藏" : "显示"}
+          </button>
+        </div>
       </label>
 
       <div className="flex gap-2">
