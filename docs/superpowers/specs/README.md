@@ -17,6 +17,7 @@
 | 11 | Raw LLM Exchange Log + Continuation Guard | [`2026-05-23-raw-llm-exchange-log-design.md`](./2026-05-23-raw-llm-exchange-log-design.md) | recording-client.ts 包 LlmClient 抓 request/response（屏蔽 apiKey），独立查看面板按 round 浏览；同期落地 continuation guard：text-only turn 不再直接 done，按 `maxContinuationNudges` 询问是否补完（v0.0.15 修复 nudge 死循环：改成 session-total 上限） |
 | 12 | Remote-Testable Chat Session | [`2026-06-04-remote-testable-chat-design.md`](./2026-06-04-remote-testable-chat-design.md) | 在 Phase 2 coordinator 之上加 `START_CHAT_SESSION` / `ABORT_SESSION` / `READ_SIDEPANEL_STATE` / `CHAT_EVENT` / `SIDEPANEL_STATE_REPLY`；BG 端 `CoordinatorChatHost` 用 `MockLlmClient` + `BackgroundToolRunner` 跑同一个 `runChatSession()`；默认关闭的 `allow_remote_chat` opt-in；RunRecord 加 `source:"user" \| "coordinator"` 标签；sidepanel chat 路径零改动 |
 | 13 | MCP Bridge（Phase 3） | [`2026-06-06-mcp-bridge-design.md`](./2026-06-06-mcp-bridge-design.md) | 新包 `packages/mcp-server`：stdio MCP server + `LoopbackWSHub`（真 ws + req_id↔RESULT 配对）复用 Coordinator 门面；启动时从 `TOOL_DEFS`（上提到 shared）自动生成 19 个 `browser_*` 工具 + 4 个控制面工具（list_tabs/open_session/close_session/get_quota）；本地单人 EXEC 模式，让 Claude Code 经 coordinator 驱动浏览器 |
+| 14 | 项目改名 atwebpilot | [`2026-06-06-atwebpilot-rename-design.md`](./2026-06-06-atwebpilot-rename-design.md) | 全仓 `WebPilot`/`webpilot` → `AtWebPilot`/`atwebpilot`：包 scope、内部 import、品牌名、GitHub 仓库名、`DB_NAME`、历史 specs/plans 全替换；扩展 `"key"` 与 chrome.storage 保留；不做老数据迁移（dev 阶段唯一用户）；sed 三步顺序 + 手工收尾 + 漏网扫描；为下一份 plan（npm publish `@attson/atwebpilot-mcp`）铺路 |
 
 ## 不在 spec 里的细节修复
 
