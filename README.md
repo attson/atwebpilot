@@ -188,6 +188,16 @@ node docs/superpowers/scripts/mini-coordinator.mjs
 # 在设置里填 ws://127.0.0.1:8787/worker + 任意 token → 连接
 ```
 
+### 用 Claude Code 驱动浏览器（MCP Bridge，Plan 13）
+
+`packages/mcp-server` 是一个 stdio MCP server，同时起本地 ws 服务器。Claude Code 连它后可调
+`list_tabs / open_session / browser_*（19 个）/ get_quota / close_session` 在网页上读写采。
+
+    pnpm -F @webpilot/mcp-server start   # 监听 ws://127.0.0.1:8787/worker（tsx 直跑）
+    # 扩展设置页填该 URL + token → 连接；Claude Code 侧把它配成 MCP server
+
+详见 `packages/mcp-server/README.md`。
+
 ---
 
 ## 手测脚本（需要真 API Key）
@@ -226,6 +236,7 @@ node docs/superpowers/scripts/mini-coordinator.mjs
 packages/
 ├─ shared/                 纯函数 + 类型 + WS 协议 zod schemas（无 chrome / 无 DOM）
 ├─ coordinator/            参考 WS 服务器实现（测试用；生产可外置）
+├─ mcp-server/             stdio MCP server（Claude Code 经本地 ws 驱动浏览器，Plan 13）
 └─ extension/
    └─ src/
       ├─ background/       Service Worker（IDB / RPC / tab-watcher / coordinator-client）
