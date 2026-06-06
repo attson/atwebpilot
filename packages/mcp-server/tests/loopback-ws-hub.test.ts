@@ -23,6 +23,15 @@ async function connectWorker(port: number): Promise<WebSocket> {
   return ws;
 }
 
+// M4: deterministic wait — polls until hub registers the worker or times out.
+async function waitForWorker(h: LoopbackWSHub, id: string, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (!h.connectedWorkers().includes(id)) {
+    if (Date.now() - start > timeoutMs) throw new Error(`worker ${id} not registered in time`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
 describe("LoopbackWSHub", () => {
   it("replies WELCOME on HELLO and registers the worker via onMessage", async () => {
     hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
@@ -54,7 +63,7 @@ describe("LoopbackWSHub", () => {
       }
     });
     ws.send(JSON.stringify(helloMsg()));
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForWorker(hub, "w1");
     const result = await hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: { selector: ".b" } } });
     expect(result.ok).toBe(true);
     expect(result.return).toEqual({ clicked: true });
@@ -66,7 +75,7 @@ describe("LoopbackWSHub", () => {
     const ws = await connectWorker(port);
     ws.on("message", () => { /* never replies RESULT */ });
     ws.send(JSON.stringify(helloMsg()));
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForWorker(hub, "w1");
     await expect(hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: {} } }))
       .rejects.toThrow(/timeout/i);
   });
@@ -77,8 +86,43 @@ describe("LoopbackWSHub", () => {
     const ws = await connectWorker(port);
     ws.on("message", (raw) => { const m = JSON.parse(raw.toString()); if (m.type === "EXEC") ws.close(); });
     ws.send(JSON.stringify(helloMsg()));
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForWorker(hub, "w1");
     await expect(hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: {} } }))
       .rejects.toThrow(/disconnect/i);
+  });
+
+  it("reconnect with same worker_id does NOT fire disconnect handler", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    const port = await hub.ready();
+
+    const disconnectedWorkers: string[] = [];
+    hub.onDisconnect((wid) => disconnectedWorkers.push(wid));
+
+    // First connection
+    const ws1 = await connectWorker(port);
+    ws1.send(JSON.stringify(helloMsg()));
+    await waitForWorker(hub, "w1");
+
+    // Second connection with same worker_id (reconnect)
+    const ws2 = await connectWorker(port);
+    ws2.send(JSON.stringify(helloMsg()));
+    // Wait for hub to register ws2 as the current socket for "w1"
+    // We know re-registration happened when ws1 has been terminated — poll until ws2 is the live socket.
+    // A simple way: wait for ws1 to be in CLOSING/CLOSED state (hub called terminate on it).
+    const startMs = Date.now();
+    while (ws1.readyState === WebSocket.OPEN) {
+      if (Date.now() - startMs > 1000) throw new Error("old socket was not terminated in time");
+      await new Promise((r) => setTimeout(r, 5));
+    }
+
+    // Give any pending close-event microtasks a chance to run
+    await new Promise((r) => setTimeout(r, 30));
+
+    // "w1" must still be connected (via ws2)
+    expect(hub!.connectedWorkers()).toContain("w1");
+    // connectedWorkers should list "w1" exactly once
+    expect(hub!.connectedWorkers().filter((id) => id === "w1").length).toBe(1);
+    // No spurious disconnect callback for "w1"
+    expect(disconnectedWorkers).not.toContain("w1");
   });
 });

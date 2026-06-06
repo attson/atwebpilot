@@ -12,6 +12,8 @@ import {
 import type { Json } from "@webpilot/shared";
 import type { WSHub, Clock, IdGen } from "@webpilot/coordinator";
 
+const HEARTBEAT_INTERVAL_MS = 20000;
+
 export interface LoopbackWSHubOpts {
   port: number;
   token?: string;
@@ -101,6 +103,16 @@ export class LoopbackWSHub implements WSHub {
     const msg = r.data;
 
     if (msg.type === "HELLO") {
+      // I2: If an existing (different) socket is already registered for this worker_id,
+      // detach it silently before registering the new one — this is a reconnect, not a
+      // disconnect.  We remove the old socket from workerOf FIRST so that when its
+      // close event fires later, onSocketClose sees no worker_id for it and no-ops,
+      // preventing a spurious disconnect callback.
+      const existingSocket = this.byWorker.get(msg.worker_id);
+      if (existingSocket && existingSocket !== socket) {
+        this.workerOf.delete(existingSocket);
+        existingSocket.terminate();
+      }
       this.byWorker.set(msg.worker_id, socket);
       this.workerOf.set(socket, msg.worker_id);
       this.rawSend(socket, {
@@ -109,7 +121,7 @@ export class LoopbackWSHub implements WSHub {
         ts: this.opts.clock.now(),
         protocol_version: PROTOCOL_VERSION,
         server_time: this.opts.clock.now(),
-        heartbeat_interval_ms: 20000,
+        heartbeat_interval_ms: HEARTBEAT_INTERVAL_MS,
       });
       for (const h of this.msgHandlers) h(msg.worker_id, msg);
       return;
@@ -187,6 +199,16 @@ export class LoopbackWSHub implements WSHub {
         tab_id: params.tab_id,
         step: { tool: params.step.tool, args: params.step.args as Json },
       });
+      // I1: TOCTOU guard — the socket may have closed during rawSend (and onSocketClose
+      // may have already run).  If the socket is no longer the current one for this
+      // worker, the close event won't clean up this pending entry (onSocketClose already
+      // ran or will run for a different socket).  Reject immediately so the promise
+      // doesn't hang until timeout.
+      if (this.byWorker.get(worker_id) !== socket) {
+        clearTimeout(timer);
+        this.pending.delete(req_id);
+        reject(new Error(`worker ${worker_id} disconnected`));
+      }
     });
   }
 
@@ -210,6 +232,9 @@ export class LoopbackWSHub implements WSHub {
     return [...this.byWorker.keys()];
   }
 
+  // Intentionally fire-and-forget: actual cleanup (byWorker/workerOf removal and
+  // pending-exec rejection) happens asynchronously via the socket's close event.
+  // v1 callers do not await this method.
   async disconnect(worker_id: string, _reason: string): Promise<void> {
     const socket = this.byWorker.get(worker_id);
     if (socket) socket.close();
