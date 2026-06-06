@@ -1,8 +1,8 @@
 import {
   PROTOCOL_VERSION,
   type Hello
-} from "@webpilot/shared/protocol";
-import { CAPABILITIES } from "@webpilot/shared/capability";
+} from "@atwebpilot/shared/protocol";
+import { CAPABILITIES } from "@atwebpilot/shared/capability";
 
 export interface BuildHelloInput {
   worker_id: string;

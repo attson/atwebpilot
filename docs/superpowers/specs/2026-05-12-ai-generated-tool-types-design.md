@@ -137,7 +137,7 @@ AI 已生成提示词工具
 描述：在商品页采集主图、详情图、评论摘要并输出结构化 JSON。
 
 ▾ 提示词
-你是 WebPilot，请基于当前页面完成以下任务：...
+你是 AtWebPilot，请基于当前页面完成以下任务：...
 
 [重新生成] [保存]
 ```
@@ -207,7 +207,7 @@ System prompt 要求：
 
 - 输出 JSON：`{ "name": string, "description": string, "prompt": string }`。
 - `prompt` 面向未来运行，不引用“上面这段对话”。
-- `prompt` 要告诉 AI 基于当前页面执行，必要时使用 WebPilot 工具读取/操作页面。
+- `prompt` 要告诉 AI 基于当前页面执行，必要时使用 AtWebPilot 工具读取/操作页面。
 - `prompt` 要包含期望输出结构和完成标准。
 - 不包含 API key、账号密码、cookie 或其他敏感值。
 

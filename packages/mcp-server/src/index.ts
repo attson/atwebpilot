@@ -1,5 +1,5 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Coordinator, DefaultClock, DefaultIdGen } from "@webpilot/coordinator";
+import { Coordinator, DefaultClock, DefaultIdGen } from "@atwebpilot/coordinator";
 import { LoopbackWSHub } from "./loopback-ws-hub";
 import { createMcpServer } from "./mcp-server";
 import { installWire } from "./wire";
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 
   const server = createMcpServer({ coordinator, hub });
   await server.connect(new StdioServerTransport());
-  console.error(`[webpilot-mcp] ws://127.0.0.1:${port}/worker ready; stdio MCP connected`);
+  console.error(`[atwebpilot-mcp] ws://127.0.0.1:${port}/worker ready; stdio MCP connected`);
 }
 
-main().catch((e) => { console.error("[webpilot-mcp] fatal", e); process.exit(1); });
+main().catch((e) => { console.error("[atwebpilot-mcp] fatal", e); process.exit(1); });

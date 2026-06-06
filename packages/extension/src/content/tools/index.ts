@@ -1,4 +1,4 @@
-import type { BuiltinTool, Json } from "@webpilot/shared/types";
+import type { BuiltinTool, Json } from "@atwebpilot/shared/types";
 import { click } from "./click";
 import { extractFormState } from "./extract-form-state";
 import { extractImages } from "./extract-images";

@@ -1,4 +1,4 @@
-import type { Json } from "@webpilot/shared/types";
+import type { Json } from "@atwebpilot/shared/types";
 
 type Args = { selector: string };
 

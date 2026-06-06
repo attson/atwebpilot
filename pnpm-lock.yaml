@@ -10,7 +10,7 @@ importers:
 
   packages/coordinator:
     dependencies:
-      '@webpilot/shared':
+      '@atwebpilot/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -26,7 +26,7 @@ importers:
 
   packages/extension:
     dependencies:
-      '@webpilot/shared':
+      '@atwebpilot/shared':
         specifier: workspace:*
         version: link:../shared
       idb:
@@ -99,10 +99,10 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.29.0(zod@3.25.76)
-      '@webpilot/coordinator':
+      '@atwebpilot/coordinator':
         specifier: workspace:*
         version: link:../coordinator
-      '@webpilot/shared':
+      '@atwebpilot/shared':
         specifier: workspace:*
         version: link:../shared
       ws:

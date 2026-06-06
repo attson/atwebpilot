@@ -1,5 +1,5 @@
-import { PROTOCOL_VERSION, type Exec, type Result, type ErrorBody } from "@webpilot/shared/protocol";
-import type { Step, Json } from "@webpilot/shared/types";
+import { PROTOCOL_VERSION, type Exec, type Result, type ErrorBody } from "@atwebpilot/shared/protocol";
+import type { Step, Json } from "@atwebpilot/shared/types";
 import { runOneStep } from "./rpc-handlers";
 
 function randomNonce(): string {

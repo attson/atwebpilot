@@ -1,5 +1,5 @@
-import type { ServerToClient, ClientToServer, ReadSidepanelState } from "@webpilot/shared/protocol";
-import { PROTOCOL_VERSION } from "@webpilot/shared/protocol";
+import type { ServerToClient, ClientToServer, ReadSidepanelState } from "@atwebpilot/shared/protocol";
+import { PROTOCOL_VERSION } from "@atwebpilot/shared/protocol";
 
 interface SnapshotPayload {
   status: string;

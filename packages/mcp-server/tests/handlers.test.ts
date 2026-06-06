@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { Coordinator, FakeClock, FakeIdGen, type Worker } from "@webpilot/coordinator";
-import type { Result } from "@webpilot/shared/protocol";
+import { Coordinator, FakeClock, FakeIdGen, type Worker } from "@atwebpilot/coordinator";
+import type { Result } from "@atwebpilot/shared/protocol";
 import {
   handleListTabs, handleOpenSession, handleCloseSession, handleGetQuota, handleBrowserTool, type Deps
 } from "../src/handlers";

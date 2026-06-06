@@ -9,8 +9,8 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import { WebSocket } from "ws";
-import { PROTOCOL_VERSION, type Hello } from "@webpilot/shared/protocol";
-import { Coordinator, DefaultClock, DefaultIdGen } from "@webpilot/coordinator";
+import { PROTOCOL_VERSION, type Hello } from "@atwebpilot/shared/protocol";
+import { Coordinator, DefaultClock, DefaultIdGen } from "@atwebpilot/coordinator";
 import { LoopbackWSHub } from "../src/loopback-ws-hub";
 import { installWire } from "../src/wire";
 

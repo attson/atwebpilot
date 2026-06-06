@@ -1,6 +1,6 @@
-import type { Coordinator, Worker, Clock } from "@webpilot/coordinator";
-import { isCapability, type Capability } from "@webpilot/shared/capability";
-import type { Hello } from "@webpilot/shared/protocol";
+import type { Coordinator, Worker, Clock } from "@atwebpilot/coordinator";
+import { isCapability, type Capability } from "@atwebpilot/shared/capability";
+import type { Hello } from "@atwebpilot/shared/protocol";
 import type { LoopbackWSHub } from "./loopback-ws-hub";
 
 export function helloToWorker(h: Hello, now: number): Worker {

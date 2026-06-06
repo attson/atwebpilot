@@ -1,11 +1,11 @@
-# Agent Guide — WebPilot
+# Agent Guide — AtWebPilot
 
 This file orients AI agents (Claude Code / Codex / Cursor) working in this
 repo. Read it before making non-trivial changes.
 
 ## What this is
 
-WebPilot is a Chromium MV3 side-panel extension that lets a user converse
+AtWebPilot is a Chromium MV3 side-panel extension that lets a user converse
 with an LLM and have it read / write / collect on the currently-open web
 page. Successful conversations can be **固化 (solidified)** into reusable
 URL-pattern-matched tools that replay the same step sequence on similar
@@ -48,7 +48,7 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │  ├─ coordinator/                    参考 WS 服务器（worker registry / session manager / dispatcher / catalog / clock）
 │  │  └─ src/                         （仅供测试与本地 smoke；生产部署不在这里）
 │  ├─ mcp-server/                     stdio MCP server + LoopbackWSHub（Plan 13；Claude 经 coordinator 驱动浏览器）
-│  └─ extension/                      WebPilot 浏览器扩展（19 工具 + sidepanel + LLM agent loop + WS worker）
+│  └─ extension/                      AtWebPilot 浏览器扩展（19 工具 + sidepanel + LLM agent loop + WS worker）
 │     ├─ src/
 │     │  ├─ manifest.ts               MV3 manifest (defineManifest)
 │     │  ├─ background/               Service worker
@@ -84,7 +84,7 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │     │  ├─ tab-tracker.ts      chrome.tabs events → store actions
 │     │     │  └─ settings-store.ts   LlmSettings (provider/model/apiKey/endpoint/maxRounds/maxTokens/autoApproveDangerous/maxContinuationNudges)
 │     │     ├─ llm/
-│     │     │  ├─ types.ts            re-export from @webpilot/shared/llm（兼容存量 import）
+│     │     │  ├─ types.ts            re-export from @atwebpilot/shared/llm（兼容存量 import）
 │     │     │  ├─ anthropic.ts / openai.ts    SSE parsers（surface stop_reason on message_end）
 │     │     │  ├─ recording-client.ts Plan 11：包 LlmClient 捕获 request/response 到 llmExchanges（apiKey 屏蔽）
 │     │     │  ├─ http-error.ts       HTTP 错误规范化（含 retry-after 解析）
@@ -122,8 +122,8 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 | `pnpm build` | 产 `packages/extension/dist/` |
 | `pnpm typecheck` | shared + extension 串跑 tsc --noEmit |
 | `pnpm test` | shared + extension 串跑 vitest |
-| `pnpm --filter @webpilot/shared test` | 只跑 shared 包测试 |
-| `pnpm --filter @webpilot/extension test:watch` | 扩展测试 watch 模式 |
+| `pnpm --filter @atwebpilot/shared test` | 只跑 shared 包测试 |
+| `pnpm --filter @atwebpilot/extension test:watch` | 扩展测试 watch 模式 |
 
 ## Workflow conventions
 
@@ -146,7 +146,7 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 
 - **IDB DB name is `caiji`** in `packages/extension/src/background/storage/db.ts`. Do not rename
   it (would orphan every existing user's saved tools). Internal name and
-  product name (WebPilot) are intentionally decoupled.
+  product name (AtWebPilot) are intentionally decoupled.
 - **No new dependencies without asking.** Existing stack covers everything
   we've needed; new deps cost build size and review burden.
 - **API key never goes to IDB or to any export bundle.** It lives in
@@ -192,10 +192,10 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
   for legacy. Don't make it optional in the type. Coordinator-driven
   sessions set `source: "coordinator"`; user sessions get `"user"` (or
   backfilled to `"user"` if a pre-v0.0.16 record is read back).
-- **`LlmStreamEvent` / `LlmClient` live in `@webpilot/shared/llm`**
+- **`LlmStreamEvent` / `LlmClient` live in `@atwebpilot/shared/llm`**
   (Plan 12). Extension still has a re-export shim at
   `sidepanel/llm/types.ts` for back-compat — keep it; new code should
-  import from `@webpilot/shared/llm` directly.
+  import from `@atwebpilot/shared/llm` directly.
 
 ## Common tasks
 
@@ -273,7 +273,7 @@ Read `docs/superpowers/specs/README.md` for the spec index. At a glance:
 
 - **Plan 1** — executable skeleton: 9 builtin tools, IDB tools/runs, runner
 - **Plan 2** — AI conversation: streaming Anthropic+OpenAI, step approval, runJS static scan
-- **Plan 3** — WebPilot rebrand: 9 more tools (fillInput / setCheckbox / selectOption / submitForm / hover / focus / uploadFile / getValue / extractFormState), per-tool dangerous allowlist
+- **Plan 3** — AtWebPilot rebrand: 9 more tools (fillInput / setCheckbox / selectOption / submitForm / hover / focus / uploadFile / getValue / extractFormState), per-tool dangerous allowlist
 - **Plan 4** — per-tab sessions: each tab its own conversation; closed-tab sessions previously kept 5 min in memory (replaced by Plan 8)
 - **Plan 5** — AI-generated summary step: save dialog asks LLM for a runJS step that integrates prior step outputs into stable JSON
 - **Plan 6** — two tool-save flavors (`prompt` vs `steps`): AI summarises the conversation into a tool draft; prompt-tools jump straight to chat with the prompt prefilled at run time
@@ -295,7 +295,7 @@ Read `docs/superpowers/specs/README.md` for the spec index. At a glance:
 - Adding business logic to a component (move to `chat/` or shared/`)
 - Treating `runJS` errors as `output: null` (BG now wraps + re-throws —
   don't undo)
-- Renaming `caiji` → `webpilot` anywhere user data lives (IDB / import
+- Renaming `caiji` → `atwebpilot` anywhere user data lives (IDB / import
   alias `@/`)
 - Touching `.idea/` or other IDE configs in commits
 - Hard-coding `chrome.*` access in `runChatSession` or anything below

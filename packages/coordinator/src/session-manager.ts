@@ -1,8 +1,8 @@
 import {
   SESSION_IDLE_TIMEOUT_MS,
   ORPHAN_RECOVERY_MS
-} from "@webpilot/shared/protocol";
-import type { Capability } from "@webpilot/shared/capability";
+} from "@atwebpilot/shared/protocol";
+import type { Capability } from "@atwebpilot/shared/capability";
 import type { Clock, IdGen } from "./clock";
 import type { Session, SessionState } from "./types";
 import { QUOTA_DEFAULTS } from "./types";

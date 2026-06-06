@@ -1,4 +1,4 @@
-import { RpcRequest as RpcRequestSchema } from "@webpilot/shared/messages";
+import { RpcRequest as RpcRequestSchema } from "@atwebpilot/shared/messages";
 import { handleRpc } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
 import { installTabCloseArchiver } from "./tab-close-archiver";
@@ -10,7 +10,7 @@ import { CoordinatorChatHost } from "./coordinator-chat";
 import { CoordinatorStateBridge } from "./coordinator-state-bridge";
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.info("[webpilot] service worker installed");
+  console.info("[atwebpilot] service worker installed");
 });
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -20,7 +20,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((e) => console.error("[webpilot] sidePanel setPanelBehavior", e));
+  .catch((e) => console.error("[atwebpilot] sidePanel setPanelBehavior", e));
 
 installTabWatcher();
 installTabCloseArchiver();
@@ -62,7 +62,7 @@ export async function startCoordinatorClient(): Promise<void> {
   if (!config?.enabled || !config.ws_url) return;
   const token = await loadToken();
   if (!token) {
-    console.warn("[webpilot] coordinator enabled but no token saved");
+    console.warn("[atwebpilot] coordinator enabled but no token saved");
     return;
   }
   const worker_id = await getOrCreateWorkerId();
@@ -103,7 +103,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (
     keys.some(
       (k) =>
-        k === "webpilot.coordinator.config" || k === "webpilot.coordinator.token"
+        k === "atwebpilot.coordinator.config" || k === "atwebpilot.coordinator.token"
     )
   ) {
     void (async () => {

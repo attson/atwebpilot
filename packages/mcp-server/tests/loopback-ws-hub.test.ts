@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { WebSocket } from "ws";
-import { PROTOCOL_VERSION, type Hello, type ClientToServer } from "@webpilot/shared/protocol";
-import { DefaultClock, DefaultIdGen } from "@webpilot/coordinator";
+import { PROTOCOL_VERSION, type Hello, type ClientToServer } from "@atwebpilot/shared/protocol";
+import { DefaultClock, DefaultIdGen } from "@atwebpilot/coordinator";
 import { LoopbackWSHub } from "../src/loopback-ws-hub";
 
 let hub: LoopbackWSHub | null = null;

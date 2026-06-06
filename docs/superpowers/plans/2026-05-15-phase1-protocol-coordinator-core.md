@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 spec §7.1（capability 清单）、§7.2（WS 协议消息表）、§7.3（MCP tool 表）落成 `@webpilot/shared` 的三个新子树，然后建一个全内存、零 IO 的 `@webpilot/coordinator` 包实现 session/worker/dispatcher/catalog 状态机。Phase 1 结束时存在一个可单测的"调度核"，但还没有真正的 WS 网络层和扩展接入——那些留给 Phase 2/3。
+**Goal:** 把 spec §7.1（capability 清单）、§7.2（WS 协议消息表）、§7.3（MCP tool 表）落成 `@atwebpilot/shared` 的三个新子树，然后建一个全内存、零 IO 的 `@atwebpilot/coordinator` 包实现 session/worker/dispatcher/catalog 状态机。Phase 1 结束时存在一个可单测的"调度核"，但还没有真正的 WS 网络层和扩展接入——那些留给 Phase 2/3。
 
 **Architecture:** `shared/protocol` 用 zod 把 11 条 WS 消息建成 discriminated union；`shared/capability` 把 12 个 capability 编为枚举 + 工具到能力的映射 + scope 集合代数；`shared/mcp-tools` 把 7 个控制平面 MCP 工具的 JSON Schema 列出来 + 19 个 `explore_*` 工具用 builder 生成。`coordinator` 通过依赖注入 `WSHub` / `Clock` / `IdGen` 三个接口，把 SessionManager / WorkerRegistry / Catalog / Dispatcher 四个状态机用 `Coordinator` 类组合起来；所有 IO 通过接口，所有定时器走 Clock 抽象，单测全用假实现。
 
@@ -413,7 +413,7 @@ describe("EnvelopeSchema", () => {
 
 - [ ] **Step 7: 跑 envelope test → 失败（schema 还没 export 到 barrel）**
 
-Run: `pnpm --filter @webpilot/shared test tests/protocol/envelope.test.ts`
+Run: `pnpm --filter @atwebpilot/shared test tests/protocol/envelope.test.ts`
 Expected: All 4 tests PASS (we wrote the schema in Step 2 directly; this test just exercises it).
 
 如果失败：检查 import 路径。
@@ -544,7 +544,7 @@ describe("ServerToClientSchema discriminated union", () => {
 
 - [ ] **Step 9: 跑 messages test**
 
-Run: `pnpm --filter @webpilot/shared test tests/protocol/messages.test.ts`
+Run: `pnpm --filter @atwebpilot/shared test tests/protocol/messages.test.ts`
 Expected: All tests PASS.
 
 - [ ] **Step 10: Commit**
@@ -886,7 +886,7 @@ describe("capabilityForRunJs", () => {
 
 - [ ] **Step 7: 跑两个 test 文件**
 
-Run: `pnpm --filter @webpilot/shared test tests/capability/`
+Run: `pnpm --filter @atwebpilot/shared test tests/capability/`
 Expected: all tests PASS.
 
 - [ ] **Step 8: Commit**
@@ -1162,7 +1162,7 @@ describe("exploreToolName", () => {
 
 - [ ] **Step 6: 跑 test**
 
-Run: `pnpm --filter @webpilot/shared test tests/mcp-tools/`
+Run: `pnpm --filter @atwebpilot/shared test tests/mcp-tools/`
 Expected: all PASS.
 
 - [ ] **Step 7: Commit**
@@ -1193,7 +1193,7 @@ Open `packages/shared/package.json`, in the `exports` field add 3 new entries �
 
 ```json
 {
-  "name": "@webpilot/shared",
+  "name": "@atwebpilot/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -1247,16 +1247,16 @@ export * as Capability from "./capability";
 export * as McpTools from "./mcp-tools";
 ```
 
-Run `pnpm --filter @webpilot/shared typecheck` and see if any error. If clean, prefer the simple `export *` form.
+Run `pnpm --filter @atwebpilot/shared typecheck` and see if any error. If clean, prefer the simple `export *` form.
 
 - [ ] **Step 3: 跑 typecheck**
 
-Run: `pnpm --filter @webpilot/shared typecheck`
+Run: `pnpm --filter @atwebpilot/shared typecheck`
 Expected: 0 errors.
 
 - [ ] **Step 4: 跑全包测试**
 
-Run: `pnpm --filter @webpilot/shared test`
+Run: `pnpm --filter @atwebpilot/shared test`
 Expected: all tests PASS (now includes 3 new test directories + the original 4 files).
 
 - [ ] **Step 5: Commit**
@@ -1284,7 +1284,7 @@ Create `packages/coordinator/package.json`:
 
 ```json
 {
-  "name": "@webpilot/coordinator",
+  "name": "@atwebpilot/coordinator",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -1296,7 +1296,7 @@ Create `packages/coordinator/package.json`:
     "test": "vitest run"
   },
   "dependencies": {
-    "@webpilot/shared": "workspace:*",
+    "@atwebpilot/shared": "workspace:*",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -1361,14 +1361,14 @@ export const COORDINATOR_PACKAGE_VERSION = "0.0.0";
 - [ ] **Step 5: 装依赖**
 
 Run: `pnpm install`
-Expected: completes; `packages/coordinator/node_modules/@webpilot/shared` resolves (via pnpm `.pnpm` indirection).
+Expected: completes; `packages/coordinator/node_modules/@atwebpilot/shared` resolves (via pnpm `.pnpm` indirection).
 
 - [ ] **Step 6: 跑 typecheck + test (empty test set OK)**
 
 Run:
 ```bash
-pnpm --filter @webpilot/coordinator typecheck
-pnpm --filter @webpilot/coordinator test --passWithNoTests
+pnpm --filter @atwebpilot/coordinator typecheck
+pnpm --filter @atwebpilot/coordinator test --passWithNoTests
 ```
 Expected: typecheck 0 errors; test prints "no test files" but exits 0.
 
@@ -1378,7 +1378,7 @@ If `vitest run` errors with "No test suite found", we'll add a dummy test in Tas
 
 ```bash
 git add packages/coordinator pnpm-lock.yaml
-git commit -m "feat(coordinator): add @webpilot/coordinator package scaffold"
+git commit -m "feat(coordinator): add @atwebpilot/coordinator package scaffold"
 ```
 
 ---
@@ -1398,9 +1398,9 @@ git commit -m "feat(coordinator): add @webpilot/coordinator package scaffold"
 Create `packages/coordinator/src/types.ts`:
 
 ```ts
-import type { Capability } from "@webpilot/shared/capability";
+import type { Capability } from "@atwebpilot/shared/capability";
 
-/** Internal coordinator types. None of these cross the WS wire — those are in @webpilot/shared/protocol. */
+/** Internal coordinator types. None of these cross the WS wire — those are in @atwebpilot/shared/protocol. */
 
 export type SessionState = "active" | "expired" | "paused" | "error" | "closed" | "orphan";
 
@@ -1533,7 +1533,7 @@ export class FakeIdGen implements IdGen {
 Create `packages/coordinator/src/ws-hub.ts`:
 
 ```ts
-import type { ClientToServer, ServerToClient } from "@webpilot/shared/protocol";
+import type { ClientToServer, ServerToClient } from "@atwebpilot/shared/protocol";
 
 /**
  * Transport abstraction. Implementations:
@@ -1605,7 +1605,7 @@ describe("FakeIdGen", () => {
 
 - [ ] **Step 5: 跑 test**
 
-Run: `pnpm --filter @webpilot/coordinator test`
+Run: `pnpm --filter @atwebpilot/coordinator test`
 Expected: 5 tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -1748,7 +1748,7 @@ describe("WorkerRegistry.pickForUrl", () => {
 
 - [ ] **Step 2: 跑 test → 失败（class not defined）**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/worker-registry.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/worker-registry.test.ts`
 Expected: FAIL (cannot import WorkerRegistry).
 
 - [ ] **Step 3: 实现 worker-registry.ts**
@@ -1756,7 +1756,7 @@ Expected: FAIL (cannot import WorkerRegistry).
 Create `packages/coordinator/src/worker-registry.ts`:
 
 ```ts
-import { matchesAny } from "@webpilot/shared/url-pattern";
+import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import type { Clock } from "./clock";
 import type { Worker } from "./types";
 
@@ -1813,12 +1813,12 @@ function labelScore(w: Worker, prefer: string[]): number {
 
 - [ ] **Step 4: 跑 test → 应当全绿**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/worker-registry.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/worker-registry.test.ts`
 Expected: all PASS.
 
 - [ ] **Step 5: 跑全包 typecheck**
 
-Run: `pnpm --filter @webpilot/coordinator typecheck`
+Run: `pnpm --filter @atwebpilot/coordinator typecheck`
 Expected: 0 errors.
 
 - [ ] **Step 6: Commit**
@@ -1849,7 +1849,7 @@ import { FakeClock, FakeIdGen } from "../src/clock";
 import {
   SESSION_IDLE_TIMEOUT_MS,
   ORPHAN_RECOVERY_MS
-} from "@webpilot/shared/protocol";
+} from "@atwebpilot/shared/protocol";
 
 function newMgr() {
   const clock = new FakeClock(1000);
@@ -1992,7 +1992,7 @@ describe("SessionManager orphan flow", () => {
 
 - [ ] **Step 2: 跑 test → 失败 (SessionManager not defined)**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/session-manager.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/session-manager.test.ts`
 Expected: FAIL.
 
 - [ ] **Step 3: 实现 session-manager.ts**
@@ -2003,8 +2003,8 @@ Create `packages/coordinator/src/session-manager.ts`:
 import {
   SESSION_IDLE_TIMEOUT_MS,
   ORPHAN_RECOVERY_MS
-} from "@webpilot/shared/protocol";
-import type { Capability } from "@webpilot/shared/capability";
+} from "@atwebpilot/shared/protocol";
+import type { Capability } from "@atwebpilot/shared/capability";
 import type { Clock, IdGen } from "./clock";
 import type { Session, SessionState } from "./types";
 import { QUOTA_DEFAULTS } from "./types";
@@ -2189,12 +2189,12 @@ export class SessionManager {
 
 - [ ] **Step 4: 跑 test**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/session-manager.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/session-manager.test.ts`
 Expected: all PASS.
 
 - [ ] **Step 5: 跑 typecheck**
 
-Run: `pnpm --filter @webpilot/coordinator typecheck`
+Run: `pnpm --filter @atwebpilot/coordinator typecheck`
 Expected: 0 errors.
 
 - [ ] **Step 6: Commit**
@@ -2287,7 +2287,7 @@ describe("Catalog.lookup", () => {
 
 - [ ] **Step 2: 跑 test → 失败**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/catalog.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/catalog.test.ts`
 Expected: FAIL.
 
 - [ ] **Step 3: 实现 catalog.ts**
@@ -2295,7 +2295,7 @@ Expected: FAIL.
 Create `packages/coordinator/src/catalog.ts`:
 
 ```ts
-import { matchesAny } from "@webpilot/shared/url-pattern";
+import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import type { WorkerRegistry } from "./worker-registry";
 
 export interface CatalogEntry {
@@ -2350,7 +2350,7 @@ export class Catalog {
 
 - [ ] **Step 4: 跑 test**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/catalog.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/catalog.test.ts`
 Expected: all PASS.
 
 - [ ] **Step 5: Commit**
@@ -2379,8 +2379,8 @@ import { describe, it, expect } from "vitest";
 import { Dispatcher, type DispatchInput } from "../src/dispatcher";
 import { SessionManager } from "../src/session-manager";
 import { FakeClock, FakeIdGen } from "../src/clock";
-import { SESSION_IDLE_TIMEOUT_MS } from "@webpilot/shared/protocol";
-import type { Capability } from "@webpilot/shared/capability";
+import { SESSION_IDLE_TIMEOUT_MS } from "@atwebpilot/shared/protocol";
+import type { Capability } from "@atwebpilot/shared/capability";
 
 function setup(scope: Capability[]) {
   const clock = new FakeClock(1000);
@@ -2517,7 +2517,7 @@ describe("Dispatcher.validate (quota)", () => {
 
 - [ ] **Step 2: 跑 test → 失败**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/dispatcher.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/dispatcher.test.ts`
 Expected: FAIL.
 
 - [ ] **Step 3: 实现 dispatcher.ts**
@@ -2530,10 +2530,10 @@ import {
   capabilityForRunJs,
   scopeCovers,
   DANGEROUS_CAPABILITIES
-} from "@webpilot/shared/capability";
-import type { Capability } from "@webpilot/shared/capability";
-import type { ErrorBody, ErrorCode } from "@webpilot/shared/protocol";
-import type { BuiltinTool } from "@webpilot/shared/types";
+} from "@atwebpilot/shared/capability";
+import type { Capability } from "@atwebpilot/shared/capability";
+import type { ErrorBody, ErrorCode } from "@atwebpilot/shared/protocol";
+import type { BuiltinTool } from "@atwebpilot/shared/types";
 import type { SessionManager } from "./session-manager";
 import { QUOTA_DEFAULTS } from "./types";
 
@@ -2606,7 +2606,7 @@ function fail(code: ErrorCode, message: string, hints?: Record<string, unknown>)
 
 - [ ] **Step 4: 跑 test**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/dispatcher.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/dispatcher.test.ts`
 Expected: all PASS.
 
 - [ ] **Step 5: Commit**
@@ -2747,12 +2747,12 @@ export * from "./coordinator";
 
 - [ ] **Step 3: 跑 typecheck**
 
-Run: `pnpm --filter @webpilot/coordinator typecheck`
+Run: `pnpm --filter @atwebpilot/coordinator typecheck`
 Expected: 0 errors.
 
 - [ ] **Step 4: 跑全包 test**
 
-Run: `pnpm --filter @webpilot/coordinator test`
+Run: `pnpm --filter @atwebpilot/coordinator test`
 Expected: all PASS (clock + worker-registry + session-manager + catalog + dispatcher tests).
 
 - [ ] **Step 5: Commit**
@@ -2779,7 +2779,7 @@ Create `packages/coordinator/tests/coordinator.test.ts`:
 import { describe, it, expect, vi } from "vitest";
 import { Coordinator } from "../src/coordinator";
 import { FakeClock, FakeIdGen } from "../src/clock";
-import { SESSION_IDLE_TIMEOUT_MS } from "@webpilot/shared/protocol";
+import { SESSION_IDLE_TIMEOUT_MS } from "@atwebpilot/shared/protocol";
 import type { WSHub } from "../src/ws-hub";
 import type { Worker } from "../src/types";
 
@@ -2912,7 +2912,7 @@ describe("Coordinator worker disconnect", () => {
 
 - [ ] **Step 2: 跑集成 test**
 
-Run: `pnpm --filter @webpilot/coordinator test tests/coordinator.test.ts`
+Run: `pnpm --filter @atwebpilot/coordinator test tests/coordinator.test.ts`
 Expected: all PASS.
 
 - [ ] **Step 3: 跑 root 全套**
@@ -2971,7 +2971,7 @@ Expected: pre-existing files + `protocol capability mcp-tools` directories.
 
 - [ ] **Step 3: 提示后续**
 
-Phase 2 起点 = `packages/coordinator` 的核心 + `@webpilot/shared/protocol` 完备协议。Phase 2 任务：在 `packages/extension/src/background/coordinator-client.ts` 实现 WS 客户端，并在 `packages/extension/src/sidepanel` 加配对 UI。
+Phase 2 起点 = `packages/coordinator` 的核心 + `@atwebpilot/shared/protocol` 完备协议。Phase 2 任务：在 `packages/extension/src/background/coordinator-client.ts` 实现 WS 客户端，并在 `packages/extension/src/sidepanel` 加配对 UI。
 
 ---
 

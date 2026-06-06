@@ -1,4 +1,4 @@
-import type { Json, Step } from "@webpilot/shared/types";
+import type { Json, Step } from "@atwebpilot/shared/types";
 
 export interface ToolRunner {
   runStep(

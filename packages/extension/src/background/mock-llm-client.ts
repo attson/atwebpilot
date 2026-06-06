@@ -1,4 +1,4 @@
-import type { LlmClient, LlmStreamEvent } from "@webpilot/shared/llm";
+import type { LlmClient, LlmStreamEvent } from "@atwebpilot/shared/llm";
 
 /**
  * Deterministic LLM client driven by a pre-scripted list of rounds.

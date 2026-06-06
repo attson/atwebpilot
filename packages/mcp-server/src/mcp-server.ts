@@ -1,6 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { JsonSchema } from "@webpilot/shared/types";
+import type { JsonSchema } from "@atwebpilot/shared/types";
 import { CONTROL_TOOLS } from "./control-tools";
 import { generateBrowserTools, type GeneratedTool } from "./tool-gen";
 import {
@@ -38,7 +38,7 @@ export async function dispatchCall(deps: Deps, name: string, args: Record<string
 }
 
 export function createMcpServer(deps: Deps): Server {
-  const server = new Server({ name: "webpilot-mcp", version: "0.1.0" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "atwebpilot-mcp", version: "0.1.0" }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: buildToolList() }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;

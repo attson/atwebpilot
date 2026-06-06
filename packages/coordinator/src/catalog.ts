@@ -1,4 +1,4 @@
-import { matchesAny } from "@webpilot/shared/url-pattern";
+import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import type { WorkerRegistry } from "./worker-registry";
 
 export interface CatalogEntry {

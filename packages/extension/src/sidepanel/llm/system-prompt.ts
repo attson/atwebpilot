@@ -1,4 +1,4 @@
-import type { AttachedTab } from "@webpilot/shared/types";
+import type { AttachedTab } from "@atwebpilot/shared/types";
 
 type SavedToolHint = { name: string; description: string; version: number };
 
@@ -46,7 +46,7 @@ export function buildSystemPrompt(input: {
   ];
 
   return [
-    "你是 WebPilot，一个嵌入到浏览器侧边面板的 AI 网页助手。",
+    "你是 AtWebPilot，一个嵌入到浏览器侧边面板的 AI 网页助手。",
     "用户在浏览网页时会请你完成各种任务：",
     "",
     "1. 阅读类：总结、翻译、提取重点、回答关于本页内容的问题",

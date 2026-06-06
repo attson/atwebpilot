@@ -1,10 +1,10 @@
-# @webpilot/mcp-server
+# @atwebpilot/mcp-server
 
-让 Claude Code 经本地 coordinator 驱动 WebPilot 扩展操作浏览器（EXEC 模式）。
+让 Claude Code 经本地 coordinator 驱动 AtWebPilot 扩展操作浏览器（EXEC 模式）。
 
 ## 启动
 
-    WEBPILOT_WS_PORT=8787 WEBPILOT_WS_TOKEN=dev pnpm -F @webpilot/mcp-server start
+    WEBPILOT_WS_PORT=8787 WEBPILOT_WS_TOKEN=dev pnpm -F @atwebpilot/mcp-server start
 
 （内部用 `tsx` 直跑 TypeScript；也可 `npx tsx packages/mcp-server/src/index.ts`。）
 
@@ -14,7 +14,7 @@
 
     {
       "mcpServers": {
-        "webpilot": {
+        "atwebpilot": {
           "command": "tsx",
           "args": ["packages/mcp-server/src/index.ts"],
           "env": { "WEBPILOT_WS_PORT": "8787", "WEBPILOT_WS_TOKEN": "dev" }

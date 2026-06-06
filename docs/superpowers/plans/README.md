@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | 1 | [`2026-05-09-plan1-executable-skeleton.md`](./2026-05-09-plan1-executable-skeleton.md) | 30 | 51 | 51 |
 | 2 | [`2026-05-10-plan2-ai-conversation.md`](./2026-05-10-plan2-ai-conversation.md) | 26 | +37 | 88 |
-| 3 | [`2026-05-10-plan3-webpilot.md`](./2026-05-10-plan3-webpilot.md) | 29 | +46 | 134 |
+| 3 | [`2026-05-10-plan3-atwebpilot.md`](./2026-05-10-plan3-atwebpilot.md) | 29 | +46 | 134 |
 | 4 | [`2026-05-10-plan4-per-tab-sessions.md`](./2026-05-10-plan4-per-tab-sessions.md) | 13 | +16 | 150 |
 | 5 | [`2026-05-10-plan5-summary-step.md`](./2026-05-10-plan5-summary-step.md) | 6 | +18 | 168 |
 | 6 | [`2026-05-14-multi-tab-context.md`](./2026-05-14-multi-tab-context.md) | 23 | +69 | 237 |

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { PersistedSession } from "@webpilot/shared/types";
+import type { PersistedSession } from "@atwebpilot/shared/types";
 import * as ss from "@/sidepanel/chat/persistence/sessions-storage";
 import { setPersistIdFor } from "@/sidepanel/chat/persistence/auto-persist";
 import { rehydrateFromPersisted, useStore } from "@/sidepanel/chat/session-store";

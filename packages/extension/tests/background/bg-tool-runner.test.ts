@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { BuiltinTool } from "@webpilot/shared/types";
+import type { BuiltinTool } from "@atwebpilot/shared/types";
 import { BackgroundToolRunner } from "@/background/bg-tool-runner";
 import * as rpc from "@/background/rpc-handlers";
 

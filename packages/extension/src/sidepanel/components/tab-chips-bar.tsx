@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AttachedTab } from "@webpilot/shared/types";
+import type { AttachedTab } from "@atwebpilot/shared/types";
 
 type Props = {
   attachedTabs: AttachedTab[];

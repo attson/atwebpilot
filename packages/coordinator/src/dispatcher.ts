@@ -3,10 +3,10 @@ import {
   capabilityForRunJs,
   scopeCovers,
   DANGEROUS_CAPABILITIES
-} from "@webpilot/shared/capability";
-import type { Capability } from "@webpilot/shared/capability";
-import type { ErrorBody, ErrorCode } from "@webpilot/shared/protocol";
-import type { BuiltinTool } from "@webpilot/shared/types";
+} from "@atwebpilot/shared/capability";
+import type { Capability } from "@atwebpilot/shared/capability";
+import type { ErrorBody, ErrorCode } from "@atwebpilot/shared/protocol";
+import type { BuiltinTool } from "@atwebpilot/shared/types";
 import type { SessionManager } from "./session-manager";
 import { QUOTA_DEFAULTS } from "./types";
 

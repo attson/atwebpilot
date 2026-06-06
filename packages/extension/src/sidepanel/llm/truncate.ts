@@ -1,4 +1,4 @@
-import type { ChatMessage, TextPart, ToolResultPart, ToolUsePart } from "@webpilot/shared/types";
+import type { ChatMessage, TextPart, ToolResultPart, ToolUsePart } from "@atwebpilot/shared/types";
 
 export function truncateContent(s: string, cap: number): string {
   if (s.length <= cap) return s;

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AttachedTab, ChatMessage, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@webpilot/shared/types";
+import type { AttachedTab, ChatMessage, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@atwebpilot/shared/types";
 
 export const MAX_EXCHANGES = 60;
 

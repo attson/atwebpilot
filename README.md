@@ -1,4 +1,4 @@
-# WebPilot — AI 网页助手
+# AtWebPilot — AI 网页助手
 
 一个浏览器侧边面板里的 AI 助手，能在你正在浏览的网页上：
 
@@ -26,7 +26,7 @@ pnpm build           # 产出 packages/extension/dist/
 
 仓库包含 `.github/workflows/build-extension.yml` 自动打包流程：
 
-- `push` / `pull_request` / 手动运行会执行 `pnpm typecheck`、`pnpm test`、`pnpm build`，并上传 `webpilot-<version>.zip` artifact。
+- `push` / `pull_request` / 手动运行会执行 `pnpm typecheck`、`pnpm test`、`pnpm build`，并上传 `atwebpilot-<version>.zip` artifact。
 - 推送 `v*` tag（例如 `v0.0.1`）会在通过检查后创建 GitHub Release，并上传同一个 zip。
 - zip 内容来自 `dist/` 内部，`manifest.json` 位于压缩包根目录，可直接用于 Chrome 扩展加载或发布前检查。
 
@@ -91,7 +91,7 @@ API Key 不会进 IndexedDB，也不会被「导出工具库」带走。
 ```
 保存为工具
 
-名称       [WebPilot 任务 2026-05-10]
+名称       [AtWebPilot 任务 2026-05-10]
 URL 模式   [https://*.pinduoduo.com/**]
 描述       [采集 PDD 评论与主图（用户初始 prompt）]
 
@@ -193,7 +193,7 @@ node docs/superpowers/scripts/mini-coordinator.mjs
 `packages/mcp-server` 是一个 stdio MCP server，同时起本地 ws 服务器。Claude Code 连它后可调
 `list_tabs / open_session / browser_*（19 个）/ get_quota / close_session` 在网页上读写采。
 
-    pnpm -F @webpilot/mcp-server start   # 监听 ws://127.0.0.1:8787/worker（tsx 直跑）
+    pnpm -F @atwebpilot/mcp-server start   # 监听 ws://127.0.0.1:8787/worker（tsx 直跑）
     # 扩展设置页填该 URL + token → 连接；Claude Code 侧把它配成 MCP server
 
 详见 `packages/mcp-server/README.md`。

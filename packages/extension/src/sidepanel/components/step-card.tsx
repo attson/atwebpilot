@@ -1,5 +1,5 @@
-import { runStaticScan } from "@webpilot/shared/static-scan";
-import type { ScanFinding } from "@webpilot/shared/types";
+import { runStaticScan } from "@atwebpilot/shared/static-scan";
+import type { ScanFinding } from "@atwebpilot/shared/types";
 import { useSession } from "../chat/session-store";
 import type { StepCardState } from "../chat/session-store";
 import { classifyTool } from "../chat/severity";

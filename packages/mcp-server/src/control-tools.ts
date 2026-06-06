@@ -1,4 +1,4 @@
-import type { JsonSchema } from "@webpilot/shared/types";
+import type { JsonSchema } from "@atwebpilot/shared/types";
 
 export type ControlTool = { name: string; description: string; inputSchema: JsonSchema };
 

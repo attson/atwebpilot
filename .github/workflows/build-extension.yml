@@ -56,7 +56,7 @@ jobs:
         run: |
           version=$(node -p "require('./packages/extension/package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "zip_name=webpilot-$version.zip" >> "$GITHUB_OUTPUT"
+          echo "zip_name=atwebpilot-$version.zip" >> "$GITHUB_OUTPUT"
 
       - name: Package dist
         run: |
@@ -66,7 +66,7 @@ jobs:
       - name: Upload packaged extension
         uses: actions/upload-artifact@v4
         with:
-          name: webpilot-extension-${{ steps.package.outputs.version }}
+          name: atwebpilot-extension-${{ steps.package.outputs.version }}
           path: ${{ steps.package.outputs.zip_name }}
           if-no-files-found: error
 
