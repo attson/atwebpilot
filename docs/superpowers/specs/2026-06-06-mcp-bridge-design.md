@@ -27,7 +27,8 @@ Claude Code ──stdio/MCP──► MCP server ──verbs──► Coordinator
 
 - 多 worker 选择 / `list_workers`（接口留 `worker_id`，未来再加）。
 - 真正的配对码 / TLS / 远程认证（Phase 4 远程 server 的事）。
-- CHAT 远程驱动、saved-tool 重放（Catalog 虽被门面带入，但本期不暴露对应 MCP 工具）。
+- CHAT 远程驱动、saved-tool 重放（Catalog 虽被门面带入，但本期不暴露对应 MCP 工具）；shared 现有的 `CONTROL_PLANE_TOOLS` 注册表（`list_tools`/`run_tool` 等远程愿景 schema）保持不动，mcp-server 在本包内定义务实的 4 个控制面 schema。
+- `runJS` 与 4 个 tab 控制工具（`listTabs/openTab/attachTab/detachTab`）不纳入自动生成的执行面（见 §4）。
 - 打包发布 / 跨平台分发。
 
 ## 2. 架构与包布局
@@ -102,14 +103,16 @@ packages/mcp-server/                 ← 新包
 
 ### 执行面（19 个，自动生成）
 
-每个 `browser_<tool>`，入参 = `session_id` + 该工具真实 args（去掉内部 `tabId`）。dispatcher 多数按工具名判 dangerous，少数**按参数升级**：
+自动生成的 19 个 = `BuiltinTool` 联合（与 `capabilityForTool` 的穷尽 switch 一一对应）。每个 `browser_<tool>`，入参 = `session_id` + 该工具真实 args（去掉内部 `tabId`）。dispatcher 多数按工具名判 dangerous，`httpRequest` **按参数升级**：
 
 - safe：`browser_snapshotDOM` `browser_querySelector` `browser_querySelectorAll` `browser_extractText` `browser_extractImages` `browser_getValue` `browser_extractFormState` `browser_hover` `browser_focus` `browser_scroll` `browser_waitFor`
 - caution：`browser_click` `browser_fillInput` `browser_setCheckbox` `browser_selectOption`
-- 按参数升级：`browser_httpRequest`（默认 caution；`withCredentials=true` → dangerous，handler 据此置 `httpCookied`）、`browser_runJS`（静态扫描命中 cookie/eval/storage 等关键词 → dangerous，handler 据此置 `unsafe`）
+- 按参数升级：`browser_httpRequest`（默认 `httpRequest:no-cookie` caution；`withCredentials=true` → `httpRequest:cookied` dangerous，handler 据此置 `httpCookied`）
 - dangerous（配额单独计数）：`browser_submitForm` `browser_uploadFile` `browser_readStorage`
 
-> handler 调 `validateCall` 时按工具填 `DispatchInput`：一般工具 `kind:"extension_tool"` + `tool`；`httpRequest` 额外带 `httpCookied`；`runJS` 用 `kind:"runjs"` + `unsafe`（由静态扫描结果决定）。
+> handler 调 `validateCall` 时按工具填 `DispatchInput`：`kind:"extension_tool"` + `tool`；`httpRequest` 额外带 `httpCookied`（取自 `args.withCredentials`）。
+>
+> **不生成**：`runJS`（`Step{kind:"js"}` 走 EXEC 无现成通路，且需静态扫描判 `unsafe`）与 4 个 tab 控制工具（`listTabs/openTab/attachTab/detachTab`，依赖会话 `attachedTabs` 语义）—— 均列入非目标，见 §1。
 
 ## 5. 数据流（一次 `browser_click`）
 
