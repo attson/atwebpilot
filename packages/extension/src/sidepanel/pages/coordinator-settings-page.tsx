@@ -10,8 +10,10 @@ import {
   type CoordinatorConfig
 } from "../../background/coordinator-state";
 
+const DEFAULT_WS_URL = "ws://localhost:8787/worker";
+
 export function CoordinatorSettingsPage() {
-  const [wsUrl, setWsUrl] = useState("");
+  const [wsUrl, setWsUrl] = useState(DEFAULT_WS_URL);
   const [token, setToken] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [allowRemoteChat, setAllowRemoteChat] = useState(false);
@@ -73,8 +75,8 @@ export function CoordinatorSettingsPage() {
       <h2 className="text-lg font-semibold">Coordinator 连接</h2>
 
       <p className="text-sm text-gray-600">
-        把扩展作为 worker 接到一个 coordinator（本地 daemon 或远程 server）。Phase 2
-        仅支持手动 paste token；6 位配对码 + daemon UX 在 Phase 3 完成。
+        把扩展作为 worker 接到一个 coordinator（本地 daemon 或远程 server）。Token
+        可选：本地 daemon 默认未启用鉴权时可留空；接远程 coordinator 时按对方要求填。
       </p>
 
       <label className="block">
@@ -83,7 +85,7 @@ export function CoordinatorSettingsPage() {
           <input
             type="text"
             className="block w-full rounded border px-2 py-1 text-gray-900 placeholder-gray-400"
-            placeholder="ws://localhost:7842/worker"
+            placeholder={DEFAULT_WS_URL}
             value={wsUrl}
             onChange={(e) => setWsUrl(e.target.value)}
           />
@@ -131,7 +133,7 @@ export function CoordinatorSettingsPage() {
           <button
             type="button"
             className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-            disabled={!wsUrl || !token}
+            disabled={!wsUrl}
             onClick={handleConnect}
           >
             连接
