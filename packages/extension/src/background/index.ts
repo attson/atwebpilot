@@ -61,10 +61,6 @@ export async function startCoordinatorClient(): Promise<void> {
   const config = await loadConfig();
   if (!config?.enabled || !config.ws_url) return;
   const token = await loadToken();
-  if (!token) {
-    console.warn("[atwebpilot] coordinator enabled but no token saved");
-    return;
-  }
   const worker_id = await getOrCreateWorkerId();
   const chatHost = new CoordinatorChatHost();
   activeStateBridge = new CoordinatorStateBridge({

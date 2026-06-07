@@ -58,17 +58,23 @@ describe("CoordinatorSettingsPage", () => {
     });
   }
 
-  it("loads saved config + token on mount (empty initial state)", async () => {
+  it("prefills default WS URL on mount and enables 连接 without token", async () => {
     vi.stubGlobal("chrome", fakeChromeStorage());
     await act(async () => {
       root.render(<CoordinatorSettingsPage />);
     });
     await flushAsync();
     const urlInput = container.querySelector(
-      "input[placeholder*='localhost:7842']"
+      "input[placeholder*='localhost:8787']"
     ) as HTMLInputElement | null;
     expect(urlInput).not.toBeNull();
-    expect(urlInput?.value).toBe("");
+    expect(urlInput?.value).toBe("ws://localhost:8787/worker");
+
+    const connectBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("连接")
+    ) as HTMLButtonElement | undefined;
+    expect(connectBtn).toBeTruthy();
+    expect(connectBtn?.disabled).toBe(false);
   });
 
   it("typing URL + token + clicking 连接 saves both to chrome.storage.local", async () => {
@@ -80,7 +86,7 @@ describe("CoordinatorSettingsPage", () => {
     await flushAsync();
 
     const urlInput = container.querySelector(
-      "input[placeholder*='localhost:7842']"
+      "input[placeholder*='localhost:8787']"
     ) as HTMLInputElement;
     const tokenInput = container.querySelector(
       "input[type='password']"

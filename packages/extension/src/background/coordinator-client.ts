@@ -21,7 +21,7 @@ export type ClientStatus = "disconnected" | "connecting" | "connected" | "error"
 
 export interface CoordinatorClientOptions {
   ws_url: string;
-  token: string;
+  token?: string;
   worker_id: string;
   savedToolsProvider: () => Promise<Hello["saved_tools"]>;
   labelsProvider: () => Promise<string[]>;
@@ -64,7 +64,9 @@ export class CoordinatorClient {
   async connect(): Promise<void> {
     this.intentionallyClosed = false;
     this.setStatus("connecting");
-    const protocols = [`bearer.${this.opts.token}`, `proto.${PROTOCOL_VERSION}`];
+    const protocols = this.opts.token
+      ? [`bearer.${this.opts.token}`, `proto.${PROTOCOL_VERSION}`]
+      : [`proto.${PROTOCOL_VERSION}`];
     this.ws = new WebSocket(this.opts.ws_url, protocols);
     this.ws.onopen = () => this.handleOpen();
     this.ws.onclose = () => this.handleClose();
