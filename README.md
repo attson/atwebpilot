@@ -10,6 +10,20 @@
 
 ---
 
+## 安装
+
+只想 **用**（不开发）：
+
+    claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
+
+然后下载 [最新 release zip](https://github.com/attson/atwebpilot/releases/latest)，在
+`chrome://extensions` 加载已解压扩展，扩展设置 → Coordinator 填
+`ws://127.0.0.1:8787/worker` → 连接。
+
+可选环境变量：`ATWEBPILOT_WS_PORT`（默认 8787）、`ATWEBPILOT_WS_TOKEN`（可选）。
+
+---
+
 ## 装载
 
 ```bash
