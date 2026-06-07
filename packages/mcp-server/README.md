@@ -1,30 +1,31 @@
-# @atwebpilot/mcp-server
+# @attson/atwebpilot-mcp
 
-让 Claude Code 经本地 coordinator 驱动 AtWebPilot 扩展操作浏览器（EXEC 模式）。
+让 Claude Code 经一个本地 ws 中继驱动 atwebpilot 浏览器扩展操作网页（读 / 写 / 采）。
 
-## 启动
+## 给用户：一行装
 
-    WEBPILOT_WS_PORT=8787 WEBPILOT_WS_TOKEN=dev pnpm -F @atwebpilot/mcp-server start
+    claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 
-（内部用 `tsx` 直跑 TypeScript；也可 `npx tsx packages/mcp-server/src/index.ts`。）
+可选环境变量：
 
-监听 `ws://127.0.0.1:8787/worker`。在扩展设置页 → Coordinator 子页填该 URL + token=`dev` → 连接。
+- `ATWEBPILOT_WS_PORT`（默认 8787）：本地 ws 监听端口
+- `ATWEBPILOT_WS_TOKEN`（可选）：扩展连接时要求 `bearer.<token>` 子协议
 
-## Claude Code MCP 配置（示例）
+然后[下载 release zip](https://github.com/attson/atwebpilot/releases/latest) 加载已解压扩展，
+在扩展设置 → Coordinator 子页填 `ws://127.0.0.1:8787/worker` → 连接。新会话 Claude 调
+`list_tabs` 即可看到当前标签页。
 
-    {
-      "mcpServers": {
-        "atwebpilot": {
-          "command": "tsx",
-          "args": ["packages/mcp-server/src/index.ts"],
-          "env": { "WEBPILOT_WS_PORT": "8787", "WEBPILOT_WS_TOKEN": "dev" }
-        }
-      }
-    }
+## 给开发者：本地 monorepo
 
-## 工具
+    pnpm -F @attson/atwebpilot-mcp start
 
-- `list_tabs` → `open_session(tab_id)` → `browser_*(session_id, …)` → `close_session`
-- 19 个 `browser_*` 自动从扩展 TOOL_DEFS 生成；`get_quota` 查预算。
+环境变量同上，路径用 `tsx src/index.ts` 直跑（包内 `start` script 已封）。
 
-⚠ 进程禁止往 stdout 写非 MCP 内容（stdout 是 MCP 通道）。环境变量：`WEBPILOT_WS_PORT`（默认 8787）、`WEBPILOT_WS_TOKEN`（可选，配置后要求 worker 用 `bearer.<token>` 子协议）。
+## 工具面
+
+- 控制面 4 个：`list_tabs / open_session / close_session / get_quota`
+- 执行面 19 个 `browser_*`：snapshotDOM / click / fillInput / setCheckbox / selectOption / extractText / extractImages / submitForm / uploadFile / readStorage / httpRequest / scroll / waitFor / hover / focus / getValue / extractFormState / querySelector / querySelectorAll
+
+详细协议与设计见 [`../../docs/superpowers/specs/2026-06-06-mcp-bridge-design.md`](../../docs/superpowers/specs/2026-06-06-mcp-bridge-design.md)。
+
+⚠ 进程禁止往 stdout 写非 MCP 内容（stdout 是 MCP 通道）。所有日志走 stderr。
