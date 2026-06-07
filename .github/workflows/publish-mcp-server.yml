@@ -1,0 +1,45 @@
+name: Publish MCP Server
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write   # npm provenance
+
+jobs:
+  publish:
+    name: Build + npm publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build mcp-server
+        run: pnpm -F @attson/atwebpilot-mcp build
+
+      - name: Verify dist
+        run: |
+          test -f packages/mcp-server/dist/index.js
+          head -1 packages/mcp-server/dist/index.js | grep -q '^#!/usr/bin/env node'
+
+      - name: npm publish
+        working-directory: packages/mcp-server
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
