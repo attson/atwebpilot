@@ -1,27 +1,34 @@
 {
-  "name": "@atwebpilot/mcp-server",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@attson/atwebpilot-mcp",
+  "version": "0.0.19",
+  "license": "Apache-2.0",
+  "description": "MCP server for the atwebpilot browser extension — let Claude Code drive your browser.",
+  "homepage": "https://github.com/attson/atwebpilot#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/attson/atwebpilot.git" },
   "type": "module",
-  "bin": { "atwebpilot-mcp": "./src/index.ts" },
-  "exports": { ".": "./src/index.ts" },
+  "bin": { "atwebpilot-mcp": "./dist/index.js" },
+  "exports": { ".": "./dist/index.js" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "build": "tsup",
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@atwebpilot/shared": "workspace:*",
-    "@atwebpilot/coordinator": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@atwebpilot/shared": "workspace:*",
+    "@atwebpilot/coordinator": "workspace:*",
     "@types/node": "^20",
     "@types/ws": "^8.5.12",
-    "typescript": "^5.5.4",
+    "tsup": "^8.0.0",
     "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }
 }
