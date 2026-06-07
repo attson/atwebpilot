@@ -256,6 +256,17 @@ After code change: rebuild, then click the reload icon on the extension.
 **Reload an open page if content script seems missing** (the BG-side
 auto-injection retries up to 2s but a hard refresh is faster).
 
+### Release versioning
+
+- `build-extension.yml` injects the extension version from `v*` tags before
+  building release zips.
+- `publish-mcp-server.yml` injects `packages/mcp-server/package.json` from
+  the same `v*` tag before `npm publish`; do not rely on the checked-in MCP
+  package version for tagged publishes.
+- Bump root `package.json` manually for the next release commit. Keep
+  `packages/mcp-server/package.json` reasonably current as a fallback, but
+  tag injection is the release source of truth.
+
 ### Coordinator smoke (Plan 12, manual)
 
 ```bash

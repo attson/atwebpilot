@@ -31,6 +31,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Override MCP server version from tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          jq --arg v "$version" '.version = $v' packages/mcp-server/package.json > tmp.json
+          mv tmp.json packages/mcp-server/package.json
+          echo "mcp-server version -> $version"
+
       - name: Build mcp-server
         run: pnpm -F @attson/atwebpilot-mcp build
 
