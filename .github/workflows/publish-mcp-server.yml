@@ -12,6 +12,7 @@ jobs:
   publish:
     name: Build + npm publish
     runs-on: ubuntu-latest
+    environment: prod
     steps:
       - name: Checkout
         uses: actions/checkout@v4
