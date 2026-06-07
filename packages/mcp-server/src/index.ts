@@ -6,8 +6,8 @@ import { installWire } from "./wire";
 
 // ⚠ stdout 是 MCP 通道，日志一律 console.error。
 async function main(): Promise<void> {
-  const port = Number(process.env.WEBPILOT_WS_PORT ?? 8787);
-  const token = process.env.WEBPILOT_WS_TOKEN || undefined;
+  const port = Number(process.env.ATWEBPILOT_WS_PORT ?? 8787);
+  const token = process.env.ATWEBPILOT_WS_TOKEN || undefined;
 
   const clock = new DefaultClock();
   const idGen = new DefaultIdGen();
