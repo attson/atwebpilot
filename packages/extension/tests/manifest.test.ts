@@ -7,4 +7,10 @@ describe("manifest", () => {
   it("includes a fixed extension key so unpacked builds keep the same id", () => {
     expect((manifest as { key?: string }).key).toBe(WEBPILOT_EXTENSION_KEY);
   });
+
+  it("allows the service worker to connect to the local coordinator websocket", () => {
+    const hostPermissions = (manifest as { host_permissions?: string[] }).host_permissions ?? [];
+    expect(hostPermissions).toContain("ws://127.0.0.1/*");
+    expect(hostPermissions).toContain("ws://localhost/*");
+  });
 });

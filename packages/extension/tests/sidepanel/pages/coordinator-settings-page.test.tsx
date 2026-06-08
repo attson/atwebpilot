@@ -8,28 +8,46 @@ import { loadAllowRemoteChat } from "@/background/coordinator-state";
 
 function fakeChromeStorage(initial: Record<string, unknown> = {}) {
   const data = new Map<string, unknown>(Object.entries(initial));
+  const listeners = new Set<
+    (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>, areaName: string) => void
+  >();
+  const local = {
+    get: vi.fn(async (keys: string | string[] | null) => {
+      const result: Record<string, unknown> = {};
+      const requested = Array.isArray(keys)
+        ? keys
+        : typeof keys === "string"
+          ? [keys]
+          : [...data.keys()];
+      for (const k of requested) {
+        if (data.has(k)) result[k] = data.get(k);
+      }
+      return result;
+    }),
+    set: vi.fn(async (items: Record<string, unknown>) => {
+      const changes: Record<string, { oldValue?: unknown; newValue?: unknown }> = {};
+      for (const [k, v] of Object.entries(items)) {
+        changes[k] = { oldValue: data.get(k), newValue: v };
+        data.set(k, v);
+      }
+      for (const fn of listeners) fn(changes, "local");
+    }),
+    remove: vi.fn(async (keys: string | string[]) => {
+      const ks = Array.isArray(keys) ? keys : [keys];
+      const changes: Record<string, { oldValue?: unknown; newValue?: unknown }> = {};
+      for (const k of ks) {
+        changes[k] = { oldValue: data.get(k), newValue: undefined };
+        data.delete(k);
+      }
+      for (const fn of listeners) fn(changes, "local");
+    })
+  };
   return {
     storage: {
-      local: {
-        get: vi.fn(async (keys: string | string[] | null) => {
-          const result: Record<string, unknown> = {};
-          const requested = Array.isArray(keys)
-            ? keys
-            : typeof keys === "string"
-              ? [keys]
-              : [...data.keys()];
-          for (const k of requested) {
-            if (data.has(k)) result[k] = data.get(k);
-          }
-          return result;
-        }),
-        set: vi.fn(async (items: Record<string, unknown>) => {
-          for (const [k, v] of Object.entries(items)) data.set(k, v);
-        }),
-        remove: vi.fn(async (keys: string | string[]) => {
-          const ks = Array.isArray(keys) ? keys : [keys];
-          for (const k of ks) data.delete(k);
-        })
+      local,
+      onChanged: {
+        addListener: vi.fn((fn) => listeners.add(fn)),
+        removeListener: vi.fn((fn) => listeners.delete(fn))
       }
     }
   };
@@ -49,6 +67,7 @@ describe("CoordinatorSettingsPage", () => {
     act(() => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   async function flushAsync() {
@@ -156,6 +175,126 @@ describe("CoordinatorSettingsPage", () => {
         enabled: false
       }
     });
+  });
+
+  it("does not show a stale connected runtime status as live", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00Z"));
+    vi.stubGlobal("chrome", fakeChromeStorage({
+      "atwebpilot.coordinator.config": {
+        ws_url: "ws://localhost:8787/worker",
+        enabled: true
+      },
+      "atwebpilot.coordinator.connection_status": {
+        status: "connected",
+        ws_url: "ws://localhost:8787/worker",
+        updated_at: Date.now() - 60_000
+      }
+    }));
+
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+
+    expect(container.textContent).toContain("连接状态: 状态未知");
+    expect(container.textContent).not.toContain("连接状态: 已连接");
+  });
+
+  it("recomputes connected status age while the page stays open", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00Z"));
+    vi.stubGlobal("chrome", fakeChromeStorage({
+      "atwebpilot.coordinator.config": {
+        ws_url: "ws://localhost:8787/worker",
+        enabled: true
+      },
+      "atwebpilot.coordinator.connection_status": {
+        status: "connected",
+        ws_url: "ws://localhost:8787/worker",
+        updated_at: Date.now()
+      }
+    }));
+
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+    expect(container.textContent).toContain("连接状态: 已连接");
+
+    await act(async () => {
+      vi.setSystemTime(new Date("2026-06-07T12:00:46Z"));
+      vi.advanceTimersByTime(5_000);
+    });
+
+    expect(container.textContent).toContain("连接状态: 状态未知");
+  });
+
+  it("clears the temporary connecting message after live status becomes connected", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00Z"));
+    const chromeMock = fakeChromeStorage();
+    vi.stubGlobal("chrome", chromeMock);
+
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+
+    const connectBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("连接")
+    ) as HTMLButtonElement;
+    await act(async () => {
+      connectBtn.click();
+    });
+    await flushAsync();
+    expect(container.textContent).toContain("已启用，正在连接");
+
+    await act(async () => {
+      await chromeMock.storage.local.set({
+        "atwebpilot.coordinator.connection_status": {
+          status: "connected",
+          ws_url: "ws://localhost:8787/worker",
+          updated_at: Date.now()
+        }
+      });
+    });
+    await flushAsync();
+
+    expect(container.textContent).toContain("连接状态: 已连接");
+    expect(container.textContent).not.toContain("已启用，正在连接");
+  });
+
+  it("clicking connect does not reuse a previous connected runtime status", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00Z"));
+    vi.stubGlobal("chrome", fakeChromeStorage({
+      "atwebpilot.coordinator.config": {
+        ws_url: "ws://localhost:8787/worker",
+        enabled: false
+      },
+      "atwebpilot.coordinator.connection_status": {
+        status: "connected",
+        ws_url: "ws://localhost:8787/worker",
+        updated_at: Date.now()
+      }
+    }));
+
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+
+    const connectBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("连接")
+    ) as HTMLButtonElement;
+    await act(async () => {
+      connectBtn.click();
+    });
+    await flushAsync();
+
+    expect(container.textContent).toContain("连接状态: 连接中");
+    expect(container.textContent).not.toContain("连接状态: 已连接");
   });
 
   it("toggles allow_remote_chat in storage when the checkbox flips", async () => {

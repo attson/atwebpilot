@@ -7,16 +7,50 @@ import {
   clearToken,
   loadAllowRemoteChat,
   saveAllowRemoteChat,
+  loadConnectionStatus,
+  COORDINATOR_CONNECTION_STATUS_KEY,
+  type CoordinatorConnectionState,
   type CoordinatorConfig
 } from "../../background/coordinator-state";
 
 const DEFAULT_WS_URL = "ws://localhost:8787/worker";
+const CONNECTION_STATUS_STALE_MS = 45_000;
+
+function formatConnectionStatus(
+  enabled: boolean,
+  wsUrl: string,
+  runtime: CoordinatorConnectionState | undefined,
+  now = Date.now()
+): { label: string; className: string } {
+  if (!enabled) return { label: "未启用", className: "text-gray-500" };
+  if (!runtime || runtime.ws_url !== wsUrl) {
+    return { label: "等待后台连接", className: "text-gray-500" };
+  }
+  const isStale = now - runtime.updated_at > CONNECTION_STATUS_STALE_MS;
+  if (isStale) {
+    return { label: "状态未知（上次状态已过期）", className: "text-amber-600" };
+  }
+  switch (runtime.status) {
+    case "connected":
+      return { label: "已连接", className: "text-green-700" };
+    case "connecting":
+      return { label: "连接中", className: "text-blue-700" };
+    case "error":
+      return { label: "连接失败", className: "text-red-700" };
+    case "disconnected":
+      return { label: "未连接", className: "text-amber-600" };
+  }
+}
 
 export function CoordinatorSettingsPage() {
   const [wsUrl, setWsUrl] = useState(DEFAULT_WS_URL);
   const [token, setToken] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [allowRemoteChat, setAllowRemoteChat] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<
+    CoordinatorConnectionState | undefined
+  >(undefined);
+  const [now, setNow] = useState(() => Date.now());
   const [loaded, setLoaded] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
@@ -33,8 +67,32 @@ export function CoordinatorSettingsPage() {
       if (t) setToken(t);
       const allow = await loadAllowRemoteChat();
       setAllowRemoteChat(allow);
+      setConnectionStatus(await loadConnectionStatus());
       setLoaded(true);
     })();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const listener = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string
+    ) => {
+      if (areaName !== "local") return;
+      const change = changes[COORDINATOR_CONNECTION_STATUS_KEY];
+      if (change) {
+        const nextStatus = change.newValue as CoordinatorConnectionState | undefined;
+        setConnectionStatus(nextStatus);
+        if (nextStatus?.status === "connected") setSavedMsg(null);
+        setNow(Date.now());
+      }
+    };
+    chrome.storage.onChanged?.addListener(listener);
+    return () => chrome.storage.onChanged?.removeListener(listener);
   }, []);
 
   async function handleConnect() {
@@ -42,13 +100,17 @@ export function CoordinatorSettingsPage() {
     await saveConfig(cfg);
     if (token) await saveToken(token);
     setEnabled(true);
-    setSavedMsg("已连接");
+    setConnectionStatus({ status: "connecting", ws_url: wsUrl, updated_at: Date.now() });
+    setNow(Date.now());
+    setSavedMsg("已启用，正在连接…");
   }
 
   async function handleDisconnect() {
     await saveConfig({ ws_url: wsUrl, enabled: false });
     setEnabled(false);
-    setSavedMsg("已断开");
+    setConnectionStatus({ status: "disconnected", ws_url: wsUrl, updated_at: Date.now() });
+    setNow(Date.now());
+    setSavedMsg("已关闭连接配置");
   }
 
   async function handleClearToken() {
@@ -69,6 +131,8 @@ export function CoordinatorSettingsPage() {
   }
 
   if (!loaded) return <div className="p-4">载入中…</div>;
+
+  const liveStatus = formatConnectionStatus(enabled, wsUrl, connectionStatus, now);
 
   return (
     <div className="p-4 space-y-4">
@@ -173,8 +237,10 @@ export function CoordinatorSettingsPage() {
       </label>
 
       <div className="border-t pt-3 text-xs text-gray-500">
-        <div>状态: {enabled ? "已配置（启用）" : "已配置（关闭）"}</div>
-        <div>连接状态请看 chrome://serviceworker-internals 或 SW 日志。Phase 3 会接入实时状态推送。</div>
+        <div>配置: {enabled ? "已启用" : "已关闭"}</div>
+        <div>
+          连接状态: <span className={liveStatus.className}>{liveStatus.label}</span>
+        </div>
       </div>
     </div>
   );

@@ -8,12 +8,27 @@
 const STORAGE_KEYS = {
   worker_id: "atwebpilot.coordinator.worker_id",
   token: "atwebpilot.coordinator.token",
-  config: "atwebpilot.coordinator.config"
+  config: "atwebpilot.coordinator.config",
+  connection_status: "atwebpilot.coordinator.connection_status"
 } as const;
+
+export const COORDINATOR_CONNECTION_STATUS_KEY = STORAGE_KEYS.connection_status;
 
 export interface CoordinatorConfig {
   ws_url: string;
   enabled: boolean;
+}
+
+export type CoordinatorConnectionStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
+
+export interface CoordinatorConnectionState {
+  status: CoordinatorConnectionStatus;
+  ws_url: string;
+  updated_at: number;
 }
 
 function randomId(prefix: string): string {
@@ -39,6 +54,15 @@ export async function loadConfig(): Promise<CoordinatorConfig | undefined> {
 
 export async function saveConfig(config: CoordinatorConfig): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.config]: config });
+}
+
+export async function loadConnectionStatus(): Promise<CoordinatorConnectionState | undefined> {
+  const got = await chrome.storage.local.get([STORAGE_KEYS.connection_status]);
+  return got[STORAGE_KEYS.connection_status] as CoordinatorConnectionState | undefined;
+}
+
+export async function saveConnectionStatus(state: CoordinatorConnectionState): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.connection_status]: state });
 }
 
 export async function loadToken(): Promise<string | undefined> {

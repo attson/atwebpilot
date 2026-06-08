@@ -3,7 +3,12 @@ import { handleRpc } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
 import { installTabCloseArchiver } from "./tab-close-archiver";
 import { CoordinatorClient } from "./coordinator-client";
-import { getOrCreateWorkerId, loadConfig, loadToken } from "./coordinator-state";
+import {
+  getOrCreateWorkerId,
+  loadConfig,
+  loadToken,
+  saveConnectionStatus
+} from "./coordinator-state";
 import { handleExec } from "./coordinator-exec";
 import { listTools } from "./storage/tools";
 import { CoordinatorChatHost } from "./coordinator-chat";
@@ -76,7 +81,14 @@ export async function startCoordinatorClient(): Promise<void> {
     labelsProvider: async () => [],
     onExec: handleExec,
     onChat: (m, send) => chatHost.handle(m, send),
-    onReadState: (m, send) => activeStateBridge!.handle(m, send)
+    onReadState: (m, send) => activeStateBridge!.handle(m, send),
+    onStatusChange: (status) => {
+      void saveConnectionStatus({
+        status,
+        ws_url: config.ws_url,
+        updated_at: Date.now()
+      });
+    }
   });
   await activeClient.connect();
 }
