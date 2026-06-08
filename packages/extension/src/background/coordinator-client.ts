@@ -128,7 +128,8 @@ export class CoordinatorClient {
         this.setStatus("connected");
         return;
       case "PONG":
-        // Server acknowledged our PING — connection is alive. Nothing to do.
+        // Server acknowledged our PING — refresh liveness for status observers.
+        this.setStatus("connected");
         return;
       case "OPEN_TAB":
         // Phase 2: ignore — tab management is a Phase 3 concern when daemon ships

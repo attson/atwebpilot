@@ -17,7 +17,9 @@ export default defineManifest({
   host_permissions: [
     "*://*.yangkeduo.com/*",
     "*://*.pinduoduo.com/*",
-    "https://*/*"
+    "https://*/*",
+    "ws://127.0.0.1/*",
+    "ws://localhost/*"
   ],
   content_scripts: [
     {
