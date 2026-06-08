@@ -182,8 +182,8 @@ export class CoordinatorClient {
   }
 
   private handleClose(): void {
-    this.uninstallAlarm();
     if (this.intentionallyClosed) {
+      this.uninstallAlarm();
       this.setStatus("disconnected");
       return;
     }
@@ -193,6 +193,10 @@ export class CoordinatorClient {
       this.setStatus("disconnected");
       this.scheduleReconnect();
     }
+    // Keep the heartbeat alarm installed: setTimeout-based reconnect dies the moment
+    // the MV3 service worker goes idle, so the alarm is the only thing that can wake
+    // us back up to retry. installAlarm is idempotent.
+    this.installAlarm();
   }
 
   private scheduleReconnect(): void {
@@ -212,12 +216,25 @@ export class CoordinatorClient {
     chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 0.25 }); // 15s
     this.alarmListener = (alarm) => {
       if (alarm.name !== HEARTBEAT_ALARM) return;
-      this.send({
-        type: "PING",
-        nonce: randomNonce(),
-        ts: Date.now(),
-        protocol_version: PROTOCOL_VERSION
-      });
+      if (this.intentionallyClosed) return;
+      const state = this.ws?.readyState;
+      if (state === 1) {
+        // OPEN: heartbeat keepalive.
+        this.send({
+          type: "PING",
+          nonce: randomNonce(),
+          ts: Date.now(),
+          protocol_version: PROTOCOL_VERSION
+        });
+        return;
+      }
+      if (state === 0) {
+        // CONNECTING: a handshake is already in flight; wait for it.
+        return;
+      }
+      // CLOSED / CLOSING / null — the socket is gone and no one is reconnecting it
+      // (setTimeout-based scheduleReconnect doesn't survive SW sleep). Re-open.
+      void this.connect();
     };
     chrome.alarms.onAlarm.addListener(this.alarmListener);
   }

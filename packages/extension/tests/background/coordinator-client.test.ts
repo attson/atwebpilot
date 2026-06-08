@@ -337,4 +337,72 @@ describe("CoordinatorClient.connect", () => {
     expect(sent.type).toBe("RESULT");
     expect(sent.req_id).toBe("r1");
   });
+
+  it("heartbeat alarm reconnects when the socket is closed and not intentionally closed", async () => {
+    vi.useFakeTimers();
+    const client = new CoordinatorClient({
+      ws_url: "ws://localhost:7842",
+      token: "t",
+      worker_id: "w1",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => []
+    });
+    await client.connect();
+    const ws1 = FakeWS.instances[0];
+    ws1.fakeOpen();
+    await vi.advanceTimersByTimeAsync(0);
+    ws1.fakeMessage({
+      type: "WELCOME",
+      nonce: "n",
+      ts: 1,
+      protocol_version: PROTOCOL_VERSION,
+      server_time: 1,
+      heartbeat_interval_ms: 20000
+    });
+    expect(client.status).toBe("connected");
+
+    // Simulate the WebSocket dying (server killed, network blip) — not user-initiated.
+    // handleClose schedules a setTimeout-based reconnect, but with fake timers it won't
+    // fire — so any new connection MUST come from the alarm path.
+    ws1.close();
+    expect(client.status).toBe("disconnected");
+
+    const chromeMock = (globalThis as unknown as { chrome: { alarms: { _fire: (name: string) => void } } }).chrome;
+    chromeMock.alarms._fire("atwebpilot-coordinator-heartbeat");
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(FakeWS.instances.length).toBe(2);
+  });
+
+  it("heartbeat alarm does NOT reconnect after intentional disconnect()", async () => {
+    vi.useFakeTimers();
+    const client = new CoordinatorClient({
+      ws_url: "ws://localhost:7842",
+      token: "t",
+      worker_id: "w1",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => []
+    });
+    await client.connect();
+    const ws1 = FakeWS.instances[0];
+    ws1.fakeOpen();
+    await vi.advanceTimersByTimeAsync(0);
+    ws1.fakeMessage({
+      type: "WELCOME",
+      nonce: "n",
+      ts: 1,
+      protocol_version: PROTOCOL_VERSION,
+      server_time: 1,
+      heartbeat_interval_ms: 20000
+    });
+
+    await client.disconnect();
+    expect(client.status).toBe("disconnected");
+
+    const chromeMock = (globalThis as unknown as { chrome: { alarms: { _fire: (name: string) => void } } }).chrome;
+    chromeMock.alarms._fire("atwebpilot-coordinator-heartbeat");
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(FakeWS.instances.length).toBe(1);
+  });
 });
