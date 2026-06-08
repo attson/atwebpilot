@@ -41,7 +41,19 @@ describe("HelloSchema", () => {
 });
 
 describe("ExecSchema", () => {
-  it("parses an EXEC", () => {
+  it("parses an EXEC whose step carries kind:'tool'", () => {
+    const r = ExecSchema.safeParse({
+      ...envelope,
+      type: "EXEC",
+      req_id: "r1",
+      session_id: "s1",
+      tab_id: "t1",
+      step: { kind: "tool", tool: "snapshotDOM", args: {} }
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects an EXEC whose step is missing kind", () => {
     const r = ExecSchema.safeParse({
       ...envelope,
       type: "EXEC",
@@ -50,7 +62,7 @@ describe("ExecSchema", () => {
       tab_id: "t1",
       step: { tool: "snapshotDOM", args: {} }
     });
-    expect(r.success).toBe(true);
+    expect(r.success).toBe(false);
   });
 });
 

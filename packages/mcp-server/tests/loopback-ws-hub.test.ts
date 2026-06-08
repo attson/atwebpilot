@@ -49,6 +49,31 @@ describe("LoopbackWSHub", () => {
     expect(hub.connectedWorkers()).toContain("w1");
   });
 
+  it("replies PONG when a connected worker sends PING", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    const port = await hub.ready();
+    const ws = await connectWorker(port);
+    ws.send(JSON.stringify(helloMsg()));
+    await waitForWorker(hub, "w1");
+
+    const pongP = new Promise<any>((res) => {
+      ws.on("message", (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === "PONG") res(msg);
+      });
+    });
+    ws.send(JSON.stringify({
+      type: "PING",
+      nonce: "ping-1",
+      ts: 2,
+      protocol_version: PROTOCOL_VERSION
+    }));
+
+    const pong = await pongP;
+    expect(pong.protocol_version).toBe(PROTOCOL_VERSION);
+    expect(pong.echo_nonce).toBe("ping-1");
+  });
+
   it("exec() resolves when the worker replies RESULT with matching req_id", async () => {
     hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
     const port = await hub.ready();
@@ -64,7 +89,7 @@ describe("LoopbackWSHub", () => {
     });
     ws.send(JSON.stringify(helloMsg()));
     await waitForWorker(hub, "w1");
-    const result = await hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: { selector: ".b" } } });
+    const result = await hub.exec("w1", { session_id: "s1", tab_id: "42", step: { kind: "tool", tool: "click", args: { selector: ".b" } } });
     expect(result.ok).toBe(true);
     expect(result.return).toEqual({ clicked: true });
   });
@@ -76,7 +101,7 @@ describe("LoopbackWSHub", () => {
     ws.on("message", () => { /* never replies RESULT */ });
     ws.send(JSON.stringify(helloMsg()));
     await waitForWorker(hub, "w1");
-    await expect(hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: {} } }))
+    await expect(hub.exec("w1", { session_id: "s1", tab_id: "42", step: { kind: "tool", tool: "click", args: {} } }))
       .rejects.toThrow(/timeout/i);
   });
 
@@ -87,7 +112,7 @@ describe("LoopbackWSHub", () => {
     ws.on("message", (raw) => { const m = JSON.parse(raw.toString()); if (m.type === "EXEC") ws.close(); });
     ws.send(JSON.stringify(helloMsg()));
     await waitForWorker(hub, "w1");
-    await expect(hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: {} } }))
+    await expect(hub.exec("w1", { session_id: "s1", tab_id: "42", step: { kind: "tool", tool: "click", args: {} } }))
       .rejects.toThrow(/disconnect/i);
   });
 
@@ -102,7 +127,7 @@ describe("LoopbackWSHub", () => {
     await waitForWorker(hub, "w1");
 
     // Start an exec that will never complete (ws1 ignores EXEC messages)
-    const execP = hub.exec("w1", { session_id: "s1", tab_id: "42", step: { tool: "click", args: {} } });
+    const execP = hub.exec("w1", { session_id: "s1", tab_id: "42", step: { kind: "tool", tool: "click", args: {} } });
 
     // Wait a tick to ensure the EXEC message has been sent
     await new Promise((r) => setTimeout(r, 20));

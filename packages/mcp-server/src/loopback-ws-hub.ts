@@ -146,6 +146,16 @@ export class LoopbackWSHub implements WSHub {
       return;
     }
 
+    if (msg.type === "PING") {
+      this.rawSend(socket, {
+        type: "PONG",
+        nonce: this.opts.idGen.next("nonce"),
+        ts: this.opts.clock.now(),
+        protocol_version: PROTOCOL_VERSION,
+        echo_nonce: msg.nonce,
+      });
+    }
+
     const wid = this.workerOf.get(socket);
     if (wid) {
       for (const h of this.msgHandlers) h(wid, msg);
@@ -183,7 +193,7 @@ export class LoopbackWSHub implements WSHub {
     params: {
       session_id: string;
       tab_id: string;
-      step: { tool: string; args: unknown };
+      step: { kind: "tool"; tool: string; args: unknown };
     }
   ): Promise<Result> {
     const socket = this.byWorker.get(worker_id);
@@ -206,7 +216,7 @@ export class LoopbackWSHub implements WSHub {
         req_id,
         session_id: params.session_id,
         tab_id: params.tab_id,
-        step: { tool: params.step.tool, args: params.step.args as Json },
+        step: { kind: "tool", tool: params.step.tool, args: params.step.args as Json },
       });
       // I1: TOCTOU guard — the socket may have closed during rawSend (and onSocketClose
       // may have already run).  If the socket is no longer the current one for this

@@ -21,7 +21,7 @@ const baseExec: Exec = {
   req_id: "r1",
   session_id: "s1",
   tab_id: "42",
-  step: { tool: "snapshotDOM", args: {} }
+  step: { kind: "tool", tool: "snapshotDOM", args: {} }
 };
 
 describe("handleExec", () => {
@@ -29,7 +29,7 @@ describe("handleExec", () => {
     (runOneStep as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ html: "<div/>" });
     await handleExec(baseExec);
     const args = (runOneStep as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(args[0]).toEqual({ tool: "snapshotDOM", args: {} });
+    expect(args[0]).toEqual({ kind: "tool", tool: "snapshotDOM", args: {} });
     expect(args[1]).toBe(42);
     expect(args[2]).toEqual([]);
     expect(args[3]).toEqual({});
