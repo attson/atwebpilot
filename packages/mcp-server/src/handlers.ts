@@ -5,7 +5,7 @@ import type { Result } from "@atwebpilot/shared/protocol";
 import type { GeneratedTool } from "./tool-gen";
 
 export interface Hub {
-  exec(worker_id: string, params: { session_id: string; tab_id: string; step: { tool: string; args: unknown } }): Promise<Result>;
+  exec(worker_id: string, params: { session_id: string; tab_id: string; step: { kind: "tool"; tool: string; args: unknown } }): Promise<Result>;
 }
 
 export interface Deps { coordinator: Coordinator; hub: Hub; }
@@ -56,7 +56,7 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
   if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
   deps.coordinator.recordCall(session_id, v.dangerous);
 
-  const result = await deps.hub.exec(session.worker_id, { session_id, tab_id: session.tab_id, step: { tool, args: toolArgs as Json } });
+  const result = await deps.hub.exec(session.worker_id, { session_id, tab_id: session.tab_id, step: { kind: "tool", tool, args: toolArgs as Json } });
   if (!result.ok) throw new Error(result.error ? `${result.error.code}: ${result.error.message}` : "EXEC failed");
   return (result.return ?? null) as Json;
 }

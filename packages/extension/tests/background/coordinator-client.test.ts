@@ -329,7 +329,7 @@ describe("CoordinatorClient.connect", () => {
       req_id: "r1",
       session_id: "s1",
       tab_id: "42",
-      step: { tool: "snapshotDOM", args: {} }
+      step: { kind: "tool", tool: "snapshotDOM", args: {} }
     });
     await new Promise((r) => setTimeout(r, 0));
     expect(execHandler).toHaveBeenCalledTimes(1);

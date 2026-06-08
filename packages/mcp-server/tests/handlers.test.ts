@@ -73,7 +73,7 @@ describe("handleBrowserTool", () => {
     const gen = { name: "browser_click", builtinTool: "click", description: "", inputSchema: {} as any };
     const out = await handleBrowserTool(deps, gen, { session_id, selector: ".b" });
     expect(out).toEqual({ clicked: true });
-    expect(calls[0].params.step).toEqual({ tool: "click", args: { selector: ".b" } });
+    expect(calls[0].params.step).toEqual({ kind: "tool", tool: "click", args: { selector: ".b" } });
     expect(calls[0].params.tab_id).toBe("42");
     expect(deps.coordinator.quotaFor(session_id)!.steps_used).toBe(1);
   });

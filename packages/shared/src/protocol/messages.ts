@@ -4,6 +4,7 @@ import { ErrorBodySchema } from "./errors";
 import { ChatSessionEventSchema, ChatSessionStatusSchema } from "./chat-event";
 
 const StepSchema = z.object({
+  kind: z.literal("tool"),
   tool: z.string(),
   args: z.unknown()
 });

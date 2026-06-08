@@ -73,7 +73,7 @@ describe("coordinator-client end-to-end with ws server", () => {
               req_id: "req-1",
               session_id: "sess-1",
               tab_id: "1",
-              step: { tool: "snapshotDOM", args: {} }
+              step: { kind: "tool", tool: "snapshotDOM", args: {} }
             }));
           } else if (r.data.type === "RESULT") {
             resultReceived = r.data;
