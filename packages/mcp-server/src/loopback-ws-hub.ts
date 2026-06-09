@@ -13,6 +13,7 @@ import type { Json } from "@atwebpilot/shared";
 import type { WSHub, Clock, IdGen } from "@atwebpilot/coordinator";
 
 const HEARTBEAT_INTERVAL_MS = 20000;
+const DEFAULT_KEEPALIVE_INTERVAL_MS = 15000;
 
 export interface LoopbackWSHubOpts {
   port: number;
@@ -20,6 +21,11 @@ export interface LoopbackWSHubOpts {
   clock: Clock;
   idGen: IdGen;
   execTimeoutMs?: number;
+  // How often the hub pushes a server-initiated PONG to each connected worker.
+  // MV3 service workers idle out in ~30s; receiving a WS message resets the
+  // timer, so a sub-30s tick keeps the SW alive without the extension having
+  // to fight Chrome's alarm clamp. Set to 0 to disable.
+  keepaliveIntervalMs?: number;
 }
 
 type Pending = {
@@ -37,9 +43,12 @@ export class LoopbackWSHub implements WSHub {
   private msgHandlers: Array<(worker_id: string, msg: ClientToServer) => void> = [];
   private disconnectHandlers: Array<(worker_id: string) => void> = [];
   private execTimeoutMs: number;
+  private keepaliveIntervalMs: number;
+  private keepaliveTimers = new Map<WebSocket, ReturnType<typeof setInterval>>();
 
   constructor(private opts: LoopbackWSHubOpts) {
     this.execTimeoutMs = opts.execTimeoutMs ?? 30000;
+    this.keepaliveIntervalMs = opts.keepaliveIntervalMs ?? DEFAULT_KEEPALIVE_INTERVAL_MS;
     this.wss = new WebSocketServer({
       port: opts.port,
       path: "/worker",
@@ -64,6 +73,8 @@ export class LoopbackWSHub implements WSHub {
       p.reject(new Error("hub closing"));
     }
     this.pending.clear();
+    for (const timer of this.keepaliveTimers.values()) clearInterval(timer);
+    this.keepaliveTimers.clear();
     // Terminate all open client sockets so wss.close() resolves promptly.
     for (const socket of this.wss.clients) {
       socket.terminate();
@@ -132,6 +143,7 @@ export class LoopbackWSHub implements WSHub {
         server_time: this.opts.clock.now(),
         heartbeat_interval_ms: HEARTBEAT_INTERVAL_MS,
       });
+      this.startKeepalive(socket);
       for (const h of this.msgHandlers) h(msg.worker_id, msg);
       return;
     }
@@ -163,6 +175,7 @@ export class LoopbackWSHub implements WSHub {
   }
 
   private onSocketClose(socket: WebSocket): void {
+    this.stopKeepalive(socket);
     const wid = this.workerOf.get(socket);
     if (!wid) return;
     this.workerOf.delete(socket);
@@ -175,6 +188,33 @@ export class LoopbackWSHub implements WSHub {
       }
     }
     for (const h of this.disconnectHandlers) h(wid);
+  }
+
+  private startKeepalive(socket: WebSocket): void {
+    if (this.keepaliveIntervalMs <= 0) return;
+    if (this.keepaliveTimers.has(socket)) return;
+    const timer = setInterval(() => {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      this.rawSend(socket, {
+        type: "PONG",
+        nonce: this.opts.idGen.next("nonce"),
+        ts: this.opts.clock.now(),
+        protocol_version: PROTOCOL_VERSION,
+        echo_nonce: "server-keepalive"
+      });
+    }, this.keepaliveIntervalMs);
+    // Don't let the heartbeat block process exit.
+    if (typeof (timer as { unref?: () => void }).unref === "function") {
+      (timer as { unref: () => void }).unref();
+    }
+    this.keepaliveTimers.set(socket, timer);
+  }
+
+  private stopKeepalive(socket: WebSocket): void {
+    const timer = this.keepaliveTimers.get(socket);
+    if (!timer) return;
+    clearInterval(timer);
+    this.keepaliveTimers.delete(socket);
   }
 
   private rawSend(socket: WebSocket, msg: ServerToClient): void {

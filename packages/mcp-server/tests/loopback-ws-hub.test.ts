@@ -174,4 +174,50 @@ describe("LoopbackWSHub", () => {
     // No spurious disconnect callback for "w1"
     expect(disconnectedWorkers).not.toContain("w1");
   });
+
+  it("sends a periodic keepalive PONG to keep MV3 service workers alive", async () => {
+    hub = new LoopbackWSHub({
+      port: 0,
+      clock: new DefaultClock(),
+      idGen: new DefaultIdGen(),
+      keepaliveIntervalMs: 60
+    });
+    const port = await hub.ready();
+    const ws = await connectWorker(port);
+
+    const received: any[] = [];
+    ws.on("message", (raw) => received.push(JSON.parse(raw.toString())));
+
+    ws.send(JSON.stringify(helloMsg()));
+    await waitForWorker(hub, "w1");
+    // WELCOME is delivered before the first keepalive tick — drop it.
+    const startCount = received.length;
+
+    await new Promise((r) => setTimeout(r, 180)); // ~3 keepalive ticks
+    const keepalives = received
+      .slice(startCount)
+      .filter((m) => m.type === "PONG" && m.echo_nonce === "server-keepalive");
+    expect(keepalives.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("stops keepalive after the worker disconnects", async () => {
+    hub = new LoopbackWSHub({
+      port: 0,
+      clock: new DefaultClock(),
+      idGen: new DefaultIdGen(),
+      keepaliveIntervalMs: 40
+    });
+    const port = await hub.ready();
+    const ws = await connectWorker(port);
+    const received: any[] = [];
+    ws.on("message", (raw) => received.push(JSON.parse(raw.toString())));
+    ws.send(JSON.stringify(helloMsg()));
+    await waitForWorker(hub, "w1");
+    await new Promise((r) => setTimeout(r, 60)); // let one keepalive fire
+    const beforeClose = received.length;
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 150)); // 3 intervals — must NOT receive anything else
+    expect(received.length).toBe(beforeClose);
+  });
 });
