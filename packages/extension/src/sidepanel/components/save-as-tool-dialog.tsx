@@ -2,7 +2,9 @@ import { useState } from "react";
 import { inferJsonSchema } from "@atwebpilot/shared/infer-json-schema";
 import { highestSeverity, runStaticScan } from "@atwebpilot/shared/static-scan";
 import type { ChatMessage, Json, LlmSettings, ScanFinding, Step } from "@atwebpilot/shared/types";
+import { addLlmExchange } from "../chat/session-store";
 import { pickClient } from "../llm/client";
+import { createRecordingClient } from "../llm/recording-client";
 import {
   generatePromptToolDraft,
   generateStepsToolDraft,
@@ -12,6 +14,7 @@ import {
 import { rpc } from "../rpc";
 
 type Props = {
+  tabId: number;
   initialName: string;
   initialDescription: string;
   initialUrl: string;
@@ -66,7 +69,11 @@ export function SaveAsToolDialog(props: Props) {
     const ac = new AbortController();
     setCandidate({ phase: "generating", abort: ac });
     try {
-      const client = pickClient(props.llmSettings.provider);
+      const client = createRecordingClient(
+        pickClient(props.llmSettings.provider),
+        (ex) => addLlmExchange(props.tabId, ex),
+        { provider: props.llmSettings.provider, kind: "tool-draft" }
+      );
       const input = {
         client,
         apiKey: props.llmSettings.apiKey,

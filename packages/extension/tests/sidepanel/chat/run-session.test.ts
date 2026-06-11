@@ -238,7 +238,7 @@ describe("runChatSession", () => {
         systemPrompt: "sys",
         tools: [],
         approveAllSafe: true,
-        attachedTabIds: [],
+        getAttachedTabIds: () => [],
         tabsRpc
       });
 
@@ -290,7 +290,7 @@ describe("runChatSession", () => {
         systemPrompt: "sys",
         tools: [],
         approveAllSafe: true,
-        attachedTabIds: [],
+        getAttachedTabIds: () => [],
         tabsRpc,
         onCrossTabResult: (r) => events.push(r)
       });

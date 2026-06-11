@@ -146,7 +146,8 @@ export function ChatPage({
       const { tabId, url } = await currentTabInfo();
       const session0 = getSessionFor(tabId);
       const attachedTabs = session0.attachedTabs;
-      const attachedTabIds = attachedTabs.map((a) => a.tabId);
+      const getAttachedTabIds = () =>
+        useStore.getState().sessionsByTab[tabId]?.attachedTabs.map((a) => a.tabId) ?? [];
       session.setIdentity({ tabId, url, runRecordId: "" });
       session.setError(null);
       session.setStatus("streaming");
@@ -303,7 +304,7 @@ export function ChatPage({
           abortSignal: ac.signal,
           onEvent,
           initialMessages: initialContext ? [{ role: "user", content: initialContext }] : undefined,
-          attachedTabIds,
+          getAttachedTabIds,
           tabsRpc: { listTabs: rpc.listTabs, openTab: rpc.openTab },
           onCrossTabResult: (r) => {
             if (r.kind === "opened") {
@@ -556,8 +557,9 @@ export function ChatPage({
           onClose={() => setPickerOpen(false)}
         />
       )}
-      {session.showSaveDialog && (
+      {session.showSaveDialog && currentTabId != null && (
         <SaveAsToolDialog
+          tabId={currentTabId}
           initialName={
             recommendations[0]?.name ?? `AtWebPilot 任务 ${new Date().toISOString().slice(0, 10)}`
           }

@@ -75,7 +75,7 @@ export type RunSessionArgs = {
   abortSignal?: AbortSignal;
   onEvent?: (e: SessionEvent) => void;
   initialMessages?: ChatMessage[];
-  attachedTabIds?: number[];
+  getAttachedTabIds?: () => number[];
   tabsRpc?: CrossTabRpc;
   onCrossTabResult?: (result: {
     kind: "attached" | "detached" | "opened";
@@ -356,7 +356,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
 
       const start = Date.now();
       try {
-        const out = await args.runner.runStep(step, args.input.tabId, args.attachedTabIds ?? [], {});
+        const out = await args.runner.runStep(step, args.input.tabId, args.getAttachedTabIds?.() ?? [], {});
         const ms = Date.now() - start;
         await args.rpc.appendStepLog(runRecordId, {
           stepIndex: stepIndexGlobal++,

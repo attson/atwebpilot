@@ -47,6 +47,7 @@ describe("SaveAsToolDialog", () => {
     act(() => {
       root.render(
         <SaveAsToolDialog
+          tabId={1}
           initialName="old"
           initialDescription="old desc"
           initialUrl="https://example.com/item/1"
