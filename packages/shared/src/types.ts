@@ -203,7 +203,7 @@ export type LlmExchangeResponse = {
 export type LlmExchange = {
   id: string;
   round: number;
-  kind: "main";
+  kind: "main" | "tool-draft";
   startedAt: number;
   durationMs: number;
   request: LlmExchangeRequest;
