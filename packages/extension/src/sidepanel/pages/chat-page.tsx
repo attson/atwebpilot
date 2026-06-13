@@ -300,7 +300,7 @@ export function ChatPage({
             attachedTabs
           }),
           tools: TOOL_DEFS,
-          approveAllSafe: session.approveAllSafe,
+          permissionMode: session.permissionMode,
           abortSignal: ac.signal,
           onEvent,
           initialMessages: initialContext ? [{ role: "user", content: initialContext }] : undefined,

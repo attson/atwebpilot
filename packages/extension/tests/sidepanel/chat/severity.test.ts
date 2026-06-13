@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoApproves, classifyTool, evaluateAutoApproval, type PermissionMode } from "@/sidepanel/chat/severity";
+import { classifyTool, evaluateAutoApproval, type PermissionMode } from "@/sidepanel/chat/severity";
 
 describe("classifyTool", () => {
   it("safe tools", () => {
@@ -43,65 +43,6 @@ describe("classifyTool", () => {
   it("dangerous side-effect tools", () => {
     expect(classifyTool("submitForm", {})).toBe("dangerous");
     expect(classifyTool("uploadFile", { selector: "x", url: "u" })).toBe("dangerous");
-  });
-});
-
-describe("autoApproves", () => {
-  it("safe always auto", () => {
-    expect(autoApproves("safe", "snapshotDOM", true, [])).toBe(true);
-    expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
-  });
-  it("caution auto only when toggle on", () => {
-    expect(autoApproves("caution", "fillInput", true, [])).toBe(true);
-    expect(autoApproves("caution", "fillInput", false, [])).toBe(false);
-  });
-  it("dangerous default no auto", () => {
-    expect(autoApproves("dangerous", "submitForm", true, [])).toBe(false);
-    expect(autoApproves("dangerous", "submitForm", false, [])).toBe(false);
-  });
-
-  it("dangerous auto only when toolName in allowlist", () => {
-    expect(autoApproves("dangerous", "submitForm", true, ["submitForm"])).toBe(true);
-    expect(autoApproves("dangerous", "submitForm", true, [])).toBe(false);
-  });
-
-  it("dangerous allowlist independent of approveAllSafe", () => {
-    expect(autoApproves("dangerous", "uploadFile", false, ["uploadFile"])).toBe(true);
-    expect(autoApproves("dangerous", "uploadFile", true, [])).toBe(false);
-  });
-
-  it("dangerous allowlist applies per tool name", () => {
-    expect(autoApproves("dangerous", "submitForm", true, ["uploadFile"])).toBe(false);
-    expect(autoApproves("dangerous", "uploadFile", true, ["uploadFile"])).toBe(true);
-  });
-
-  it("safe ignores allowlist", () => {
-    expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
-  });
-
-  it("caution honors allowlist", () => {
-    expect(autoApproves("caution", "fillInput", true, [])).toBe(true);
-    expect(autoApproves("caution", "fillInput", false, ["fillInput"])).toBe(true);
-  });
-});
-
-describe("autoApproves allowlist precedence", () => {
-  it("allowlist overrides caution when approveAllSafe is off", () => {
-    // attachTab is caution; with approveAllSafe=false, allowlist should let it through
-    expect(autoApproves("caution", "attachTab", false, ["attachTab"])).toBe(true);
-  });
-  it("allowlist overrides dangerous as before", () => {
-    expect(autoApproves("dangerous", "readStorage", false, ["readStorage"])).toBe(true);
-  });
-  it("safe is always approved regardless of approveAllSafe", () => {
-    expect(autoApproves("safe", "snapshotDOM", false, [])).toBe(true);
-  });
-  it("caution falls back to approveAllSafe when not in allowlist", () => {
-    expect(autoApproves("caution", "click", false, [])).toBe(false);
-    expect(autoApproves("caution", "click", true, [])).toBe(true);
-  });
-  it("dangerous requires explicit allowlist", () => {
-    expect(autoApproves("dangerous", "readStorage", true, [])).toBe(false);
   });
 });
 

@@ -56,7 +56,7 @@ describe("runChatSession", () => {
       settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
-      approveAllSafe: true
+      permissionMode: "default"
     });
 
     expect(result.status).toBe("done");
@@ -90,7 +90,7 @@ describe("runChatSession", () => {
       settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
-      approveAllSafe: true
+      permissionMode: "default"
     });
 
     await new Promise((r) => setTimeout(r, 10));
@@ -134,7 +134,7 @@ describe("runChatSession", () => {
       settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
-      approveAllSafe: true
+      permissionMode: "default"
     });
 
     expect(result.status).toBe("done");
@@ -180,7 +180,7 @@ describe("runChatSession", () => {
       },
       systemPrompt: "sys",
       tools: [],
-      approveAllSafe: false
+      permissionMode: "trust"
     });
 
     expect(result.status).toBe("done");
@@ -237,7 +237,7 @@ describe("runChatSession", () => {
         },
         systemPrompt: "sys",
         tools: [],
-        approveAllSafe: true,
+        permissionMode: "default",
         getAttachedTabIds: () => [],
         tabsRpc
       });
@@ -289,7 +289,7 @@ describe("runChatSession", () => {
         },
         systemPrompt: "sys",
         tools: [],
-        approveAllSafe: true,
+        permissionMode: "default",
         getAttachedTabIds: () => [],
         tabsRpc,
         onCrossTabResult: (r) => events.push(r)
@@ -346,7 +346,7 @@ describe("runChatSession", () => {
         settings: { ...baseSettings, maxContinuationNudges: 1 },
         systemPrompt: "sys",
         tools: [],
-        approveAllSafe: true,
+        permissionMode: "default",
         onEvent: (e) => events.push(e)
       });
 
@@ -387,7 +387,7 @@ describe("runChatSession", () => {
         settings: { ...baseSettings, maxContinuationNudges: 0 },
         systemPrompt: "sys",
         tools: [],
-        approveAllSafe: true,
+        permissionMode: "default",
         onEvent: (e) => events.push(e)
       });
 
@@ -437,7 +437,7 @@ describe("runChatSession", () => {
         settings: { ...baseSettings, maxContinuationNudges: 1 },
         systemPrompt: "sys",
         tools: [],
-        approveAllSafe: true,
+        permissionMode: "default",
         onEvent: (e) => events.push(e)
       });
 
@@ -470,7 +470,7 @@ describe("runChatSession", () => {
         settings: { ...baseSettings, maxRounds: 20, maxContinuationNudges: 1 },
         systemPrompt: "sys",
         tools: [],
-        approveAllSafe: true,
+        permissionMode: "default",
         onEvent: (e) => events.push(e)
       });
 
@@ -504,7 +504,7 @@ describe("runChatSession", () => {
       settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
-      approveAllSafe: true
+      permissionMode: "default"
     });
 
     expect(result.status).toBe("max_rounds");

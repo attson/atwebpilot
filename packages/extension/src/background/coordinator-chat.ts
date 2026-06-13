@@ -144,7 +144,7 @@ export class CoordinatorChatHost {
         },
         systemPrompt: await this.loadSystem(),
         tools: TOOL_DEFS,
-        approveAllSafe: true,
+        permissionMode: "default",
         getAttachedTabIds: () => [],
         abortSignal: ac.signal,
         onEvent: (e) => send(chatEvent(msg.session_id, e))

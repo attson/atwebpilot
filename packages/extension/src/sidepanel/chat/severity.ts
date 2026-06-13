@@ -54,22 +54,6 @@ export function classifyTool(name: string, input: Json): ToolSeverity {
   return "dangerous";
 }
 
-/**
- * @deprecated Use evaluateAutoApproval. Kept for compatibility while call sites migrate.
- */
-export function autoApproves(
-  severity: ToolSeverity,
-  toolName: string,
-  approveAllSafe: boolean,
-  dangerousAllowlist: string[]
-): boolean {
-  if (severity === "safe") return true;
-  if (dangerousAllowlist.includes(toolName)) return true;
-  if (severity === "caution") return approveAllSafe;
-  if (severity === "dangerous") return false;
-  return false;
-}
-
 /** Decide whether a tool call auto-runs under a given permission mode. */
 export function evaluateAutoApproval(
   toolName: string,
