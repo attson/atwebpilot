@@ -1,0 +1,559 @@
+import { useCallback, useEffect, useState } from "react";
+import type { BuiltinTool, Json, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
+
+import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
+import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
+import {
+  addLlmExchange,
+  attachTab,
+  detachTab,
+  ensureSession,
+  getSessionFor,
+  setCurrentTab,
+  setPermissionMode,
+  setDebugBadge,
+  startNewSession,
+  useCurrentTabId,
+  useSession,
+  useStore,
+} from "@/sidepanel/chat/session-store";
+import {
+  archiveActive,
+  cascadeDeleteRuns,
+  getActiveByTabId,
+  pruneOverLimit,
+} from "@/sidepanel/chat/persistence/sessions-storage";
+import { flushAllPending, clearPersistStateFor } from "@/sidepanel/chat/persistence/auto-persist";
+import { handleTabEvent } from "@/sidepanel/chat/cross-tab-events";
+import { useSettings } from "@/sidepanel/chat/settings-store";
+import { useUi } from "@/sidepanel/chat/ui-store";
+import { RpcToolRunner } from "@/sidepanel/chat/tool-runner";
+import { TOOL_DEFS } from "@/sidepanel/llm/tool-schema";
+import { pickClient } from "@/sidepanel/llm/client";
+import { createRecordingClient } from "@/sidepanel/llm/recording-client";
+import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
+
+import { Header } from "./header";
+import { TabIdentityBar } from "./tab-identity-bar";
+import { ChatView } from "@/sidepanel/components/chat-view";
+import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-suggestions";
+import { SaveAsToolCard } from "@/sidepanel/chat/save-as-tool-card";
+import { SystemBubble } from "@/sidepanel/chat/system-bubble";
+import { InputToolbar } from "@/sidepanel/input/input-toolbar";
+import type { MentionTabOption } from "@/sidepanel/input/mention-picker";
+
+import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
+import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
+import { SettingsDrawer } from "@/sidepanel/drawers/settings-drawer";
+import { DebugDrawer } from "@/sidepanel/drawers/debug-drawer";
+import { SaveAsToolDialog } from "@/sidepanel/components/save-as-tool-dialog";
+import { TabPicker } from "@/sidepanel/components/tab-picker";
+
+import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "@/sidepanel/rpc";
+
+function toSuggested(tools: Tool[]): SuggestedTool[] {
+  return tools.map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description ?? undefined,
+    runCount: t.stats.runs,
+  }));
+}
+
+function toMentionOptions(tabs: { tabId: number; title: string; url: string }[]): MentionTabOption[] {
+  return tabs.map((t) => ({ tabId: t.tabId, title: t.title, url: t.url }));
+}
+
+export function AppShell() {
+  const session = useSession();
+  const settings = useSettings();
+  const currentTabId = useCurrentTabId();
+  const ui = useUi();
+
+  const [input, setInput] = useState(session.inputDraft ?? "");
+  const [recommendations, setRecommendations] = useState<Tool[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
+  const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
+  const approver = getGlobalApprover();
+
+  // Sync input when tab changes
+  useEffect(() => {
+    setInput(session.inputDraft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTabId]);
+
+  // Load settings + initial recommendations
+  useEffect(() => {
+    if (!settings.loaded) void settings.load();
+  }, [settings]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { tabId, url } = await currentTabInfo();
+      if (!active) return;
+      const tools = await rpc.matchingTools(url);
+      if (!active) return;
+      setRecommendations(tools);
+      ensureSession(tabId, url);
+      setCurrentTab(tabId);
+    })();
+    const off = onTabRecommendations((m) => {
+      currentTabInfo()
+        .then((info) => {
+          if (info.tabId === m.tabId) setRecommendations(m.tools);
+        })
+        .catch(() => {});
+    });
+    const offEvents = onTabEvents(handleTabEvent);
+    return () => {
+      active = false;
+      off();
+      offEvents();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Permission mode: when session is fresh and settings load, seed it from defaultPermissionMode.
+  useEffect(() => {
+    if (!settings.loaded || currentTabId == null) return;
+    if (session.messages.length === 0 && session.cards.length === 0) {
+      // Idempotent — sets to the default mode the user picked in settings.
+      if (session.permissionMode !== settings.defaultPermissionMode) {
+        setPermissionMode(currentTabId, settings.defaultPermissionMode);
+      }
+    }
+  }, [settings.loaded, settings.defaultPermissionMode, currentTabId, session]);
+
+  // Debug badge derivation: error in current session → red dot.
+  useEffect(() => {
+    if (currentTabId == null) return;
+    if (session.errorMessage) {
+      setDebugBadge(currentTabId, { kind: "error", count: 1 });
+    }
+  }, [session.errorMessage, currentTabId]);
+
+  // Pickable tabs for the mention picker
+  useEffect(() => {
+    if (currentTabId == null) return;
+    rpc
+      .listTabs()
+      .then((result) => {
+        const filtered = result.tabs.filter(
+          (t) =>
+            t.tabId !== currentTabId &&
+            !session.attachedTabs.some((a) => a.tabId === t.tabId)
+        );
+        setPickableTabs(toMentionOptions(filtered));
+      })
+      .catch(() => setPickableTabs([]));
+  }, [currentTabId, session.attachedTabs]);
+
+  // Recoverable session for current URL
+  useEffect(() => {
+    if (currentTabId == null) return;
+    if (session.messages.length > 0) {
+      setRecoverableUrl(null);
+      return;
+    }
+    let active = true;
+    void (async () => {
+      const { url } = await currentTabInfo();
+      const cur = await getActiveByTabId(currentTabId);
+      if (!active) return;
+      setRecoverableUrl(cur ? null : url);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [currentTabId, session.messages.length]);
+
+  const handleApprove = useCallback(
+    (
+      id: string,
+      decision: "run" | "run-and-always-allow" | "skip" | "deny",
+      toolName?: string
+    ) => {
+      if (decision === "run-and-always-allow" && toolName) {
+        void settings.save({
+          trustedDangerTools: Array.from(
+            new Set([...(settings.trustedDangerTools ?? []), toolName])
+          ),
+        });
+        approver.resolve(id, { kind: "run-and-always-allow", toolName });
+        session.setCardStatus(id, { status: "running" });
+        return;
+      }
+      approver.resolve(id, { kind: decision } as Decision);
+      session.setCardStatus(id, {
+        status: decision === "run" ? "running" : decision === "skip" ? "skipped" : "denied",
+      });
+    },
+    [session, approver, settings]
+  );
+
+  const send = useCallback(
+    async (prompt: string) => {
+      if (!prompt.trim()) return;
+      if (!settings.apiKey) {
+        session.setError("请先在设置 → LLM 填入 API Key");
+        return;
+      }
+      const { tabId, url } = await currentTabInfo();
+      const session0 = getSessionFor(tabId);
+      const attachedTabs = session0.attachedTabs;
+      const getAttachedTabIds = () =>
+        useStore.getState().sessionsByTab[tabId]?.attachedTabs.map((a) => a.tabId) ?? [];
+      session.setIdentity({ tabId, url, runRecordId: "" });
+      session.setError(null);
+      session.setDebugBadge(null);
+      session.setStatus("streaming");
+      session.appendUserMessage(prompt);
+      session.appendLog(
+        "info",
+        "提交 prompt",
+        `provider=${settings.provider} model=${settings.model} endpoint=${settings.endpoint || "(默认)"} maxRounds=${settings.maxRounds}\n---\n${prompt}`
+      );
+      session.setInputDraft("");
+      setInput("");
+      const ac = new AbortController();
+      session.setAbortController(ac);
+      const client = createRecordingClient(
+        pickClient(settings.provider),
+        (ex) => addLlmExchange(tabId, ex),
+        { provider: settings.provider }
+      );
+      const runner = new RpcToolRunner((req) =>
+        chrome.runtime.sendMessage(req) as Promise<{ ok: true; data: Json } | { ok: false; error: string }>
+      );
+
+      function stepFromCard(id: string): Step {
+        const cards = useStore.getState().sessionsByTab[tabId]?.cards ?? [];
+        const card = cards.find((c) => c.toolUseId === id);
+        if (!card) throw new Error(`card not found: ${id}`);
+        if (card.name === "runJS") {
+          return { kind: "js", source: (card.input as { source: string }).source };
+        }
+        return { kind: "tool", tool: card.name as BuiltinTool, args: card.input };
+      }
+
+      const onEvent = (e: SessionEvent) => {
+        const log: typeof session.appendLog = (level, message, details) =>
+          session.appendLog(level, message, details);
+        switch (e.type) {
+          case "round_start":
+            session.incrementRound();
+            session.beginAssistantTurn();
+            log("info", `round ${e.round + 1} 开始`);
+            break;
+          case "text_delta":
+            session.appendAssistantText(e.text);
+            break;
+          case "tool_use_start":
+            session.upsertCard({ toolUseId: e.id, name: e.name, status: "draft", inputReady: false });
+            log("info", `tool_use_start: ${e.name} (${e.id})`);
+            break;
+          case "tool_use_input_delta": {
+            const cards = useStore.getState().sessionsByTab[tabId]?.cards ?? [];
+            const fresh = cards.find((c) => c.toolUseId === e.id);
+            session.upsertCard({
+              toolUseId: e.id,
+              partialJson: (fresh?.partialJson ?? "") + e.partial_json,
+            });
+            break;
+          }
+          case "tool_use_end":
+            session.upsertCard({ toolUseId: e.id, input: e.input, inputReady: true, status: "awaiting" });
+            session.setStatus("awaiting");
+            log("info", `tool_use_end: ${e.id}`, JSON.stringify(e.input, null, 2));
+            break;
+          case "assistant_turn_end":
+            session.finalizeAssistantTurn(e.toolUses);
+            break;
+          case "tool_running":
+            session.setCardStatus(e.id, { status: "running" });
+            session.setStatus("running");
+            log("info", `step running: ${e.id}`);
+            break;
+          case "tool_done":
+            session.setCardStatus(e.id, { status: "ok", output: e.output, ms: e.ms });
+            session.pushExecutedStep(stepFromCard(e.id));
+            session.setLastOutput(e.output);
+            session.setStatus("streaming");
+            log("info", `step ok: ${e.id} (${e.ms}ms)`);
+            break;
+          case "tool_error":
+            session.setCardStatus(e.id, { status: "error", error: e.error, ms: e.ms });
+            session.setStatus("streaming");
+            log("error", `step error: ${e.id}`, e.error);
+            break;
+          case "tool_skipped":
+            session.setCardStatus(e.id, { status: "skipped" });
+            log("warn", `step skipped: ${e.id}`);
+            break;
+          case "usage":
+            session.addUsage({ input_tokens: e.input_tokens, output_tokens: e.output_tokens });
+            break;
+          case "continuation_nudge":
+            log(
+              "warn",
+              `第 ${e.round + 1} 轮未调用工具，疑似提前收尾，已追问让其确认/继续（第 ${e.attempt} 次）`
+            );
+            session.setStatus("streaming");
+            break;
+          case "stream_error":
+            log("error", "LLM stream error", e.error);
+            session.setError(e.error);
+            break;
+          case "exception":
+            log("error", "exception in run-session", e.error);
+            session.setError(e.error);
+            break;
+          case "session_end":
+            log(
+              e.status === "done" ? "info" : "warn",
+              `session_end: ${e.status}${e.reason ? " — " + e.reason : ""}`
+            );
+            if (e.status === "done") {
+              session.setStatus("done");
+            } else if (e.status === "max_rounds") {
+              session.setStatus("error");
+              session.setError("达到最大轮数");
+            } else if (e.status === "aborted") {
+              session.setStatus("aborted");
+            } else {
+              session.setStatus("error");
+              if (e.reason) session.setError(e.reason);
+            }
+            break;
+        }
+      };
+
+      try {
+        await runChatSession({
+          client,
+          runner,
+          approver,
+          rpc: {
+            startSession: (i) => rpc.startSession(i).then((r) => ({ id: r.id })),
+            appendStepLog: (runId, entry) => rpc.appendStepLog(runId, entry),
+            finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output),
+          },
+          input: { userPrompt: prompt, tabId, url },
+          settings: { ...settings, trustedDangerTools: settings.trustedDangerTools ?? [] },
+          systemPrompt: buildSystemPrompt({
+            url,
+            savedTools: recommendations.map((t) => ({
+              name: t.name,
+              description: t.description ?? "",
+              version: t.versions.at(-1)?.version ?? 1,
+            })),
+            attachedTabs,
+          }),
+          tools: TOOL_DEFS,
+          permissionMode: session.permissionMode,
+          abortSignal: ac.signal,
+          onEvent,
+          getAttachedTabIds,
+          tabsRpc: { listTabs: rpc.listTabs, openTab: rpc.openTab },
+          onCrossTabResult: (r) => {
+            if (r.kind === "opened") {
+              attachTab(tabId, {
+                tabId: r.tabId,
+                windowId: r.windowId ?? -1,
+                source: "ai-open",
+                lastSeenUrl: r.url ?? "",
+                lastSeenTitle: r.title ?? "",
+              });
+            } else if (r.kind === "attached") {
+              chrome.tabs
+                .get(r.tabId)
+                .then((t) =>
+                  attachTab(tabId, {
+                    tabId: r.tabId,
+                    windowId: t.windowId,
+                    source: "approval",
+                    lastSeenUrl: t.url ?? "",
+                    lastSeenTitle: t.title ?? "",
+                  })
+                )
+                .catch(() => {});
+            } else if (r.kind === "detached") {
+              detachTab(tabId, r.tabId);
+            }
+          },
+        });
+      } catch (e) {
+        session.setError(e instanceof Error ? e.message : String(e));
+        session.setStatus("error");
+      } finally {
+        approver.resolveAllPending({ kind: "deny" });
+        session.setAbortController(null);
+      }
+    },
+    [session, settings, recommendations, approver]
+  );
+
+  async function onNewChat() {
+    const tabId = useStore.getState().currentTabId;
+    if (tabId == null) return;
+    await flushAllPending();
+    const cur = await getActiveByTabId(tabId);
+    if (cur) {
+      await archiveActive(cur.id);
+      const evicted = await pruneOverLimit(cur.url);
+      if (evicted.length) await cascadeDeleteRuns(evicted);
+    }
+    startNewSession(tabId);
+    clearPersistStateFor(tabId);
+    setInput("");
+  }
+
+  // Header onOpenTool: jump to Tools drawer with detail
+  function openToolDetail(toolId: string) {
+    ui.open("tools", toolId);
+  }
+
+  // For empty-state suggestions
+  const emptyState = session.messages.length === 0 && session.cards.length === 0;
+  const hasSteps = session.executedSteps.length > 0;
+  const isIdle = session.status === "idle" || session.status === "done" || session.status === "aborted";
+
+  const inputStatus =
+    session.status === "streaming" || session.status === "awaiting" || session.status === "running"
+      ? "streaming"
+      : session.errorMessage
+        ? "error"
+        : "idle";
+
+  return (
+    <div className="h-full flex flex-col relative bg-zinc-950">
+      <Header debugBadge={session.debugBadge} onNewChat={onNewChat} />
+      {currentTabId != null && (
+        <TabIdentityBar
+          tabId={currentTabId}
+          url={session.url}
+          status={session.status}
+          recoverable={!!recoverableUrl}
+          onRecover={() => ui.open("history")}
+        />
+      )}
+
+      <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-3 py-3">
+        {emptyState ? (
+          <EmptySuggestions
+            matchedTools={toSuggested(recommendations)}
+            onRun={(id) => ui.open("tools", id)}
+            onDetail={openToolDetail}
+          />
+        ) : (
+          <>
+            <ChatView onApprove={handleApprove} />
+            {session.errorMessage && (
+              <SystemBubble kind="error" onClick={() => ui.open("debug")}>
+                {session.errorMessage}
+              </SystemBubble>
+            )}
+            {hasSteps && isIdle && !session.showSaveDialog && (
+              <SaveAsToolCard
+                stepCount={session.executedSteps.length}
+                onSave={() => session.showSave()}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      <InputToolbar
+        value={input}
+        onChange={(v) => {
+          setInput(v);
+          session.setInputDraft(v);
+        }}
+        onSubmit={send}
+        onStop={() => session.abortController?.abort()}
+        currentTabUrl={session.url}
+        attachedTabs={session.attachedTabs}
+        pickableTabs={pickableTabs}
+        onAttachTab={(opt: MentionTabOption) => {
+          if (currentTabId == null) return;
+          attachTab(currentTabId, {
+            tabId: opt.tabId,
+            windowId: -1,
+            source: "mention",
+            lastSeenUrl: opt.url,
+            lastSeenTitle: opt.title,
+          });
+        }}
+        onDetachTab={(tabId: number) => {
+          if (currentTabId == null) return;
+          detachTab(currentTabId, tabId);
+        }}
+        onOpenTabPicker={() => setPickerOpen(true)}
+        permissionMode={session.permissionMode}
+        onPermissionChange={(m) => {
+          if (currentTabId != null) setPermissionMode(currentTabId, m);
+        }}
+        trustedDangerTools={settings.trustedDangerTools ?? []}
+        onTrustedChange={(next) => void settings.save({ trustedDangerTools: next })}
+        status={inputStatus}
+        roundCount={session.roundCount}
+        maxRounds={settings.maxRounds}
+        tokensIn={session.tokenUsage.input}
+        tokensOut={session.tokenUsage.output}
+      />
+
+      <HistoryDrawer currentUrl={session.url} />
+      <ToolsDrawer />
+      <SettingsDrawer />
+      <DebugDrawer />
+
+      {pickerOpen && currentTabId != null && (
+        <TabPicker
+          listTabs={(wid) => rpc.listTabs(wid)}
+          attachedIds={session.attachedTabs.map((a) => a.tabId)}
+          currentTabId={currentTabId}
+          onSelect={(t: { tabId: number; windowId: number; url: string; title: string }) => {
+            attachTab(currentTabId, {
+              tabId: t.tabId,
+              windowId: t.windowId,
+              source: "mention",
+              lastSeenUrl: t.url,
+              lastSeenTitle: t.title,
+            } satisfies Omit<AttachedTab, "addedAt" | "urlChanged">);
+            setPickerOpen(false);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {session.showSaveDialog && currentTabId != null && (
+        <SaveAsToolDialog
+          tabId={currentTabId}
+          initialName={
+            recommendations[0]?.name ?? `AtWebPilot 任务 ${new Date().toISOString().slice(0, 10)}`
+          }
+          initialDescription={
+            (session.messages.find(
+              (m): m is Extract<typeof m, { role: "user" }> & { content: string } =>
+                m.role === "user" && typeof m.content === "string"
+            )?.content ?? "")
+              .replace(/^\[已恢复\][^\n]*\n?/, "")
+              .replace(/^\[页面跳转\][^\n]*\n?/, "")
+              .slice(0, 80)
+          }
+          initialUrl={session.url}
+          steps={session.executedSteps}
+          lastOutput={session.lastOutput}
+          messages={session.messages}
+          llmSettings={settings}
+          onClose={() => session.hideSave()}
+          onSaved={() => {
+            session.hideSave();
+          }}
+        />
+      )}
+    </div>
+  );
+}
