@@ -114,8 +114,8 @@ export function ChatPage({
     ) => {
       if (decision === "run-and-always-allow" && toolName) {
         void settings.save({
-          autoApproveDangerous: Array.from(
-            new Set([...(settings.autoApproveDangerous ?? []), toolName])
+          trustedDangerTools: Array.from(
+            new Set([...(settings.trustedDangerTools ?? []), toolName])
           )
         });
         approver.resolve(id, { kind: "run-and-always-allow", toolName });
@@ -289,7 +289,7 @@ export function ChatPage({
             finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output)
           },
           input: { userPrompt: prompt, tabId, url },
-          settings: { ...settings, autoApproveDangerous: settings.autoApproveDangerous ?? [] },
+          settings: { ...settings, trustedDangerTools: settings.trustedDangerTools ?? [] },
           systemPrompt: buildSystemPrompt({
             url,
             savedTools: recommendations.map((t) => ({

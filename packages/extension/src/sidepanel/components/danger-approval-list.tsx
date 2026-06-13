@@ -37,13 +37,13 @@ export const DANGEROUS_TOTAL = ITEMS.length;
 
 export function DangerApprovalList() {
   const settings = useSettings();
-  const allowlist = settings.autoApproveDangerous ?? [];
+  const allowlist = settings.trustedDangerTools ?? [];
 
   function toggle(name: string) {
     const next = allowlist.includes(name)
       ? allowlist.filter((n) => n !== name)
       : [...allowlist, name];
-    settings.save({ autoApproveDangerous: next });
+    settings.save({ trustedDangerTools: next });
   }
 
   return (

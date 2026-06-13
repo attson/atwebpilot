@@ -53,7 +53,7 @@ describe("runChatSession", () => {
       approver,
       rpc,
       input: { userPrompt: "go", tabId: 7, url: "https://x/" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, autoApproveDangerous: [] },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
@@ -87,7 +87,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, autoApproveDangerous: [] },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
@@ -131,7 +131,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, autoApproveDangerous: [] },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true
@@ -176,7 +176,7 @@ describe("runChatSession", () => {
         apiKey: "k",
         apiKeyMode: "session",
         maxRounds: 5,
-        autoApproveDangerous: ["submitForm"]
+        trustedDangerTools: ["submitForm"], defaultPermissionMode: "default",
       },
       systemPrompt: "sys",
       tools: [],
@@ -233,7 +233,7 @@ describe("runChatSession", () => {
           apiKey: "k",
           apiKeyMode: "session",
           maxRounds: 5,
-          autoApproveDangerous: ["listTabs"]
+          trustedDangerTools: ["listTabs"], defaultPermissionMode: "default",
         },
         systemPrompt: "sys",
         tools: [],
@@ -285,7 +285,7 @@ describe("runChatSession", () => {
           apiKey: "k",
           apiKeyMode: "session",
           maxRounds: 5,
-          autoApproveDangerous: ["openTab"]
+          trustedDangerTools: ["openTab"], defaultPermissionMode: "default",
         },
         systemPrompt: "sys",
         tools: [],
@@ -307,7 +307,8 @@ describe("runChatSession", () => {
       apiKey: "k",
       apiKeyMode: "session" as const,
       maxRounds: 20,
-      autoApproveDangerous: [] as string[]
+      trustedDangerTools: [] as string[],
+      defaultPermissionMode: "default" as const
     };
 
     it("nudges when the model stops with text-only, then continues when it resumes calling tools", async () => {
@@ -500,7 +501,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2, autoApproveDangerous: [] },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2, trustedDangerTools: [], defaultPermissionMode: "default", },
       systemPrompt: "sys",
       tools: [],
       approveAllSafe: true

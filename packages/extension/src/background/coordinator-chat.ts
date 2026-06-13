@@ -138,7 +138,8 @@ export class CoordinatorChatHost {
           apiKey: "",
           apiKeyMode: "session",
           maxRounds: msg.settings_override?.maxRounds ?? 20,
-          autoApproveDangerous: [],
+          trustedDangerTools: [],
+          defaultPermissionMode: "default",
           maxContinuationNudges: msg.settings_override?.maxContinuationNudges ?? 1
         },
         systemPrompt: await this.loadSystem(),

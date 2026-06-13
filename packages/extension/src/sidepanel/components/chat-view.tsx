@@ -43,7 +43,7 @@ export function ChatView({ onApprove }: Props) {
       classifyTool(card.name, card.input),
       card.name,
       session.approveAllSafe,
-      settings.autoApproveDangerous ?? []
+      settings.trustedDangerTools ?? []
     );
   }
 

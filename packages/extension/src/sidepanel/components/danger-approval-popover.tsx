@@ -4,7 +4,7 @@ import { DANGEROUS_TOTAL, DangerApprovalList } from "./danger-approval-list";
 
 export function DangerApprovalPopover() {
   const settings = useSettings();
-  const count = settings.autoApproveDangerous?.length ?? 0;
+  const count = settings.trustedDangerTools?.length ?? 0;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 

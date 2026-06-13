@@ -40,7 +40,7 @@ describe("ChatPage autoSend", () => {
       endpoint: "",
       maxRounds: 5,
       maxTokens: 1000,
-      autoApproveDangerous: []
+      trustedDangerTools: []
     });
     useStore.setState({ sessionsByTab: {}, currentTabId: null });
     ensureSession(1, "https://example.com/");
