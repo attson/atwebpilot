@@ -12,7 +12,9 @@ import {
   removeAttachedTab,
   resetSession,
   setCurrentTab,
+  setDebugBadge,
   setInputDraft,
+  setPermissionMode,
   setUrl,
   startNewSession,
   useStore,
@@ -286,5 +288,32 @@ describe("llmExchanges", () => {
       llmExchanges: [makeExchange(7)]
     });
     expect(getSessionFor(3).llmExchanges.map((e) => e.round)).toEqual([7]);
+  });
+});
+
+describe("session-store permissionMode + debugBadge", () => {
+  beforeEach(reset);
+
+  it("makeEmptySession seeds default permission mode and null badge", () => {
+    ensureSession(99, "https://example.com");
+    const s = getSessionFor(99);
+    expect(s.permissionMode).toBe("default");
+    expect(s.debugBadge).toBeNull();
+  });
+
+  it("setPermissionMode flips the per-session mode", () => {
+    ensureSession(100, "https://example.com");
+    setPermissionMode(100, "yolo");
+    expect(getSessionFor(100).permissionMode).toBe("yolo");
+    setPermissionMode(100, "read");
+    expect(getSessionFor(100).permissionMode).toBe("read");
+  });
+
+  it("setDebugBadge sets and clears", () => {
+    ensureSession(101, "https://example.com");
+    setDebugBadge(101, { kind: "error", count: 1 });
+    expect(getSessionFor(101).debugBadge).toEqual({ kind: "error", count: 1 });
+    setDebugBadge(101, null);
+    expect(getSessionFor(101).debugBadge).toBeNull();
   });
 });
