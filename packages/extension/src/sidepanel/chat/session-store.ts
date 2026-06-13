@@ -43,8 +43,6 @@ export type SessionData = {
   streamingAssistantText: string;
   cards: StepCardState[];
 
-  approveAllSafe: boolean;
-
   status: SessionStatus;
   errorMessage: string | null;
   roundCount: number;
@@ -78,7 +76,6 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     messages: [],
     streamingAssistantText: "",
     cards: [],
-    approveAllSafe: true,
     status: "idle",
     errorMessage: null,
     roundCount: 0,
@@ -300,10 +297,6 @@ export function setError(tabId: number, errorMessage: string | null): void {
   patchSession(tabId, (s) => ({ ...s, errorMessage }));
 }
 
-export function setApproveAllSafe(tabId: number, v: boolean): void {
-  patchSession(tabId, (s) => ({ ...s, approveAllSafe: v }));
-}
-
 export function setPermissionMode(tabId: number, mode: PermissionMode): void {
   patchSession(tabId, (s) => ({ ...s, permissionMode: mode }));
 }
@@ -490,7 +483,6 @@ export function getSessionFor(tabId: number): SessionData {
 
 type LegacySession = SessionData & {
   reset: () => void;
-  setApproveAllSafe: (v: boolean) => void;
   setStatus: (s: SessionStatus) => void;
   setError: (msg: string | null) => void;
   setIdentity: (p: { tabId?: number; url: string; runRecordId: string }) => void;
@@ -532,7 +524,6 @@ export function useSession(): LegacySession {
   return {
     ...data,
     reset: () => resetSession(tabId),
-    setApproveAllSafe: (v) => setApproveAllSafe(tabId, v),
     setStatus: (s) => setStatus(tabId, s),
     setError: (m) => setError(tabId, m),
     setIdentity: (p) => setIdentity(tabId, { url: p.url, runRecordId: p.runRecordId }),
