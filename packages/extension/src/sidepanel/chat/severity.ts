@@ -3,6 +3,8 @@ import type { Json } from "@atwebpilot/shared/types";
 
 export type ToolSeverity = "safe" | "caution" | "dangerous";
 
+export type PermissionMode = "read" | "default" | "trust" | "yolo";
+
 const SAFE = new Set([
   "snapshotDOM",
   "querySelector",
@@ -52,17 +54,20 @@ export function classifyTool(name: string, input: Json): ToolSeverity {
   return "dangerous";
 }
 
-export function autoApproves(
-  severity: ToolSeverity,
+/** Decide whether a tool call auto-runs under a given permission mode. */
+export function evaluateAutoApproval(
   toolName: string,
-  approveAllSafe: boolean,
-  dangerousAllowlist: string[]
+  severity: ToolSeverity,
+  mode: PermissionMode,
+  trustedDangerTools: string[]
 ): boolean {
+  if (mode === "yolo") return true;
   if (severity === "safe") return true;
-  if (dangerousAllowlist.includes(toolName)) return true;
-  if (severity === "caution") return approveAllSafe;
-  if (severity === "dangerous") return false;
-  return false;
+  if (mode === "read") return false;
+  if (severity === "caution") return true;
+  // severity === "dangerous"
+  if (mode === "trust") return trustedDangerTools.includes(toolName);
+  return false; // default
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

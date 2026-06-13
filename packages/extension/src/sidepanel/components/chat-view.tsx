@@ -3,7 +3,7 @@ import { useSession, type StepCardState } from "../chat/session-store";
 import { useSettings } from "../chat/settings-store";
 import { MessageBubble } from "./message-bubble";
 import type { ChatMessage, TextPart, ToolUsePart } from "@atwebpilot/shared/types";
-import { autoApproves, classifyTool } from "../chat/severity";
+import { classifyTool, evaluateAutoApproval } from "../chat/severity";
 import { AssistantBubble } from "./assistant-bubble";
 
 const SYSTEM_PREFIXES = ["🆕", "🗑", "⚠", "[页面跳转]", "[已恢复]"];
@@ -39,11 +39,11 @@ export function ChatView({ onApprove }: Props) {
 
   function needsApproval(card: StepCardState): boolean {
     if (!card.inputReady) return false;
-    return !autoApproves(
-      classifyTool(card.name, card.input),
+    return !evaluateAutoApproval(
       card.name,
-      session.approveAllSafe,
-      settings.autoApproveDangerous ?? []
+      classifyTool(card.name, card.input),
+      session.permissionMode,
+      settings.trustedDangerTools ?? []
     );
   }
 

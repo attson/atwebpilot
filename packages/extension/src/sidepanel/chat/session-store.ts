@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import type { AttachedTab, ChatMessage, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@atwebpilot/shared/types";
+import type { PermissionMode } from "./severity";
 
 export const MAX_EXCHANGES = 60;
+
+export type DebugBadge = { kind: "error" | "exchange" | "log"; count: number } | null;
 
 export type StepCardState = {
   toolUseId: string;
@@ -40,8 +43,6 @@ export type SessionData = {
   streamingAssistantText: string;
   cards: StepCardState[];
 
-  approveAllSafe: boolean;
-
   status: SessionStatus;
   errorMessage: string | null;
   roundCount: number;
@@ -60,6 +61,11 @@ export type SessionData = {
   attachedTabs: AttachedTab[];
 
   llmExchanges: LlmExchange[];
+
+  /** Per-session permission mode (controls tool auto-approval). Persists across runs. */
+  permissionMode: PermissionMode;
+  /** Header `💭` badge state — set by the chat/run plumbing when something needs attention. */
+  debugBadge: DebugBadge;
 };
 
 export function makeEmptySession(tabId: number, url = ""): SessionData {
@@ -70,7 +76,6 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     messages: [],
     streamingAssistantText: "",
     cards: [],
-    approveAllSafe: true,
     status: "idle",
     errorMessage: null,
     roundCount: 0,
@@ -83,7 +88,9 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     logsOpen: false,
     inputDraft: "",
     attachedTabs: [],
-    llmExchanges: []
+    llmExchanges: [],
+    permissionMode: "default",
+    debugBadge: null
   };
 }
 
@@ -290,8 +297,12 @@ export function setError(tabId: number, errorMessage: string | null): void {
   patchSession(tabId, (s) => ({ ...s, errorMessage }));
 }
 
-export function setApproveAllSafe(tabId: number, v: boolean): void {
-  patchSession(tabId, (s) => ({ ...s, approveAllSafe: v }));
+export function setPermissionMode(tabId: number, mode: PermissionMode): void {
+  patchSession(tabId, (s) => ({ ...s, permissionMode: mode }));
+}
+
+export function setDebugBadge(tabId: number, badge: DebugBadge): void {
+  patchSession(tabId, (s) => ({ ...s, debugBadge: badge }));
 }
 
 export function setIdentity(
@@ -472,7 +483,6 @@ export function getSessionFor(tabId: number): SessionData {
 
 type LegacySession = SessionData & {
   reset: () => void;
-  setApproveAllSafe: (v: boolean) => void;
   setStatus: (s: SessionStatus) => void;
   setError: (msg: string | null) => void;
   setIdentity: (p: { tabId?: number; url: string; runRecordId: string }) => void;
@@ -500,6 +510,8 @@ type LegacySession = SessionData & {
   clearLogs: () => void;
   setLogsOpen: (open: boolean) => void;
   setInputDraft: (text: string) => void;
+  setPermissionMode: (mode: PermissionMode) => void;
+  setDebugBadge: (badge: DebugBadge) => void;
 };
 
 export function useSession(): LegacySession {
@@ -512,7 +524,6 @@ export function useSession(): LegacySession {
   return {
     ...data,
     reset: () => resetSession(tabId),
-    setApproveAllSafe: (v) => setApproveAllSafe(tabId, v),
     setStatus: (s) => setStatus(tabId, s),
     setError: (m) => setError(tabId, m),
     setIdentity: (p) => setIdentity(tabId, { url: p.url, runRecordId: p.runRecordId }),
@@ -534,7 +545,9 @@ export function useSession(): LegacySession {
     appendLog: (l, m, d) => appendLog(tabId, l, m, d),
     clearLogs: () => clearLogs(tabId),
     setLogsOpen: (o) => setLogsOpen(tabId, o),
-    setInputDraft: (t) => setInputDraft(tabId, t)
+    setInputDraft: (t) => setInputDraft(tabId, t),
+    setPermissionMode: (m) => setPermissionMode(tabId, m),
+    setDebugBadge: (b) => setDebugBadge(tabId, b)
   };
 }
 

@@ -11,7 +11,7 @@ import type {
 import type { LlmClient, LlmTool } from "@/sidepanel/llm/types";
 import type { ToolRunner } from "./tool-runner";
 import { Approver, type Decision } from "./approval";
-import { autoApproves, classifyTool } from "./severity";
+import { classifyTool, evaluateAutoApproval, type PermissionMode } from "./severity";
 
 export type SessionRpc = {
   startSession: (input: { url: string }) => Promise<{ id: string }>;
@@ -71,7 +71,7 @@ export type RunSessionArgs = {
   settings: LlmSettings;
   systemPrompt: string;
   tools: LlmTool[];
-  approveAllSafe: boolean;
+  permissionMode: PermissionMode;
   abortSignal?: AbortSignal;
   onEvent?: (e: SessionEvent) => void;
   initialMessages?: ChatMessage[];
@@ -245,7 +245,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
     for (const tu of completedToolUses) {
       const sev = classifyTool(tu.name, tu.input);
       let decision: Decision;
-      if (autoApproves(sev, tu.name, args.approveAllSafe, args.settings.autoApproveDangerous)) {
+      if (evaluateAutoApproval(tu.name, sev, args.permissionMode, args.settings.trustedDangerTools)) {
         decision = { kind: "run" };
       } else {
         decision = await args.approver.request(tu.id);

@@ -168,8 +168,10 @@ export type LlmSettings = {
   maxRounds: number;
   /** 自定义 base URL，留空 = 用 provider 默认值。例如 "https://api.openai.com/v1" */
   endpoint?: string;
-  /** dangerous 工具白名单。空数组 = 全部人工 */
-  autoApproveDangerous: string[];
+  /** dangerous 工具白名单，在 permissionMode === "trust" 时被消费。 */
+  trustedDangerTools: string[];
+  /** 新会话启动时使用的默认权限模式。 */
+  defaultPermissionMode: "read" | "default" | "trust" | "yolo";
   /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
   maxTokens?: number;
   /**
