@@ -13,7 +13,7 @@ export default defineManifest({
   action: { default_title: "AtWebPilot" },
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
-  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation", "contextMenus"],
+  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation", "contextMenus", "bookmarks"],
   host_permissions: [
     "*://*.yangkeduo.com/*",
     "*://*.pinduoduo.com/*",

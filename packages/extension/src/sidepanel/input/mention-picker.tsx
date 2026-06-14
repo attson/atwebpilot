@@ -13,24 +13,40 @@ export type MentionToolOption = {
   matchesCurrentUrl?: boolean;
 };
 
-type MentionCategory = "tabs" | "tools";
+export type MentionBookmarkOption = {
+  id: string;
+  title: string;
+  url: string;
+};
+
+type MentionCategory = "tabs" | "tools" | "bookmarks";
 
 type Props = {
   tabs: MentionTabOption[];
   tools: MentionToolOption[];
+  bookmarks: MentionBookmarkOption[];
   onPickTab: (opt: MentionTabOption) => void;
   onPickTool: (opt: MentionToolOption) => void;
+  onPickBookmark: (opt: MentionBookmarkOption) => void;
   onClose: () => void;
 };
 
+const ORDER: MentionCategory[] = ["tabs", "tools", "bookmarks"];
+
 /**
- * Popover anchored above the input box with a Tabs | Tools segmented switch.
- * Keyboard: ←/→ (or Tab) switches category; ↑/↓ moves within category;
- * Enter picks; Esc closes.
- *
- * History / Skills categories are deferred per spec §15.
+ * Popover anchored above the input box. Tabs | Tools | Bookmarks segmented
+ * switch. Keyboard: ←/→ or Tab toggles category, ↑/↓ moves within category,
+ * Enter picks, Esc closes.
  */
-export function MentionPicker({ tabs, tools, onPickTab, onPickTool, onClose }: Props) {
+export function MentionPicker({
+  tabs,
+  tools,
+  bookmarks,
+  onPickTab,
+  onPickTool,
+  onPickBookmark,
+  onClose,
+}: Props) {
   const [cat, setCat] = useState<MentionCategory>("tabs");
   const [idx, setIdx] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,10 +60,16 @@ export function MentionPicker({ tabs, tools, onPickTab, onPickTool, onClose }: P
     });
   }, [tools]);
 
-  const items: Array<{ kind: "tab"; v: MentionTabOption } | { kind: "tool"; v: MentionToolOption }> =
+  const items: Array<
+    | { kind: "tab"; v: MentionTabOption }
+    | { kind: "tool"; v: MentionToolOption }
+    | { kind: "bookmark"; v: MentionBookmarkOption }
+  > =
     cat === "tabs"
       ? tabs.map((v) => ({ kind: "tab" as const, v }))
-      : sortedTools.map((v) => ({ kind: "tool" as const, v }));
+      : cat === "tools"
+        ? sortedTools.map((v) => ({ kind: "tool" as const, v }))
+        : bookmarks.map((v) => ({ kind: "bookmark" as const, v }));
 
   useEffect(() => {
     setIdx(0);
@@ -62,12 +84,12 @@ export function MentionPicker({ tabs, tools, onPickTab, onPickTool, onClose }: P
       }
       if (e.key === "ArrowRight" || (e.key === "Tab" && !e.shiftKey)) {
         e.preventDefault();
-        setCat((c) => (c === "tabs" ? "tools" : "tabs"));
+        setCat((c) => ORDER[(ORDER.indexOf(c) + 1) % ORDER.length]);
         return;
       }
       if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
         e.preventDefault();
-        setCat((c) => (c === "tabs" ? "tools" : "tabs"));
+        setCat((c) => ORDER[(ORDER.indexOf(c) + ORDER.length - 1) % ORDER.length]);
         return;
       }
       if (e.key === "ArrowDown") {
@@ -85,12 +107,13 @@ export function MentionPicker({ tabs, tools, onPickTab, onPickTool, onClose }: P
         if (!it) return;
         e.preventDefault();
         if (it.kind === "tab") onPickTab(it.v);
-        else onPickTool(it.v);
+        else if (it.kind === "tool") onPickTool(it.v);
+        else onPickBookmark(it.v);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [idx, items, onClose, onPickTab, onPickTool]);
+  }, [idx, items, onClose, onPickTab, onPickTool, onPickBookmark]);
 
   return (
     <div
@@ -105,11 +128,14 @@ export function MentionPicker({ tabs, tools, onPickTab, onPickTool, onClose }: P
         <CatBtn active={cat === "tools"} onClick={() => setCat("tools")}>
           Tools ({tools.length})
         </CatBtn>
+        <CatBtn active={cat === "bookmarks"} onClick={() => setCat("bookmarks")}>
+          Bookmarks ({bookmarks.length})
+        </CatBtn>
       </div>
-      <div className="py-1">
+      <div className="py-1 max-h-72 overflow-y-auto">
         {items.length === 0 ? (
           <div className="text-zinc-500 text-[11px] px-3 py-2">
-            {cat === "tabs" ? "没有可挂载的 tab" : "没有可引用的工具"}
+            {cat === "tabs" ? "没有可挂载的 tab" : cat === "tools" ? "没有可引用的工具" : "没有可引用的书签"}
           </div>
         ) : (
           items.map((it, i) => {
@@ -132,23 +158,41 @@ export function MentionPicker({ tabs, tools, onPickTab, onPickTool, onClose }: P
                 </button>
               );
             }
+            if (it.kind === "tool") {
+              return (
+                <button
+                  key={`tool-${it.v.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  data-testid={`mention-opt-tool-${it.v.id}`}
+                  className={`w-full text-left flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-zinc-800 ${selected ? "bg-zinc-800" : ""}`}
+                  onClick={() => onPickTool(it.v)}
+                  onMouseEnter={() => setIdx(i)}
+                >
+                  <span>{it.v.matchesCurrentUrl ? "✨" : "🧰"}</span>
+                  <span
+                    className={`flex-1 truncate ${it.v.matchesCurrentUrl ? "text-emerald-300" : "text-zinc-100"}`}
+                  >
+                    {it.v.name}
+                  </span>
+                </button>
+              );
+            }
             return (
               <button
-                key={`tool-${it.v.id}`}
+                key={`bookmark-${it.v.id}`}
                 type="button"
                 role="option"
                 aria-selected={selected}
-                data-testid={`mention-opt-tool-${it.v.id}`}
+                data-testid={`mention-opt-bookmark-${it.v.id}`}
                 className={`w-full text-left flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-zinc-800 ${selected ? "bg-zinc-800" : ""}`}
-                onClick={() => onPickTool(it.v)}
+                onClick={() => onPickBookmark(it.v)}
                 onMouseEnter={() => setIdx(i)}
+                title={it.v.url}
               >
-                <span>{it.v.matchesCurrentUrl ? "✨" : "🧰"}</span>
-                <span
-                  className={`flex-1 truncate ${it.v.matchesCurrentUrl ? "text-emerald-300" : "text-zinc-100"}`}
-                >
-                  {it.v.name}
-                </span>
+                <span>📑</span>
+                <span className="flex-1 truncate text-zinc-100">{it.v.title || it.v.url}</span>
               </button>
             );
           })

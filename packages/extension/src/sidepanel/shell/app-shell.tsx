@@ -42,8 +42,13 @@ import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-sug
 import { SaveAsToolCard } from "@/sidepanel/chat/save-as-tool-card";
 import { SystemBubble } from "@/sidepanel/chat/system-bubble";
 import { InputToolbar } from "@/sidepanel/input/input-toolbar";
-import type { MentionTabOption, MentionToolOption } from "@/sidepanel/input/mention-picker";
+import type {
+  MentionTabOption,
+  MentionToolOption,
+  MentionBookmarkOption,
+} from "@/sidepanel/input/mention-picker";
 import { matchesAny } from "@atwebpilot/shared/url-pattern";
+import { loadBookmarks } from "@/sidepanel/lib/bookmarks";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
@@ -87,6 +92,7 @@ export function AppShell() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
   const [allTools, setAllTools] = useState<Tool[]>([]);
+  const [bookmarks, setBookmarks] = useState<MentionBookmarkOption[]>([]);
   const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
   const approver = getGlobalApprover();
 
@@ -181,6 +187,11 @@ export function AppShell() {
   useEffect(() => {
     rpc.listTools().then(setAllTools).catch(() => setAllTools([]));
   }, [ui.openedDrawer]);
+
+  // Bookmarks for the @ picker — refresh once on mount; could be hot-reloaded later.
+  useEffect(() => {
+    void loadBookmarks().then(setBookmarks);
+  }, []);
 
   const pickableTools: MentionToolOption[] = useMemo(() => {
     return allTools.map((t) => ({
@@ -536,8 +547,15 @@ export function AppShell() {
         attachedTabs={session.attachedTabs}
         pickableTabs={pickableTabs}
         pickableTools={pickableTools}
+        pickableBookmarks={bookmarks}
         onMentionTool={(opt: MentionToolOption) => {
           const insertion = `@tool:${opt.name} `;
+          const next = (input.endsWith("@") ? input.slice(0, -1) : input) + insertion;
+          setInput(next);
+          session.setInputDraft(next);
+        }}
+        onMentionBookmark={(opt: MentionBookmarkOption) => {
+          const insertion = `@bookmark:${opt.title} (${opt.url}) `;
           const next = (input.endsWith("@") ? input.slice(0, -1) : input) + insertion;
           setInput(next);
           session.setInputDraft(next);
