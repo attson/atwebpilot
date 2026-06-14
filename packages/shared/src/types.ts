@@ -141,6 +141,14 @@ export type ExportBundle = {
 // === Plan 2 additions ===
 
 export type TextPart = { type: "text"; text: string };
+
+/** Inline image attached to a user message (multimodal input). `data` is
+ *  base64-encoded bytes WITHOUT a `data:` prefix. */
+export type ImagePart = {
+  type: "image";
+  media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  data: string;
+};
 export type ToolUsePart = { type: "tool_use"; id: string; name: string; input: Json };
 export type ToolResultPart = {
   type: "tool_result";
@@ -150,7 +158,7 @@ export type ToolResultPart = {
 };
 
 export type ChatMessage =
-  | { role: "user"; content: string | Array<TextPart | ToolResultPart> }
+  | { role: "user"; content: string | Array<TextPart | ImagePart | ToolResultPart> }
   | { role: "assistant"; content: Array<TextPart | ToolUsePart> };
 
 export type Severity = "info" | "caution" | "dangerous";

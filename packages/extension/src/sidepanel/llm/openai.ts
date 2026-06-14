@@ -185,7 +185,10 @@ function convertToOpenAiMessage(m: ChatMessage): unknown {
   if (m.role === "user") {
     if (typeof m.content === "string") return { role: "user", content: m.content };
     const out: unknown[] = [];
-    const userParts: { type: "text"; text: string }[] = [];
+    const userParts: Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    > = [];
     for (const part of m.content) {
       if (part.type === "tool_result") {
         out.push({
@@ -195,6 +198,11 @@ function convertToOpenAiMessage(m: ChatMessage): unknown {
         });
       } else if (part.type === "text") {
         userParts.push({ type: "text", text: part.text });
+      } else if (part.type === "image") {
+        userParts.push({
+          type: "image_url",
+          image_url: { url: `data:${part.media_type};base64,${part.data}` }
+        });
       }
     }
     if (userParts.length > 0) {
