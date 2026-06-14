@@ -3,7 +3,7 @@ import type { AttachedTab } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "../chat/severity";
 import { AboveInputTabs } from "./above-input-tabs";
 import { InputBox } from "./input-box";
-import { MentionPicker, type MentionTabOption } from "./mention-picker";
+import { MentionPicker, type MentionTabOption, type MentionToolOption } from "./mention-picker";
 import { PermissionModePill } from "./permission-mode-pill";
 
 export type InputStatus = "idle" | "streaming" | "awaiting" | "error";
@@ -19,7 +19,9 @@ type Props = {
   currentTabUrl: string;
   attachedTabs: AttachedTab[];
   pickableTabs: MentionTabOption[];
+  pickableTools: MentionToolOption[];
   onAttachTab: (opt: MentionTabOption) => void;
+  onMentionTool: (opt: MentionToolOption) => void;
   onDetachTab: (tabId: number) => void;
   onOpenTabPicker: () => void;
 
@@ -84,9 +86,14 @@ export function InputToolbar(props: Props) {
             {mentionOpen && (
               <MentionPicker
                 tabs={props.pickableTabs}
-                onPick={(opt) => {
+                tools={props.pickableTools}
+                onPickTab={(opt) => {
                   setMentionOpen(false);
                   props.onAttachTab(opt);
+                }}
+                onPickTool={(opt) => {
+                  setMentionOpen(false);
+                  props.onMentionTool(opt);
                 }}
                 onClose={() => setMentionOpen(false)}
               />

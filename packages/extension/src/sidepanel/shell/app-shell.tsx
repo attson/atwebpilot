@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BuiltinTool, Json, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
 
 import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
@@ -42,7 +42,8 @@ import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-sug
 import { SaveAsToolCard } from "@/sidepanel/chat/save-as-tool-card";
 import { SystemBubble } from "@/sidepanel/chat/system-bubble";
 import { InputToolbar } from "@/sidepanel/input/input-toolbar";
-import type { MentionTabOption } from "@/sidepanel/input/mention-picker";
+import type { MentionTabOption, MentionToolOption } from "@/sidepanel/input/mention-picker";
+import { matchesAny } from "@atwebpilot/shared/url-pattern";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
@@ -76,6 +77,7 @@ export function AppShell() {
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
+  const [allTools, setAllTools] = useState<Tool[]>([]);
   const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
   const approver = getGlobalApprover();
 
@@ -151,6 +153,20 @@ export function AppShell() {
       })
       .catch(() => setPickableTabs([]));
   }, [currentTabId, session.attachedTabs]);
+
+  // All tools for the @ picker — refresh when the drawer might have changed them.
+  useEffect(() => {
+    rpc.listTools().then(setAllTools).catch(() => setAllTools([]));
+  }, [ui.openedDrawer]);
+
+  const pickableTools: MentionToolOption[] = useMemo(() => {
+    return allTools.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description ?? undefined,
+      matchesCurrentUrl: matchesAny(session.url, t.urlPatterns),
+    }));
+  }, [allTools, session.url]);
 
   // Recoverable session for current URL
   useEffect(() => {
@@ -486,6 +502,13 @@ export function AppShell() {
         currentTabUrl={session.url}
         attachedTabs={session.attachedTabs}
         pickableTabs={pickableTabs}
+        pickableTools={pickableTools}
+        onMentionTool={(opt: MentionToolOption) => {
+          const insertion = `@tool:${opt.name} `;
+          const next = (input.endsWith("@") ? input.slice(0, -1) : input) + insertion;
+          setInput(next);
+          session.setInputDraft(next);
+        }}
         onAttachTab={(opt: MentionTabOption) => {
           if (currentTabId == null) return;
           attachTab(currentTabId, {
