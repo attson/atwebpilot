@@ -73,6 +73,7 @@ export type RunSessionArgs = {
   tools: LlmTool[];
   permissionMode: PermissionMode;
   askUser?: (input: unknown) => Promise<unknown>;
+  screenshot?: (input: unknown) => Promise<{ media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp"; data: string; byteLen: number }>;
   abortSignal?: AbortSignal;
   onEvent?: (e: SessionEvent) => void;
   initialMessages?: ChatMessage[];
@@ -268,6 +269,57 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       }
 
       args.onEvent?.({ type: "tool_running", id: tu.id });
+
+      if (tu.name === "screenshot") {
+        const start = Date.now();
+        try {
+          if (!args.screenshot) throw new Error("screenshot: handler not provided");
+          const shot = await args.screenshot(tu.input);
+          // Encode the result as a Anthropic-style tool_result with a text + image block
+          // pair. Sidepanel's anthropic client passes it through; OpenAI client will
+          // collapse the image block to a text note (degraded mode).
+          const resultContent = [
+            { type: "text" as const, text: `screenshot:ok bytes=${shot.byteLen}` },
+            { type: "image" as const, media_type: shot.media_type, data: shot.data }
+          ];
+          const ms = Date.now() - start;
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: { byteLen: shot.byteLen, media_type: shot.media_type },
+            ms
+          });
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: resultContent
+          });
+          lastOutput = { byteLen: shot.byteLen };
+          args.onEvent?.({
+            type: "tool_done",
+            id: tu.id,
+            output: { byteLen: shot.byteLen },
+            ms
+          });
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: null,
+            error: errMsg,
+            ms: Date.now() - start
+          });
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: JSON.stringify({ error: errMsg }),
+            is_error: true
+          });
+          args.onEvent?.({ type: "tool_error", id: tu.id, error: errMsg, ms: Date.now() - start });
+        }
+        continue;
+      }
 
       if (tu.name === "askUser") {
         const start = Date.now();

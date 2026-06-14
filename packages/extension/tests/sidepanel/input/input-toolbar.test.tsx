@@ -30,6 +30,7 @@ function defaultProps(over: Partial<React.ComponentProps<typeof InputToolbar>> =
     stagedImages: [],
     onImageFiles: vi.fn(),
     onRemoveImage: vi.fn(),
+    onStartCapture: vi.fn(),
     onDetachTab: vi.fn(),
     onOpenTabPicker: vi.fn(),
     permissionMode: "default" as const,

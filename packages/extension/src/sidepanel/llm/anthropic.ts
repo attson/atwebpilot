@@ -1,14 +1,23 @@
 import type { ChatMessage, ImagePart, Json, TextPart, ToolResultPart } from "@atwebpilot/shared/types";
 
 /**
- * Anthropic accepts `image` content blocks natively. Other content parts
- * pass through unchanged.
+ * Anthropic accepts `image` content blocks natively. We also need to
+ * recursively transform image blocks nested inside tool_result.content
+ * (used by the `screenshot` tool).
  */
+function imageBlock(p: ImagePart): unknown {
+  return {
+    type: "image",
+    source: { type: "base64", media_type: p.media_type, data: p.data }
+  };
+}
+
 function toAnthropicPart(p: TextPart | ImagePart | ToolResultPart): unknown {
-  if (p.type === "image") {
+  if (p.type === "image") return imageBlock(p);
+  if (p.type === "tool_result" && Array.isArray(p.content)) {
     return {
-      type: "image",
-      source: { type: "base64", media_type: p.media_type, data: p.data }
+      ...p,
+      content: p.content.map((inner) => (inner.type === "image" ? imageBlock(inner) : inner))
     };
   }
   return p;

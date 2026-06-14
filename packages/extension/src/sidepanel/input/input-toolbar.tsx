@@ -44,6 +44,9 @@ type Props = {
   onImageFiles: (files: File[]) => void;
   onRemoveImage: (idx: number) => void;
 
+  /** "选元素" 按钮回调（向 content script 发 startCapture） */
+  onStartCapture: () => void;
+
   // status meta
   status: InputStatus;
   roundCount: number;
@@ -106,6 +109,15 @@ export function InputToolbar(props: Props) {
               onClick={() => fileRef.current?.click()}
             >
               📎
+            </button>
+            <button
+              type="button"
+              aria-label="选元素"
+              title="点页面任意元素，selector 自动回填"
+              className="px-2 py-1 rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 text-[11px]"
+              onClick={props.onStartCapture}
+            >
+              🎯
             </button>
             <input
               ref={fileRef}

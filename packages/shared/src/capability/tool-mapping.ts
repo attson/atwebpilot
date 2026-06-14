@@ -44,6 +44,9 @@ export function capabilityForTool(
       // askUser doesn't touch the page — it's a sidepanel-only UI prompt.
       // Treat as the lightest read capability since DOM is never accessed.
       return "read:dom";
+    case "screenshot":
+      // Visual read of the rendered tab; no DOM mutation. Treat as image read.
+      return "read:image";
     default: {
       const _exhaustive: never = tool;
       throw new Error(`capabilityForTool: unknown tool ${_exhaustive}`);

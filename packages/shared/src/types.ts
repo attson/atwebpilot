@@ -29,10 +29,11 @@ export type BuiltinTool =
   | "uploadFile"
   | "getValue"
   | "extractFormState"
-  | "askUser";
+  | "askUser"
+  | "screenshot";
 
-/** BuiltinTool minus the sidepanel-only `askUser` (which can't be replayed). */
-export type ReplayableTool = Exclude<BuiltinTool, "askUser">;
+/** BuiltinTool minus sidepanel-only tools (askUser / screenshot) that can't be replayed offline. */
+export type ReplayableTool = Exclude<BuiltinTool, "askUser" | "screenshot">;
 
 export type Step =
   | { kind: "tool"; tool: ReplayableTool; args: Json; bindResultTo?: string; timeoutMs?: number }
@@ -153,7 +154,8 @@ export type ToolUsePart = { type: "tool_use"; id: string; name: string; input: J
 export type ToolResultPart = {
   type: "tool_result";
   tool_use_id: string;
-  content: string;
+  /** String for plain results; array for results carrying image blocks (e.g. screenshot). */
+  content: string | Array<TextPart | ImagePart>;
   is_error?: boolean;
 };
 

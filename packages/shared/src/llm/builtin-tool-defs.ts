@@ -306,6 +306,21 @@ export const TOOL_DEFS: LlmTool[] = [
     }
   },
   {
+    name: "screenshot",
+    description:
+      "截当前 tab 的可见区域为 PNG（base64 返回，自动作为 image block 注入到下轮上下文）。用于：视觉调试 selector、看图回答布局问题、保存证据。返回 {ok: true, byteLen}。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: {
+          type: "string",
+          description: "可选：CSS selector。基础版无视它，始终截 viewport；保留字段为未来扩展。"
+        },
+        tabId: { type: "integer", description: "目标 tab；省略 = 本会话 tab" }
+      }
+    }
+  },
+  {
     name: "askUser",
     description:
       "向用户主动征询（不是执行操作）。当任务有多个候选、需要二次确认、或缺关键信息时调用。返回 {choice} 或 {value} 或 {cancelled:true}。仅在你确实卡住时才用——别用它做闲聊。",

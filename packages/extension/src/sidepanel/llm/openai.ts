@@ -191,10 +191,18 @@ function convertToOpenAiMessage(m: ChatMessage): unknown {
     > = [];
     for (const part of m.content) {
       if (part.type === "tool_result") {
+        // OpenAI tool messages take a plain text payload. Strip any image
+        // blocks inside (used by screenshot) — keep a placeholder so the
+        // model knows an image was attached but unavailable on this provider.
+        const content = Array.isArray(part.content)
+          ? part.content
+              .map((c) => (c.type === "image" ? "[image omitted — switch to Anthropic for vision]" : c.text))
+              .join("\n")
+          : part.content;
         out.push({
           role: "tool",
           tool_call_id: part.tool_use_id,
-          content: part.content
+          content
         });
       } else if (part.type === "text") {
         userParts.push({ type: "text", text: part.text });

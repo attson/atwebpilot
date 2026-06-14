@@ -68,6 +68,8 @@ import {
 
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "@/sidepanel/rpc";
 import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
+import { useExternalReplay } from "@/sidepanel/hooks/use-external-replay";
+import { ExternalReplayModal } from "@/sidepanel/components/external-replay-modal";
 import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
@@ -100,6 +102,25 @@ export function AppShell() {
   const approver = getGlobalApprover();
 
   useHeartbeat();
+  const externalReplay = useExternalReplay();
+
+  // Element-capture result handler: content script → runtime msg → sidepanel inserts selector
+  useEffect(() => {
+    function onMsg(msg: unknown) {
+      if (!msg || typeof msg !== "object") return;
+      const m = msg as { type?: string; selector?: string };
+      if (m.type === "atwebpilot.captureResult" && typeof m.selector === "string") {
+        const insertion = `[${m.selector}] `;
+        setInput((cur) => {
+          const next = cur + insertion;
+          session.setInputDraft(next);
+          return next;
+        });
+      }
+    }
+    chrome.runtime.onMessage.addListener(onMsg);
+    return () => chrome.runtime.onMessage.removeListener(onMsg);
+  }, [session]);
 
   usePendingPrompt({
     onFill: (t) => {
@@ -424,6 +445,19 @@ export function AppShell() {
             });
             return result as unknown as Json;
           },
+          screenshot: async (raw) => {
+            const inp = (raw as { tabId?: number }) ?? {};
+            const targetTab = await chrome.tabs.get(inp.tabId ?? tabId);
+            const dataUrl = await chrome.tabs.captureVisibleTab(targetTab.windowId, {
+              format: "png",
+            });
+            const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+            return {
+              media_type: "image/png",
+              data: base64,
+              byteLen: Math.floor((base64.length * 3) / 4),
+            };
+          },
           abortSignal: ac.signal,
           onEvent,
           getAttachedTabIds,
@@ -617,6 +651,14 @@ export function AppShell() {
         stagedImages={stagedImages}
         onImageFiles={onImageFiles}
         onRemoveImage={onRemoveImage}
+        onStartCapture={async () => {
+          if (currentTabId == null) return;
+          try {
+            await chrome.tabs.sendMessage(currentTabId, { type: "atwebpilot.startCapture" });
+          } catch (e) {
+            session.setError(`无法在当前 tab 启动元素选择：${e instanceof Error ? e.message : String(e)}`);
+          }
+        }}
       />
 
       <HistoryDrawer currentUrl={session.url} />
@@ -625,6 +667,18 @@ export function AppShell() {
       <DebugDrawer />
 
       <InterventionOverlay />
+
+      {externalReplay.replay && (
+        <ExternalReplayModal
+          replay={externalReplay.replay}
+          onAccept={(r) => {
+            externalReplay.clear();
+            setInput(r.prompt);
+            session.setInputDraft(r.prompt);
+          }}
+          onReject={externalReplay.clear}
+        />
+      )}
 
       {pickerOpen && currentTabId != null && (
         <TabPicker
