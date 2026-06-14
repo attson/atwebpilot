@@ -6,17 +6,70 @@ function tab(tabId: number, url: string, source: AttachedTab["source"] = "mentio
   return { tabId, windowId: 1, source, lastSeenUrl: url, lastSeenTitle: "t", addedAt: 0 };
 }
 
-describe("buildSystemPrompt cross-tab", () => {
+describe("buildSystemPrompt — language detection", () => {
+  it("zh by default + Chinese trigger", () => {
+    const p = buildSystemPrompt({ url: "https://x", lastUserText: "翻译这页" });
+    expect(p).toMatch(/你是 AtWebPilot/);
+    expect(p).toMatch(/ReAct/);
+    expect(p).toMatch(/TODO/);
+  });
+
+  it("English when user wrote English", () => {
+    const p = buildSystemPrompt({ url: "https://x", lastUserText: "Translate this page" });
+    expect(p).toMatch(/You are AtWebPilot/);
+    expect(p).toMatch(/THINK → ACT/);
+  });
+});
+
+describe("buildSystemPrompt — required sections", () => {
+  it("contains ReAct framework block", () => {
+    const p = buildSystemPrompt({ url: "https://x" });
+    expect(p).toMatch(/THINK → ACT → OBSERVE → REASON/);
+  });
+
+  it("contains tool_call format requirement", () => {
+    const p = buildSystemPrompt({ url: "https://x" });
+    expect(p).toMatch(/tool_calls 格式/);
+  });
+
+  it("contains 跨 tab 协议 section header", () => {
+    const p = buildSystemPrompt({ url: "https://x" });
+    expect(p).toMatch(/跨 tab 协议|Cross-tab protocol/);
+  });
+
+  it("contains worked examples", () => {
+    const p = buildSystemPrompt({ url: "https://x" });
+    expect(p).toMatch(/示例 1|Example 1/);
+  });
+});
+
+describe("buildSystemPrompt — context", () => {
+  it("includes URL + title in current context", () => {
+    const p = buildSystemPrompt({ url: "https://example.com/x", title: "Example Title" });
+    expect(p).toContain("https://example.com/x");
+    expect(p).toContain("Example Title");
+  });
+
+  it("lists saved tools matching the URL", () => {
+    const p = buildSystemPrompt({
+      url: "https://example.com",
+      savedTools: [{ name: "pdd-collect", description: "采前 50 条", version: 3 }],
+    });
+    expect(p).toContain("pdd-collect");
+    expect(p).toContain("v3");
+  });
+});
+
+describe("buildSystemPrompt — attached tabs", () => {
   it("omits attached section when none", () => {
     const out = buildSystemPrompt({ url: "https://main", attachedTabs: [] });
     expect(out).not.toContain("[Attached tabs]");
-    expect(out).toContain("[Cross-tab protocol]");
   });
 
   it("lists attached tabs with id, url, source", () => {
     const out = buildSystemPrompt({
       url: "https://main",
-      attachedTabs: [tab(167, "https://taobao", "mention"), tab(189, "https://tmall", "ai-open")]
+      attachedTabs: [tab(167, "https://taobao", "mention"), tab(189, "https://tmall", "ai-open")],
     });
     expect(out).toContain("[Attached tabs]");
     expect(out).toContain("#167");

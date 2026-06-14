@@ -1,0 +1,86 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildMetaTools } from "@/sidepanel/lib/meta-tools";
+
+afterEach(() => {
+  delete (globalThis as { chrome?: unknown }).chrome;
+});
+
+function setChrome(stub: unknown) {
+  (globalThis as { chrome?: unknown }).chrome = stub;
+}
+
+describe("buildMetaTools", () => {
+  it("exposes the 5 expected tools", () => {
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
+    expect(Object.keys(m).sort()).toEqual(
+      ["closeTab", "downloadImage", "searchBookmarks", "searchHistory", "switchToTab"].sort()
+    );
+  });
+
+  it("closeTab rejects when tab is not attached", async () => {
+    setChrome({ tabs: { remove: vi.fn() } });
+    const m = buildMetaTools({ attachedTabIds: () => [99], mainTabId: 1 });
+    await expect(m.closeTab({ tabId: 7 })).rejects.toThrow(/not in attachedTabs/);
+  });
+
+  it("closeTab calls chrome.tabs.remove when allowed", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    setChrome({ tabs: { remove } });
+    const m = buildMetaTools({ attachedTabIds: () => [7], mainTabId: 1 });
+    const out = await m.closeTab({ tabId: 7 });
+    expect(remove).toHaveBeenCalledWith(7);
+    expect(out).toEqual({ ok: true, tabId: 7 });
+  });
+
+  it("switchToTab accepts the main session tab too", async () => {
+    const update = vi.fn().mockResolvedValue({ url: "https://x", windowId: 1 });
+    setChrome({
+      tabs: { update },
+      windows: { update: vi.fn().mockResolvedValue(undefined) }
+    });
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 5 });
+    const out = await m.switchToTab({ tabId: 5 });
+    expect(update).toHaveBeenCalledWith(5, { active: true });
+    expect((out as { ok: boolean }).ok).toBe(true);
+  });
+
+  it("searchBookmarks rejects empty query", async () => {
+    setChrome({ bookmarks: { search: vi.fn() } });
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
+    await expect(m.searchBookmarks({ query: "" })).rejects.toThrow(/query required/);
+  });
+
+  it("searchBookmarks filters folder nodes and respects limit", async () => {
+    const search = vi.fn().mockResolvedValue([
+      { id: "1", title: "a", url: "https://a.com" },
+      { id: "2", title: "folder" }, // no url
+      { id: "3", title: "b", url: "https://b.com" },
+      { id: "4", title: "c", url: "https://c.com" },
+    ]);
+    setChrome({ bookmarks: { search } });
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
+    const out = (await m.searchBookmarks({ query: "x", limit: 2 })) as unknown[];
+    expect(out).toHaveLength(2);
+    expect(search).toHaveBeenCalledWith("x");
+  });
+
+  it("downloadImage requires url + uses chrome.downloads", async () => {
+    const download = vi.fn().mockResolvedValue(42);
+    setChrome({ downloads: { download } });
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
+    const out = await m.downloadImage({ url: "https://x/y.png", filename: "y.png" });
+    expect(download).toHaveBeenCalledWith({ url: "https://x/y.png", filename: "y.png", saveAs: false });
+    expect(out).toEqual({ downloadId: 42, filename: "y.png" });
+  });
+
+  it("searchHistory passes daysBack into startTime", async () => {
+    const search = vi.fn().mockResolvedValue([]);
+    setChrome({ history: { search } });
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
+    await m.searchHistory({ query: "github", daysBack: 14 });
+    const call = search.mock.calls[0][0] as { text: string; startTime: number; maxResults: number };
+    expect(call.text).toBe("github");
+    expect(call.startTime).toBeLessThan(Date.now());
+    expect(call.maxResults).toBe(50);
+  });
+});

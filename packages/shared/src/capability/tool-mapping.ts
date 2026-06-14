@@ -47,6 +47,25 @@ export function capabilityForTool(
     case "screenshot":
       // Visual read of the rendered tab; no DOM mutation. Treat as image read.
       return "read:image";
+    // Round 5 — meta / UI helpers
+    case "closeTab":
+    case "switchToTab":
+      return "tab:open";
+    case "searchBookmarks":
+    case "searchHistory":
+      return "read:dom";
+    case "downloadImage":
+      return "submit:form"; // writes to user's disk — treat as side-effect
+    case "takeSnapshot":
+      return "read:dom";
+    case "clickByUid":
+      return "interact:form";
+    case "fillByUid":
+    case "fillForm":
+      return "interact:form";
+    case "highlightElement":
+    case "highlightText":
+      return "read:dom"; // visual-only overlay
     default: {
       const _exhaustive: never = tool;
       throw new Error(`capabilityForTool: unknown tool ${_exhaustive}`);

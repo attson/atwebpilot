@@ -1,11 +1,15 @@
 import type { BuiltinTool, Json } from "@atwebpilot/shared/types";
 import { click } from "./click";
+import { clickByUid } from "./click-by-uid";
 import { extractFormState } from "./extract-form-state";
 import { extractImages } from "./extract-images";
 import { extractText } from "./extract-text";
+import { fillByUid } from "./fill-by-uid";
+import { fillForm } from "./fill-form";
 import { fillInput } from "./fill-input";
 import { focus } from "./focus";
 import { getValue } from "./get-value";
+import { highlightElement, highlightText } from "./highlight";
 import { hover } from "./hover";
 import { httpRequestBridge } from "./http-request";
 import { querySelector, querySelectorAll } from "./query";
@@ -15,6 +19,7 @@ import { selectOption } from "./select-option";
 import { setCheckbox } from "./set-checkbox";
 import { snapshotDOM } from "./snapshot-dom";
 import { submitForm } from "./submit-form";
+import { takeSnapshot } from "./take-snapshot";
 import { uploadFile } from "./upload-file";
 import { waitFor } from "./wait-for";
 
@@ -39,7 +44,14 @@ export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
   focus,
   uploadFile,
   getValue,
-  extractFormState
+  extractFormState,
+  // Round 5 — UID-based + visual + batch
+  takeSnapshot,
+  clickByUid,
+  fillByUid,
+  highlightElement,
+  highlightText,
+  fillForm
 };
 
 export async function callTool(name: BuiltinTool, args: Json): Promise<Json> {

@@ -19,7 +19,15 @@ const SAFE = new Set([
   "extractFormState",
   "detachTab",
   "askUser",
-  "screenshot"
+  "screenshot",
+  // Round 5 — meta + visual
+  "searchBookmarks",
+  "searchHistory",
+  "switchToTab",
+  "closeTab",
+  "takeSnapshot",
+  "highlightElement",
+  "highlightText"
 ]);
 
 const CAUTION = new Set([
@@ -29,7 +37,12 @@ const CAUTION = new Set([
   "selectOption",
   "listTabs",
   "openTab",
-  "attachTab"
+  "attachTab",
+  // Round 5 — write actions
+  "clickByUid",
+  "fillByUid",
+  "fillForm",
+  "downloadImage"
 ]);
 
 const DANGEROUS_FIXED = new Set([
