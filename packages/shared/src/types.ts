@@ -176,6 +176,8 @@ export type LlmSettings = {
   trustedDangerTools: string[];
   /** 新会话启动时使用的默认权限模式。 */
   defaultPermissionMode: "read" | "default" | "trust" | "yolo";
+  /** UI 主题（light / dark / system）。 */
+  theme: "light" | "dark" | "system";
   /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
   maxTokens?: number;
   /**

@@ -140,6 +140,7 @@ export class CoordinatorChatHost {
           maxRounds: msg.settings_override?.maxRounds ?? 20,
           trustedDangerTools: [],
           defaultPermissionMode: "default",
+          theme: "dark",
           maxContinuationNudges: msg.settings_override?.maxContinuationNudges ?? 1
         },
         systemPrompt: await this.loadSystem(),

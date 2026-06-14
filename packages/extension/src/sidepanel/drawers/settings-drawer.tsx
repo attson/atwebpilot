@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSettings } from "@/sidepanel/chat/settings-store";
 import { useUi } from "@/sidepanel/chat/ui-store";
 import { Drawer } from "@/sidepanel/shell/drawer";
+import { SectionAppearance } from "./settings/section-appearance";
 import { SectionLlm } from "./settings/section-llm";
 import { SectionPermissions } from "./settings/section-permissions";
 import { SectionMounting } from "./settings/section-mounting";
@@ -21,6 +22,7 @@ export function SettingsDrawer() {
   return (
     <Drawer open={open} title="设置" onClose={close}>
       <div className="p-3 flex flex-col gap-3">
+        <SectionAppearance />
         <SectionLlm />
         <SectionPermissions />
         <SectionMounting />
