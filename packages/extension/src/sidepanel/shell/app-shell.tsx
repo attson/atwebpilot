@@ -101,6 +101,24 @@ export function AppShell() {
 
   useHeartbeat();
 
+  // Element-capture result handler: content script → runtime msg → sidepanel inserts selector
+  useEffect(() => {
+    function onMsg(msg: unknown) {
+      if (!msg || typeof msg !== "object") return;
+      const m = msg as { type?: string; selector?: string };
+      if (m.type === "atwebpilot.captureResult" && typeof m.selector === "string") {
+        const insertion = `[${m.selector}] `;
+        setInput((cur) => {
+          const next = cur + insertion;
+          session.setInputDraft(next);
+          return next;
+        });
+      }
+    }
+    chrome.runtime.onMessage.addListener(onMsg);
+    return () => chrome.runtime.onMessage.removeListener(onMsg);
+  }, [session]);
+
   usePendingPrompt({
     onFill: (t) => {
       setInput(t);
@@ -630,6 +648,14 @@ export function AppShell() {
         stagedImages={stagedImages}
         onImageFiles={onImageFiles}
         onRemoveImage={onRemoveImage}
+        onStartCapture={async () => {
+          if (currentTabId == null) return;
+          try {
+            await chrome.tabs.sendMessage(currentTabId, { type: "atwebpilot.startCapture" });
+          } catch (e) {
+            session.setError(`无法在当前 tab 启动元素选择：${e instanceof Error ? e.message : String(e)}`);
+          }
+        }}
       />
 
       <HistoryDrawer currentUrl={session.url} />
