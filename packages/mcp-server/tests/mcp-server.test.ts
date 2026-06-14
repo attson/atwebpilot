@@ -19,10 +19,11 @@ function deps() {
 }
 
 describe("buildToolList", () => {
-  it("lists 4 control + 19 browser tools, each with inputSchema", () => {
+  it("lists skill bundle + 4 control + 19 browser tools, each with inputSchema", () => {
     const tools = buildToolList();
-    expect(tools.length).toBe(23);
+    expect(tools.length).toBe(24);
     const names = tools.map((t) => t.name);
+    expect(names).toContain("atwebpilot_skill_read");
     expect(names).toContain("list_tabs");
     expect(names).toContain("open_session");
     expect(names).toContain("browser_click");

@@ -6,6 +6,7 @@ import { generateBrowserTools, type GeneratedTool } from "./tool-gen";
 import {
   handleListTabs, handleOpenSession, handleCloseSession, handleGetQuota, handleBrowserTool, type Deps
 } from "./handlers";
+import { readSkillBundle, SKILL_TOOL } from "./skill-bundle";
 
 export type ToolListEntry = { name: string; description: string; inputSchema: JsonSchema };
 export type CallResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -15,6 +16,7 @@ const BROWSER_BY_NAME = new Map(BROWSER_TOOLS.map((t) => [t.name, t]));
 
 export function buildToolList(): ToolListEntry[] {
   return [
+    { name: SKILL_TOOL.name, description: SKILL_TOOL.description, inputSchema: SKILL_TOOL.inputSchema as JsonSchema },
     ...CONTROL_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     ...BROWSER_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema as JsonSchema }))
   ];
@@ -25,6 +27,10 @@ const fail = (message: string): CallResult => ({ content: [{ type: "text", text:
 
 export async function dispatchCall(deps: Deps, name: string, args: Record<string, unknown>): Promise<CallResult> {
   try {
+    if (name === SKILL_TOOL.name) {
+      const bundle = readSkillBundle();
+      return { content: [{ type: "text", text: bundle.content }] };
+    }
     if (name === "list_tabs") return ok(handleListTabs(deps));
     if (name === "open_session") return ok(handleOpenSession(deps, args));
     if (name === "close_session") return ok(handleCloseSession(deps, args));
