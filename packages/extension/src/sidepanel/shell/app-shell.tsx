@@ -424,6 +424,19 @@ export function AppShell() {
             });
             return result as unknown as Json;
           },
+          screenshot: async (raw) => {
+            const inp = (raw as { tabId?: number }) ?? {};
+            const targetTab = await chrome.tabs.get(inp.tabId ?? tabId);
+            const dataUrl = await chrome.tabs.captureVisibleTab(targetTab.windowId, {
+              format: "png",
+            });
+            const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+            return {
+              media_type: "image/png",
+              data: base64,
+              byteLen: Math.floor((base64.length * 3) / 4),
+            };
+          },
           abortSignal: ac.signal,
           onEvent,
           getAttachedTabIds,
