@@ -45,6 +45,6 @@ describe("fillForm", () => {
   });
 
   it("rejects when fields is not an array", async () => {
-    await expect(fillForm({} as unknown as { fields: unknown })).rejects.toThrow(/fields array/);
+    await expect(fillForm({})).rejects.toThrow(/fields array/);
   });
 });
