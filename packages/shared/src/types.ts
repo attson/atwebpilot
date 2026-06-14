@@ -30,10 +30,38 @@ export type BuiltinTool =
   | "getValue"
   | "extractFormState"
   | "askUser"
-  | "screenshot";
+  | "screenshot"
+  // Round 5 Tier 3 — control-plane helpers
+  | "closeTab"
+  | "switchToTab"
+  | "searchBookmarks"
+  | "searchHistory"
+  | "downloadImage"
+  // Round 5 Tier 4 — UID-based + visual + batch
+  | "takeSnapshot"
+  | "clickByUid"
+  | "fillByUid"
+  | "highlightElement"
+  | "highlightText"
+  | "fillForm";
 
-/** BuiltinTool minus sidepanel-only tools (askUser / screenshot) that can't be replayed offline. */
-export type ReplayableTool = Exclude<BuiltinTool, "askUser" | "screenshot">;
+/** BuiltinTool minus tools that can't be replayed offline:
+ *  - askUser / screenshot — sidepanel-only
+ *  - takeSnapshot / clickByUid / fillByUid — depend on live snapshot UIDs
+ *  - highlightElement / highlightText — purely visual feedback
+ *  - searchBookmarks / searchHistory — query-time meta lookups */
+export type ReplayableTool = Exclude<
+  BuiltinTool,
+  | "askUser"
+  | "screenshot"
+  | "takeSnapshot"
+  | "clickByUid"
+  | "fillByUid"
+  | "highlightElement"
+  | "highlightText"
+  | "searchBookmarks"
+  | "searchHistory"
+>;
 
 export type Step =
   | { kind: "tool"; tool: ReplayableTool; args: Json; bindResultTo?: string; timeoutMs?: number }

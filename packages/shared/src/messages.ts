@@ -22,7 +22,12 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "focus",
       "uploadFile",
       "getValue",
-      "extractFormState"
+      "extractFormState",
+      // Round 5 replayables
+      "closeTab",
+      "switchToTab",
+      "downloadImage",
+      "fillForm"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),
