@@ -15,6 +15,10 @@ type Props = {
   ) => void;
   needsApproval: (card: StepCardState) => boolean;
   isLive: boolean;                 // 是否当前流式中（影响默认折叠）
+  /** True if this is the final assistant message and the session is idle.
+   *  Enables the "复制 / 重生成" per-message actions row. */
+  isLastIdle?: boolean;
+  onRegenerate?: () => void;
 };
 
 export function AssistantBubble({
@@ -24,7 +28,9 @@ export function AssistantBubble({
   cardsById,
   onApprove,
   needsApproval,
-  isLive
+  isLive,
+  isLastIdle,
+  onRegenerate
 }: Props) {
   const allCards: StepCardState[] = [];
   for (const tu of toolUses) {
@@ -83,6 +89,35 @@ export function AssistantBubble({
         </div>
       )}
       {text && <div className="whitespace-pre-wrap">{text}</div>}
+      {!isLive && (text || allCards.length > 0) && (
+        <div
+          data-testid="message-actions"
+          className="self-end flex gap-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity"
+        >
+          {text && (
+            <button
+              type="button"
+              aria-label="复制"
+              className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
+              onClick={() => {
+                navigator.clipboard?.writeText(text).catch(() => undefined);
+              }}
+            >
+              复制
+            </button>
+          )}
+          {isLastIdle && onRegenerate && (
+            <button
+              type="button"
+              aria-label="重生成"
+              className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
+              onClick={onRegenerate}
+            >
+              重生成
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import type { BuiltinTool, Json, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
 
 import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
@@ -9,6 +9,7 @@ import {
   detachTab,
   ensureSession,
   getSessionFor,
+  popLastAssistantTurn,
   setCurrentTab,
   setPermissionMode,
   setDebugBadge,
@@ -35,12 +36,14 @@ import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
 
 import { Header } from "./header";
 import { TabIdentityBar } from "./tab-identity-bar";
+import { UpdateBanner } from "./update-banner";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-suggestions";
 import { SaveAsToolCard } from "@/sidepanel/chat/save-as-tool-card";
 import { SystemBubble } from "@/sidepanel/chat/system-bubble";
 import { InputToolbar } from "@/sidepanel/input/input-toolbar";
-import type { MentionTabOption } from "@/sidepanel/input/mention-picker";
+import type { MentionTabOption, MentionToolOption } from "@/sidepanel/input/mention-picker";
+import { matchesAny } from "@atwebpilot/shared/url-pattern";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
@@ -48,8 +51,17 @@ import { SettingsDrawer } from "@/sidepanel/drawers/settings-drawer";
 import { DebugDrawer } from "@/sidepanel/drawers/debug-drawer";
 import { SaveAsToolDialog } from "@/sidepanel/components/save-as-tool-dialog";
 import { TabPicker } from "@/sidepanel/components/tab-picker";
+import { InterventionOverlay } from "@/sidepanel/components/intervention-overlay";
+import {
+  useIntervention,
+  type AskUserKind,
+  type AskUserOption,
+  type AskUserResult,
+} from "@/sidepanel/chat/intervention-store";
 
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "@/sidepanel/rpc";
+import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
+import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
   return tools.map((t) => ({
@@ -74,8 +86,23 @@ export function AppShell() {
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
+  const [allTools, setAllTools] = useState<Tool[]>([]);
   const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
   const approver = getGlobalApprover();
+
+  useHeartbeat();
+
+  usePendingPrompt({
+    onFill: (t) => {
+      setInput(t);
+      session.setInputDraft(t);
+    },
+    onAutoSend: (t) => {
+      setInput(t);
+      session.setInputDraft(t);
+      void send(t);
+    },
+  });
 
   // Sync input when tab changes
   useEffect(() => {
@@ -149,6 +176,20 @@ export function AppShell() {
       })
       .catch(() => setPickableTabs([]));
   }, [currentTabId, session.attachedTabs]);
+
+  // All tools for the @ picker — refresh when the drawer might have changed them.
+  useEffect(() => {
+    rpc.listTools().then(setAllTools).catch(() => setAllTools([]));
+  }, [ui.openedDrawer]);
+
+  const pickableTools: MentionToolOption[] = useMemo(() => {
+    return allTools.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description ?? undefined,
+      matchesCurrentUrl: matchesAny(session.url, t.urlPatterns),
+    }));
+  }, [allTools, session.url]);
 
   // Recoverable session for current URL
   useEffect(() => {
@@ -235,7 +276,7 @@ export function AppShell() {
         if (card.name === "runJS") {
           return { kind: "js", source: (card.input as { source: string }).source };
         }
-        return { kind: "tool", tool: card.name as BuiltinTool, args: card.input };
+        return { kind: "tool", tool: card.name as ReplayableTool, args: card.input };
       }
 
       const onEvent = (e: SessionEvent) => {
@@ -353,6 +394,16 @@ export function AppShell() {
           }),
           tools: TOOL_DEFS,
           permissionMode: session.permissionMode,
+          askUser: async (raw) => {
+            const inp = (raw as { prompt?: string; kind?: AskUserKind; options?: AskUserOption[] }) ?? {};
+            const result: AskUserResult = await useIntervention.getState().ask({
+              id: `ask-${Date.now()}`,
+              prompt: inp.prompt ?? "",
+              kind: (inp.kind ?? "confirm") as AskUserKind,
+              options: inp.options,
+            });
+            return result as unknown as Json;
+          },
           abortSignal: ac.signal,
           onEvent,
           getAttachedTabIds,
@@ -430,6 +481,7 @@ export function AppShell() {
   return (
     <div className="h-full flex flex-col relative bg-zinc-950">
       <Header debugBadge={session.debugBadge} onNewChat={onNewChat} />
+      <UpdateBanner />
       {currentTabId != null && (
         <TabIdentityBar
           tabId={currentTabId}
@@ -449,7 +501,14 @@ export function AppShell() {
           />
         ) : (
           <>
-            <ChatView onApprove={handleApprove} />
+            <ChatView
+              onApprove={handleApprove}
+              onRegenerate={() => {
+                if (currentTabId == null) return;
+                const last = popLastAssistantTurn(currentTabId);
+                if (last) void send(last);
+              }}
+            />
             {session.errorMessage && (
               <SystemBubble kind="error" onClick={() => ui.open("debug")}>
                 {session.errorMessage}
@@ -476,6 +535,13 @@ export function AppShell() {
         currentTabUrl={session.url}
         attachedTabs={session.attachedTabs}
         pickableTabs={pickableTabs}
+        pickableTools={pickableTools}
+        onMentionTool={(opt: MentionToolOption) => {
+          const insertion = `@tool:${opt.name} `;
+          const next = (input.endsWith("@") ? input.slice(0, -1) : input) + insertion;
+          setInput(next);
+          session.setInputDraft(next);
+        }}
         onAttachTab={(opt: MentionTabOption) => {
           if (currentTabId == null) return;
           attachTab(currentTabId, {
@@ -508,6 +574,8 @@ export function AppShell() {
       <ToolsDrawer />
       <SettingsDrawer />
       <DebugDrawer />
+
+      <InterventionOverlay />
 
       {pickerOpen && currentTabId != null && (
         <TabPicker

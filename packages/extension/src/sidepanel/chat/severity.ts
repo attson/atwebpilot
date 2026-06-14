@@ -17,7 +17,8 @@ const SAFE = new Set([
   "focus",
   "getValue",
   "extractFormState",
-  "detachTab"
+  "detachTab",
+  "askUser"
 ]);
 
 const CAUTION = new Set([

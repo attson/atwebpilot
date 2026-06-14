@@ -352,6 +352,61 @@ export function resetSession(tabId: number): void {
   patchSession(tabId, (s) => ({ ...makeEmptySession(tabId, s.url) }));
 }
 
+/**
+ * Strip the last assistant turn (assistant message + its cards + any trailing
+ * tool_result user messages) and return the user prompt that triggered it.
+ * The caller is responsible for re-sending the returned prompt.
+ */
+export function popLastAssistantTurn(tabId: number): string | null {
+  let lastUserPrompt: string | null = null;
+  useStore.setState((state) => {
+    const cur = state.sessionsByTab[tabId];
+    if (!cur) return state;
+    const msgs = cur.messages.slice();
+    // Drop trailing tool_result user-role messages
+    while (msgs.length > 0) {
+      const last = msgs[msgs.length - 1];
+      if (last.role === "user" && Array.isArray(last.content)) {
+        msgs.pop();
+        continue;
+      }
+      break;
+    }
+    // Drop the trailing assistant message
+    while (msgs.length > 0) {
+      const last = msgs[msgs.length - 1];
+      if (last.role === "assistant") {
+        const toolUseIds = new Set<string>();
+        for (const c of last.content) if (c.type === "tool_use") toolUseIds.add(c.id);
+        msgs.pop();
+        // Strip the cards from that turn
+        cur.cards = cur.cards.filter((c) => !toolUseIds.has(c.toolUseId));
+        continue;
+      }
+      break;
+    }
+    // Find the last user text prompt (now at the tail) and pluck it
+    while (msgs.length > 0) {
+      const last = msgs[msgs.length - 1];
+      if (last.role === "user" && typeof last.content === "string") {
+        lastUserPrompt = last.content;
+        msgs.pop();
+        break;
+      }
+      // Skip non-text user entries (defensive)
+      msgs.pop();
+    }
+    return {
+      ...state,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        [tabId]: { ...cur, messages: msgs }
+      }
+    };
+  });
+  return lastUserPrompt;
+}
+
 // === persistence-aware session ops ===
 
 /**

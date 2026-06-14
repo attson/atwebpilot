@@ -1,5 +1,5 @@
 import type {
-  BuiltinTool,
+  ReplayableTool,
   ChatMessage,
   Json,
   LlmSettings,
@@ -72,6 +72,7 @@ export type RunSessionArgs = {
   systemPrompt: string;
   tools: LlmTool[];
   permissionMode: PermissionMode;
+  askUser?: (input: unknown) => Promise<unknown>;
   abortSignal?: AbortSignal;
   onEvent?: (e: SessionEvent) => void;
   initialMessages?: ChatMessage[];
@@ -268,6 +269,41 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
 
       args.onEvent?.({ type: "tool_running", id: tu.id });
 
+      if (tu.name === "askUser") {
+        const start = Date.now();
+        try {
+          if (!args.askUser) throw new Error("askUser: handler not provided");
+          const out = (await args.askUser(tu.input)) as unknown as Json;
+          const ms = Date.now() - start;
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: out,
+            ms
+          });
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
+          lastOutput = out;
+          args.onEvent?.({ type: "tool_done", id: tu.id, output: out, ms });
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: null,
+            error: errMsg,
+            ms: Date.now() - start
+          });
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: JSON.stringify({ error: errMsg }),
+            is_error: true
+          });
+          args.onEvent?.({ type: "tool_error", id: tu.id, error: errMsg, ms: Date.now() - start });
+        }
+        continue;
+      }
+
       if (
         tu.name === "listTabs" ||
         tu.name === "openTab" ||
@@ -352,7 +388,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
       const step: Step =
         tu.name === "runJS"
           ? { kind: "js", source: (tu.input as { source: string }).source }
-          : { kind: "tool", tool: tu.name as BuiltinTool, args: tu.input };
+          : { kind: "tool", tool: tu.name as ReplayableTool, args: tu.input };
 
       const start = Date.now();
       try {

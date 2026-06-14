@@ -13,7 +13,7 @@ export default defineManifest({
   action: { default_title: "AtWebPilot" },
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
-  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation"],
+  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation", "contextMenus"],
   host_permissions: [
     "*://*.yangkeduo.com/*",
     "*://*.pinduoduo.com/*",
@@ -24,7 +24,7 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ["<all_urls>"],
-      js: ["src/content/index.ts"],
+      js: ["src/content/index.ts", "src/content/breathing-border.ts"],
       run_at: "document_idle"
     }
   ],
