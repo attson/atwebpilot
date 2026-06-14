@@ -1,4 +1,27 @@
-import type { ChatMessage, Json } from "@atwebpilot/shared/types";
+import type { ChatMessage, ImagePart, Json, TextPart, ToolResultPart } from "@atwebpilot/shared/types";
+
+/**
+ * Anthropic accepts `image` content blocks natively. Other content parts
+ * pass through unchanged.
+ */
+function toAnthropicPart(p: TextPart | ImagePart | ToolResultPart): unknown {
+  if (p.type === "image") {
+    return {
+      type: "image",
+      source: { type: "base64", media_type: p.media_type, data: p.data }
+    };
+  }
+  return p;
+}
+
+function toAnthropicMessage(m: ChatMessage): unknown {
+  if (m.role === "user" && Array.isArray(m.content)) {
+    return { role: "user", content: m.content.map(toAnthropicPart) };
+  }
+  return m;
+}
+
+export { toAnthropicMessage };
 import { formatLlmHttpError } from "./http-error";
 import type { LlmClient, LlmStreamEvent, LlmTool } from "./types";
 
@@ -131,7 +154,7 @@ export const anthropicClient: LlmClient = {
       model: input.model,
       max_tokens: input.maxTokens ?? 4096,
       system: input.system,
-      messages: input.messages as ChatMessage[],
+      messages: input.messages.map(toAnthropicMessage),
       tools: input.tools.map((t: LlmTool) => ({
         name: t.name,
         description: t.description,

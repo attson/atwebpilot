@@ -141,6 +141,14 @@ export type ExportBundle = {
 // === Plan 2 additions ===
 
 export type TextPart = { type: "text"; text: string };
+
+/** Inline image attached to a user message (multimodal input). `data` is
+ *  base64-encoded bytes WITHOUT a `data:` prefix. */
+export type ImagePart = {
+  type: "image";
+  media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  data: string;
+};
 export type ToolUsePart = { type: "tool_use"; id: string; name: string; input: Json };
 export type ToolResultPart = {
   type: "tool_result";
@@ -150,7 +158,7 @@ export type ToolResultPart = {
 };
 
 export type ChatMessage =
-  | { role: "user"; content: string | Array<TextPart | ToolResultPart> }
+  | { role: "user"; content: string | Array<TextPart | ImagePart | ToolResultPart> }
   | { role: "assistant"; content: Array<TextPart | ToolUsePart> };
 
 export type Severity = "info" | "caution" | "dangerous";
@@ -176,6 +184,8 @@ export type LlmSettings = {
   trustedDangerTools: string[];
   /** 新会话启动时使用的默认权限模式。 */
   defaultPermissionMode: "read" | "default" | "trust" | "yolo";
+  /** UI 主题（light / dark / system）。 */
+  theme: "light" | "dark" | "system";
   /** 单次 LLM 响应的 max_tokens；留空 = 用 provider 默认（4096） */
   maxTokens?: number;
   /**

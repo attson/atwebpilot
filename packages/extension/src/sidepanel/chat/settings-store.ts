@@ -12,6 +12,7 @@ const DEFAULTS: LlmSettings = {
   maxRounds: 20,
   trustedDangerTools: [],
   defaultPermissionMode: "default",
+  theme: "dark",
   maxContinuationNudges: 1
 };
 

@@ -60,7 +60,7 @@ describe("SaveAsToolDialog", () => {
             apiKey: "sk-test",
             apiKeyMode: "session",
             maxRounds: 10,
-            trustedDangerTools: [], defaultPermissionMode: "default",
+            trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark",
           }}
           onClose={() => undefined}
           onSaved={() => undefined}

@@ -1,4 +1,10 @@
-import type { ChatMessage, TextPart, ToolResultPart, ToolUsePart } from "@atwebpilot/shared/types";
+import type {
+  ChatMessage,
+  ImagePart,
+  TextPart,
+  ToolResultPart,
+  ToolUsePart,
+} from "@atwebpilot/shared/types";
 
 export function truncateContent(s: string, cap: number): string {
   if (s.length <= cap) return s;
@@ -14,8 +20,9 @@ export function truncateMessages(messages: ChatMessage[], cap: number): ChatMess
       if (typeof m.content === "string") {
         return { role: "user", content: truncateContent(m.content, cap) };
       }
-      const content = m.content.map((part): TextPart | ToolResultPart => {
+      const content = m.content.map((part): TextPart | ImagePart | ToolResultPart => {
         if (part.type === "text") return { ...part, text: truncateContent(part.text, cap) };
+        if (part.type === "image") return part;
         return typeof part.content === "string"
           ? { ...part, content: truncateContent(part.content, cap) }
           : part;

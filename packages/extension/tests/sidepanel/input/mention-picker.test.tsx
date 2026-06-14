@@ -36,6 +36,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[t(1), t(2)]}
         tools={[]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={() => {}}
         onPickTool={() => {}}
         onClose={() => {}}
@@ -52,6 +54,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[t(5)]}
         tools={[]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={onPickTab}
         onPickTool={() => {}}
         onClose={() => {}}
@@ -69,6 +73,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[t(1), t(2)]}
         tools={[]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={onPickTab}
         onPickTool={() => {}}
         onClose={() => {}}
@@ -86,6 +92,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[t(1)]}
         tools={[tool("a"), tool("b")]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={() => {}}
         onPickTool={onPickTool}
         onClose={() => {}}
@@ -103,6 +111,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[]}
         tools={[tool("z"), tool("a", { matchesCurrentUrl: true })]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={() => {}}
         onPickTool={() => {}}
         onClose={() => {}}
@@ -121,6 +131,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[t(1)]}
         tools={[]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={() => {}}
         onPickTool={() => {}}
         onClose={onClose}
@@ -136,6 +148,8 @@ describe("MentionPicker (Tabs + Tools)", () => {
       <MentionPicker
         tabs={[]}
         tools={[]}
+        bookmarks={[]}
+        onPickBookmark={() => {}}
         onPickTab={() => {}}
         onPickTool={() => {}}
         onClose={() => {}}

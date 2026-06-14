@@ -1,9 +1,15 @@
-import { useState } from "react";
-import type { AttachedTab } from "@atwebpilot/shared/types";
+import { useRef, useState } from "react";
+import type { AttachedTab, ImagePart } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "../chat/severity";
+import { StagedImages } from "../components/staged-images";
 import { AboveInputTabs } from "./above-input-tabs";
 import { InputBox } from "./input-box";
-import { MentionPicker, type MentionTabOption, type MentionToolOption } from "./mention-picker";
+import {
+  MentionPicker,
+  type MentionTabOption,
+  type MentionToolOption,
+  type MentionBookmarkOption,
+} from "./mention-picker";
 import { PermissionModePill } from "./permission-mode-pill";
 
 export type InputStatus = "idle" | "streaming" | "awaiting" | "error";
@@ -20,8 +26,10 @@ type Props = {
   attachedTabs: AttachedTab[];
   pickableTabs: MentionTabOption[];
   pickableTools: MentionToolOption[];
+  pickableBookmarks: MentionBookmarkOption[];
   onAttachTab: (opt: MentionTabOption) => void;
   onMentionTool: (opt: MentionToolOption) => void;
+  onMentionBookmark: (opt: MentionBookmarkOption) => void;
   onDetachTab: (tabId: number) => void;
   onOpenTabPicker: () => void;
 
@@ -30,6 +38,11 @@ type Props = {
   onPermissionChange: (m: PermissionMode) => void;
   trustedDangerTools: string[];
   onTrustedChange: (next: string[]) => void;
+
+  // images
+  stagedImages: ImagePart[];
+  onImageFiles: (files: File[]) => void;
+  onRemoveImage: (idx: number) => void;
 
   // status meta
   status: InputStatus;
@@ -48,6 +61,7 @@ function formatTokens(n: number): string {
 export function InputToolbar(props: Props) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const tokenTotal = props.tokensIn + props.tokensOut;
+  const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="bg-zinc-950">
@@ -57,6 +71,7 @@ export function InputToolbar(props: Props) {
         onDetach={props.onDetachTab}
         onAddTab={props.onOpenTabPicker}
       />
+      <StagedImages images={props.stagedImages} onRemove={props.onRemoveImage} />
 
       <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-2 space-y-2 relative">
         <InputBox
@@ -64,6 +79,7 @@ export function InputToolbar(props: Props) {
           onChange={props.onChange}
           onSubmit={() => props.onSubmit(props.value)}
           onAtTrigger={() => setMentionOpen(true)}
+          onImageFiles={props.onImageFiles}
           disabled={props.status === "streaming"}
         />
 
@@ -83,10 +99,32 @@ export function InputToolbar(props: Props) {
             >
               @
             </button>
+            <button
+              type="button"
+              aria-label="加图片"
+              className="px-2 py-1 rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 text-[11px]"
+              onClick={() => fileRef.current?.click()}
+            >
+              📎
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              hidden
+              onChange={(e) => {
+                const list = e.target.files;
+                if (!list || list.length === 0) return;
+                props.onImageFiles(Array.from(list));
+                e.target.value = "";
+              }}
+            />
             {mentionOpen && (
               <MentionPicker
                 tabs={props.pickableTabs}
                 tools={props.pickableTools}
+                bookmarks={props.pickableBookmarks}
                 onPickTab={(opt) => {
                   setMentionOpen(false);
                   props.onAttachTab(opt);
@@ -94,6 +132,10 @@ export function InputToolbar(props: Props) {
                 onPickTool={(opt) => {
                   setMentionOpen(false);
                   props.onMentionTool(opt);
+                }}
+                onPickBookmark={(opt) => {
+                  setMentionOpen(false);
+                  props.onMentionBookmark(opt);
                 }}
                 onClose={() => setMentionOpen(false)}
               />

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AttachedTab, ChatMessage, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@atwebpilot/shared/types";
+import type { AttachedTab, ChatMessage, ImagePart, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "./severity";
 
 export const MAX_EXCHANGES = 60;
@@ -166,6 +166,17 @@ export function appendUserMessage(tabId: number, text: string): void {
     ...s,
     messages: [...s.messages, { role: "user", content: text }]
   }));
+}
+
+/** Like appendUserMessage but attaches images as a content array. */
+export function appendUserMessageWithImages(tabId: number, text: string, images: ImagePart[]): void {
+  if (images.length === 0) return appendUserMessage(tabId, text);
+  patchSession(tabId, (s) => {
+    const content: Array<{ type: "text"; text: string } | ImagePart> = [];
+    for (const img of images) content.push(img);
+    if (text) content.push({ type: "text", text });
+    return { ...s, messages: [...s.messages, { role: "user", content }] };
+  });
 }
 
 export function beginAssistantTurn(tabId: number): void {

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
+import type { ImagePart, Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
 
 import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
 import {
   addLlmExchange,
+  appendUserMessageWithImages,
   attachTab,
   detachTab,
   ensureSession,
@@ -42,8 +43,14 @@ import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-sug
 import { SaveAsToolCard } from "@/sidepanel/chat/save-as-tool-card";
 import { SystemBubble } from "@/sidepanel/chat/system-bubble";
 import { InputToolbar } from "@/sidepanel/input/input-toolbar";
-import type { MentionTabOption, MentionToolOption } from "@/sidepanel/input/mention-picker";
+import type {
+  MentionTabOption,
+  MentionToolOption,
+  MentionBookmarkOption,
+} from "@/sidepanel/input/mention-picker";
 import { matchesAny } from "@atwebpilot/shared/url-pattern";
+import { loadBookmarks } from "@/sidepanel/lib/bookmarks";
+import { fileToImagePart, MAX_IMAGES_PER_TURN } from "@/sidepanel/lib/image-utils";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
@@ -87,6 +94,8 @@ export function AppShell() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
   const [allTools, setAllTools] = useState<Tool[]>([]);
+  const [bookmarks, setBookmarks] = useState<MentionBookmarkOption[]>([]);
+  const [stagedImages, setStagedImages] = useState<ImagePart[]>([]);
   const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
   const approver = getGlobalApprover();
 
@@ -182,6 +191,11 @@ export function AppShell() {
     rpc.listTools().then(setAllTools).catch(() => setAllTools([]));
   }, [ui.openedDrawer]);
 
+  // Bookmarks for the @ picker — refresh once on mount; could be hot-reloaded later.
+  useEffect(() => {
+    void loadBookmarks().then(setBookmarks);
+  }, []);
+
   const pickableTools: MentionToolOption[] = useMemo(() => {
     return allTools.map((t) => ({
       id: t.id,
@@ -250,7 +264,13 @@ export function AppShell() {
       session.setError(null);
       session.setDebugBadge(null);
       session.setStatus("streaming");
-      session.appendUserMessage(prompt);
+      const imgsToSend = stagedImages;
+      if (imgsToSend.length > 0) {
+        appendUserMessageWithImages(tabId, prompt, imgsToSend);
+        setStagedImages([]);
+      } else {
+        session.appendUserMessage(prompt);
+      }
       session.appendLog(
         "info",
         "提交 prompt",
@@ -443,8 +463,27 @@ export function AppShell() {
         session.setAbortController(null);
       }
     },
-    [session, settings, recommendations, approver]
+    [session, settings, recommendations, approver, stagedImages]
   );
+
+  async function onImageFiles(files: File[]) {
+    for (const f of files) {
+      if (stagedImages.length >= MAX_IMAGES_PER_TURN) {
+        session.setError(`一次最多 ${MAX_IMAGES_PER_TURN} 张图片`);
+        return;
+      }
+      try {
+        const part = await fileToImagePart(f);
+        setStagedImages((prev) => [...prev, part]);
+      } catch (e) {
+        session.setError(e instanceof Error ? e.message : String(e));
+      }
+    }
+  }
+
+  function onRemoveImage(idx: number) {
+    setStagedImages((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function onNewChat() {
     const tabId = useStore.getState().currentTabId;
@@ -536,8 +575,15 @@ export function AppShell() {
         attachedTabs={session.attachedTabs}
         pickableTabs={pickableTabs}
         pickableTools={pickableTools}
+        pickableBookmarks={bookmarks}
         onMentionTool={(opt: MentionToolOption) => {
           const insertion = `@tool:${opt.name} `;
+          const next = (input.endsWith("@") ? input.slice(0, -1) : input) + insertion;
+          setInput(next);
+          session.setInputDraft(next);
+        }}
+        onMentionBookmark={(opt: MentionBookmarkOption) => {
+          const insertion = `@bookmark:${opt.title} (${opt.url}) `;
           const next = (input.endsWith("@") ? input.slice(0, -1) : input) + insertion;
           setInput(next);
           session.setInputDraft(next);
@@ -568,6 +614,9 @@ export function AppShell() {
         maxRounds={settings.maxRounds}
         tokensIn={session.tokenUsage.input}
         tokensOut={session.tokenUsage.output}
+        stagedImages={stagedImages}
+        onImageFiles={onImageFiles}
+        onRemoveImage={onRemoveImage}
       />
 
       <HistoryDrawer currentUrl={session.url} />

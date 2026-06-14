@@ -5,6 +5,9 @@ type Props = {
   onChange: (v: string) => void;
   onSubmit: () => void;
   onAtTrigger?: () => void;
+  /** Called when the user pastes, drops or picks image files. Caller is
+   *  responsible for size/type validation + staging. */
+  onImageFiles?: (files: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
 };
@@ -17,8 +20,32 @@ const MAX_PX = 200;
  * - Enter sends (`onSubmit`); Shift+Enter inserts a newline.
  * - Typing `@` calls `onAtTrigger` to surface the mention picker.
  */
-export function InputBox({ value, onChange, onSubmit, onAtTrigger, disabled, placeholder }: Props) {
+export function InputBox({
+  value,
+  onChange,
+  onSubmit,
+  onAtTrigger,
+  onImageFiles,
+  disabled,
+  placeholder,
+}: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  function imagesFromClipboard(items: DataTransferItemList | null): File[] {
+    const out: File[] = [];
+    if (!items) return out;
+    for (const it of Array.from(items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f && f.type.startsWith("image/")) out.push(f);
+      }
+    }
+    return out;
+  }
+  function imagesFromList(files: FileList | null): File[] {
+    if (!files) return [];
+    return Array.from(files).filter((f) => f.type.startsWith("image/"));
+  }
 
   useEffect(() => {
     const t = ref.current;
@@ -46,6 +73,25 @@ export function InputBox({ value, onChange, onSubmit, onAtTrigger, disabled, pla
         if (e.key === "Enter" && !e.shiftKey && !disabled) {
           e.preventDefault();
           if (value.trim()) onSubmit();
+        }
+      }}
+      onPaste={(e) => {
+        if (!onImageFiles) return;
+        const imgs = imagesFromClipboard(e.clipboardData?.items ?? null);
+        if (imgs.length > 0) {
+          e.preventDefault();
+          onImageFiles(imgs);
+        }
+      }}
+      onDragOver={(e) => {
+        if (onImageFiles) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!onImageFiles) return;
+        const imgs = imagesFromList(e.dataTransfer?.files ?? null);
+        if (imgs.length > 0) {
+          e.preventDefault();
+          onImageFiles(imgs);
         }
       }}
       className="w-full resize-none bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 text-[12px] placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-700 disabled:opacity-50"
