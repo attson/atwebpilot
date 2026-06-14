@@ -1,8 +1,11 @@
+/* CSS rule: all @import statements must come before any other rules,
+   otherwise PostCSS / browsers will silently drop them. The theme variables
+   that back the Tailwind zinc palette therefore have to load first. */
+@import "./theme.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import "./theme.css";
 
 html, body, #root { height: 100%; }
 body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
