@@ -432,6 +432,7 @@ export function AppShell() {
               version: t.versions.at(-1)?.version ?? 1,
             })),
             attachedTabs,
+            lastUserText: prompt,
           }),
           tools: TOOL_DEFS,
           permissionMode: session.permissionMode,
