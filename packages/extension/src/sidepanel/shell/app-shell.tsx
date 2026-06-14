@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BuiltinTool, Json, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
+import type { Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
 
 import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
@@ -51,6 +51,13 @@ import { SettingsDrawer } from "@/sidepanel/drawers/settings-drawer";
 import { DebugDrawer } from "@/sidepanel/drawers/debug-drawer";
 import { SaveAsToolDialog } from "@/sidepanel/components/save-as-tool-dialog";
 import { TabPicker } from "@/sidepanel/components/tab-picker";
+import { InterventionOverlay } from "@/sidepanel/components/intervention-overlay";
+import {
+  useIntervention,
+  type AskUserKind,
+  type AskUserOption,
+  type AskUserResult,
+} from "@/sidepanel/chat/intervention-store";
 
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "@/sidepanel/rpc";
 import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
@@ -269,7 +276,7 @@ export function AppShell() {
         if (card.name === "runJS") {
           return { kind: "js", source: (card.input as { source: string }).source };
         }
-        return { kind: "tool", tool: card.name as BuiltinTool, args: card.input };
+        return { kind: "tool", tool: card.name as ReplayableTool, args: card.input };
       }
 
       const onEvent = (e: SessionEvent) => {
@@ -387,6 +394,16 @@ export function AppShell() {
           }),
           tools: TOOL_DEFS,
           permissionMode: session.permissionMode,
+          askUser: async (raw) => {
+            const inp = (raw as { prompt?: string; kind?: AskUserKind; options?: AskUserOption[] }) ?? {};
+            const result: AskUserResult = await useIntervention.getState().ask({
+              id: `ask-${Date.now()}`,
+              prompt: inp.prompt ?? "",
+              kind: (inp.kind ?? "confirm") as AskUserKind,
+              options: inp.options,
+            });
+            return result as unknown as Json;
+          },
           abortSignal: ac.signal,
           onEvent,
           getAttachedTabIds,
@@ -557,6 +574,8 @@ export function AppShell() {
       <ToolsDrawer />
       <SettingsDrawer />
       <DebugDrawer />
+
+      <InterventionOverlay />
 
       {pickerOpen && currentTabId != null && (
         <TabPicker

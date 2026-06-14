@@ -40,6 +40,10 @@ export function capabilityForTool(
       return "upload:file";
     case "httpRequest":
       return opts?.httpCookied ? "httpRequest:cookied" : "httpRequest:no-cookie";
+    case "askUser":
+      // askUser doesn't touch the page — it's a sidepanel-only UI prompt.
+      // Treat as the lightest read capability since DOM is never accessed.
+      return "read:dom";
     default: {
       const _exhaustive: never = tool;
       throw new Error(`capabilityForTool: unknown tool ${_exhaustive}`);

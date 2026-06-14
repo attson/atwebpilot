@@ -304,5 +304,35 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: { tabId: { type: "integer" } },
       required: ["tabId"]
     }
+  },
+  {
+    name: "askUser",
+    description:
+      "向用户主动征询（不是执行操作）。当任务有多个候选、需要二次确认、或缺关键信息时调用。返回 {choice} 或 {value} 或 {cancelled:true}。仅在你确实卡住时才用——别用它做闲聊。",
+    input_schema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "向用户展示的问题文本" },
+        kind: {
+          type: "string",
+          enum: ["select", "confirm", "text"],
+          description: "select=用户从 options 选一项；confirm=是/否；text=自由文本"
+        },
+        options: {
+          type: "array",
+          description: "kind=select 时必填，每项 {id, label, description?}",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              label: { type: "string" },
+              description: { type: "string" }
+            },
+            required: ["id", "label"]
+          }
+        }
+      },
+      required: ["prompt", "kind"]
+    }
   }
 ];

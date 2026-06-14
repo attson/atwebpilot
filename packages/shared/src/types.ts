@@ -28,10 +28,14 @@ export type BuiltinTool =
   | "focus"
   | "uploadFile"
   | "getValue"
-  | "extractFormState";
+  | "extractFormState"
+  | "askUser";
+
+/** BuiltinTool minus the sidepanel-only `askUser` (which can't be replayed). */
+export type ReplayableTool = Exclude<BuiltinTool, "askUser">;
 
 export type Step =
-  | { kind: "tool"; tool: BuiltinTool; args: Json; bindResultTo?: string; timeoutMs?: number }
+  | { kind: "tool"; tool: ReplayableTool; args: Json; bindResultTo?: string; timeoutMs?: number }
   | { kind: "js"; source: string; bindResultTo?: string; timeoutMs?: number };
 
 export type StepsToolVersion = {
