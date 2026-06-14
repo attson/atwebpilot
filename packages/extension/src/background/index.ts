@@ -45,6 +45,13 @@ installTabWatcher();
 installTabCloseArchiver();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Tiny side-channel for content scripts that need to know their own tabId
+  // (used by breathing-border). Bypass the RpcRequest schema for this one.
+  if (msg && typeof msg === "object" && (msg as { type?: string }).type === "atwebpilot.getTabId") {
+    sendResponse({ tabId: sender.tab?.id ?? null });
+    return false;
+  }
+
   const parsed = RpcRequestSchema.safeParse(msg);
   if (!parsed.success) return false;
 

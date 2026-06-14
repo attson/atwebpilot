@@ -24,7 +24,7 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ["<all_urls>"],
-      js: ["src/content/index.ts"],
+      js: ["src/content/index.ts", "src/content/breathing-border.ts"],
       run_at: "document_idle"
     }
   ],

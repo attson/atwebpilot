@@ -54,6 +54,7 @@ import { TabPicker } from "@/sidepanel/components/tab-picker";
 
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "@/sidepanel/rpc";
 import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
+import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
   return tools.map((t) => ({
@@ -81,6 +82,8 @@ export function AppShell() {
   const [allTools, setAllTools] = useState<Tool[]>([]);
   const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
   const approver = getGlobalApprover();
+
+  useHeartbeat();
 
   usePendingPrompt({
     onFill: (t) => {
