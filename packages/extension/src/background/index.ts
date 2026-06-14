@@ -14,8 +14,22 @@ import { listTools } from "./storage/tools";
 import { CoordinatorChatHost } from "./coordinator-chat";
 import { CoordinatorStateBridge } from "./coordinator-state-bridge";
 
+import { handleMenuClick, registerContextMenus } from "./context-menu";
+
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[atwebpilot] service worker installed");
+  registerContextMenus();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  registerContextMenus();
+});
+
+// Re-register on every SW spin-up so transient menus survive MV3 idle teardown.
+registerContextMenus();
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  void handleMenuClick(info.menuItemId, info, tab);
 });
 
 chrome.action.onClicked.addListener(async (tab) => {
