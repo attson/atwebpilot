@@ -74,6 +74,9 @@ export type RunSessionArgs = {
   permissionMode: PermissionMode;
   askUser?: (input: unknown) => Promise<unknown>;
   screenshot?: (input: unknown) => Promise<{ media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp"; data: string; byteLen: number }>;
+  /** Sidepanel-side handlers for meta-plane tools (closeTab / switchToTab /
+   *  searchBookmarks / searchHistory / downloadImage). Keyed by tool name. */
+  metaTools?: Record<string, (input: unknown) => Promise<unknown>>;
   abortSignal?: AbortSignal;
   onEvent?: (e: SessionEvent) => void;
   initialMessages?: ChatMessage[];
@@ -301,6 +304,41 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
             output: { byteLen: shot.byteLen },
             ms
           });
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: null,
+            error: errMsg,
+            ms: Date.now() - start
+          });
+          results.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: JSON.stringify({ error: errMsg }),
+            is_error: true
+          });
+          args.onEvent?.({ type: "tool_error", id: tu.id, error: errMsg, ms: Date.now() - start });
+        }
+        continue;
+      }
+
+      if (args.metaTools && args.metaTools[tu.name]) {
+        const start = Date.now();
+        try {
+          const handler = args.metaTools[tu.name];
+          const out = (await handler(tu.input)) as Json;
+          const ms = Date.now() - start;
+          await args.rpc.appendStepLog(runRecordId, {
+            stepIndex: stepIndexGlobal++,
+            input: tu.input,
+            output: out,
+            ms
+          });
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
+          lastOutput = out;
+          args.onEvent?.({ type: "tool_done", id: tu.id, output: out, ms });
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
           await args.rpc.appendStepLog(runRecordId, {

@@ -51,6 +51,7 @@ import type {
 import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import { loadBookmarks } from "@/sidepanel/lib/bookmarks";
 import { fileToImagePart, MAX_IMAGES_PER_TURN } from "@/sidepanel/lib/image-utils";
+import { buildMetaTools } from "@/sidepanel/lib/meta-tools";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
@@ -446,6 +447,10 @@ export function AppShell() {
             });
             return result as unknown as Json;
           },
+          metaTools: buildMetaTools({
+            attachedTabIds: getAttachedTabIds,
+            mainTabId: tabId,
+          }),
           screenshot: async (raw) => {
             const inp = (raw as { tabId?: number }) ?? {};
             const targetTab = await chrome.tabs.get(inp.tabId ?? tabId);
