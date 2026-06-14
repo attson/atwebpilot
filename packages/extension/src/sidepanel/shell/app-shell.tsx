@@ -68,6 +68,8 @@ import {
 
 import { currentTabInfo, onTabEvents, onTabRecommendations, rpc } from "@/sidepanel/rpc";
 import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
+import { useExternalReplay } from "@/sidepanel/hooks/use-external-replay";
+import { ExternalReplayModal } from "@/sidepanel/components/external-replay-modal";
 import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
@@ -100,6 +102,7 @@ export function AppShell() {
   const approver = getGlobalApprover();
 
   useHeartbeat();
+  const externalReplay = useExternalReplay();
 
   // Element-capture result handler: content script → runtime msg → sidepanel inserts selector
   useEffect(() => {
@@ -664,6 +667,18 @@ export function AppShell() {
       <DebugDrawer />
 
       <InterventionOverlay />
+
+      {externalReplay.replay && (
+        <ExternalReplayModal
+          replay={externalReplay.replay}
+          onAccept={(r) => {
+            externalReplay.clear();
+            setInput(r.prompt);
+            session.setInputDraft(r.prompt);
+          }}
+          onReject={externalReplay.clear}
+        />
+      )}
 
       {pickerOpen && currentTabId != null && (
         <TabPicker

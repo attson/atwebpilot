@@ -15,6 +15,10 @@ import { CoordinatorChatHost } from "./coordinator-chat";
 import { CoordinatorStateBridge } from "./coordinator-state-bridge";
 
 import { handleMenuClick, registerContextMenus } from "./context-menu";
+import {
+  parseReplayPayload,
+  PENDING_REPLAY_KEY,
+} from "../sidepanel/lib/external-replay";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[atwebpilot] service worker installed");
@@ -50,6 +54,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && typeof msg === "object" && (msg as { type?: string }).type === "atwebpilot.getTabId") {
     sendResponse({ tabId: sender.tab?.id ?? null });
     return false;
+  }
+  if (
+    msg &&
+    typeof msg === "object" &&
+    (msg as { type?: string }).type === "atwebpilot.externalReplay"
+  ) {
+    const m = msg as { payload?: unknown; sourceUrl?: string };
+    const sourceUrl = m.sourceUrl ?? sender.tab?.url ?? "(unknown)";
+    const parsed = parseReplayPayload(m.payload, sourceUrl);
+    if (!parsed) {
+      sendResponse({ ok: false, error: "invalid payload" });
+      return false;
+    }
+    void chrome.storage.local
+      .set({ [PENDING_REPLAY_KEY]: parsed })
+      .then(() => {
+        if (sender.tab?.id != null) {
+          return chrome.sidePanel.open({ tabId: sender.tab.id });
+        }
+      })
+      .then(() => sendResponse({ ok: true }))
+      .catch((e: unknown) => sendResponse({ ok: false, error: String(e) }));
+    return true;
   }
 
   const parsed = RpcRequestSchema.safeParse(msg);
