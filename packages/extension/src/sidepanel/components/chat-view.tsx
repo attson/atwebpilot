@@ -18,9 +18,10 @@ type Props = {
     decision: "run" | "run-and-always-allow" | "skip" | "deny",
     toolName?: string
   ) => void;
+  onRegenerate?: () => void;
 };
 
-export function ChatView({ onApprove }: Props) {
+export function ChatView({ onApprove, onRegenerate }: Props) {
   const session = useSession();
   const settings = useSettings();
   const ref = useRef<HTMLDivElement>(null);
@@ -60,6 +61,17 @@ export function ChatView({ onApprove }: Props) {
     session.status === "streaming" ||
     session.status === "awaiting" ||
     session.status === "running";
+
+  // Index of the last assistant message — used to gate "重生成" button.
+  let lastAssistantIdx = -1;
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    if (session.messages[i].role === "assistant") {
+      lastAssistantIdx = i;
+      break;
+    }
+  }
+  const sessionIdle =
+    session.status === "idle" || session.status === "done" || session.status === "aborted";
 
   return (
     <div ref={ref} className="flex-1 overflow-auto flex flex-col gap-2 p-3">
@@ -103,6 +115,7 @@ export function ChatView({ onApprove }: Props) {
       .join("");
     const toolUses = m.content.filter((c): c is ToolUsePart => c.type === "tool_use");
     if (!text && toolUses.length === 0) return null;
+    const isLastIdle = i === lastAssistantIdx && sessionIdle;
     return (
       <AssistantBubble
         key={i}
@@ -112,6 +125,8 @@ export function ChatView({ onApprove }: Props) {
         onApprove={onApprove}
         needsApproval={needsApproval}
         isLive={false}
+        isLastIdle={isLastIdle}
+        onRegenerate={isLastIdle ? onRegenerate : undefined}
       />
     );
   }

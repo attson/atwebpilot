@@ -9,6 +9,7 @@ import {
   detachTab,
   ensureSession,
   getSessionFor,
+  popLastAssistantTurn,
   setCurrentTab,
   setPermissionMode,
   setDebugBadge,
@@ -35,6 +36,7 @@ import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
 
 import { Header } from "./header";
 import { TabIdentityBar } from "./tab-identity-bar";
+import { UpdateBanner } from "./update-banner";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-suggestions";
 import { SaveAsToolCard } from "@/sidepanel/chat/save-as-tool-card";
@@ -430,6 +432,7 @@ export function AppShell() {
   return (
     <div className="h-full flex flex-col relative bg-zinc-950">
       <Header debugBadge={session.debugBadge} onNewChat={onNewChat} />
+      <UpdateBanner />
       {currentTabId != null && (
         <TabIdentityBar
           tabId={currentTabId}
@@ -449,7 +452,14 @@ export function AppShell() {
           />
         ) : (
           <>
-            <ChatView onApprove={handleApprove} />
+            <ChatView
+              onApprove={handleApprove}
+              onRegenerate={() => {
+                if (currentTabId == null) return;
+                const last = popLastAssistantTurn(currentTabId);
+                if (last) void send(last);
+              }}
+            />
             {session.errorMessage && (
               <SystemBubble kind="error" onClick={() => ui.open("debug")}>
                 {session.errorMessage}
