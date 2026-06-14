@@ -326,3 +326,7 @@ type InterventionState = {
 - @ picker 的 History / Skills 类（保留 spec §15）
 - 语音输入 / 图片 / i18n / 浅色之外的主题 token 色调
 - Auth / SSO
+
+## 14 · 本轮推迟
+
+**S1 主题切换推迟到独立 ship**：实装中发现要把所有 sidepanel 文件里 `bg-zinc-XXX / text-zinc-XXX` 全量换成语义类，颗粒度跟其它 5 个完全不同，容易引入大量回归。本次 PR 只包含 S2/S3/S4/S5/S6 五个特性。S1 独立走一份 spec。
