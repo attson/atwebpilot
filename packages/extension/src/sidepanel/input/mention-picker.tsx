@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Sparkles, Wrench } from "lucide-react";
 
 export type MentionTabOption = {
   tabId: number;
@@ -170,7 +171,7 @@ export function MentionPicker({
                   onClick={() => onPickTool(it.v)}
                   onMouseEnter={() => setIdx(i)}
                 >
-                  <span>{it.v.matchesCurrentUrl ? "✨" : "🧰"}</span>
+                  <span>{it.v.matchesCurrentUrl ? <Sparkles size={12} /> : <Wrench size={12} />}</span>
                   <span
                     className={`flex-1 truncate ${it.v.matchesCurrentUrl ? "text-emerald-300" : "text-zinc-100"}`}
                   >

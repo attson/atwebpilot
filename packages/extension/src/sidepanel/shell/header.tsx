@@ -1,5 +1,6 @@
 import { useUi, type DrawerKind } from "../chat/ui-store";
 import type { DebugBadge } from "../chat/session-store";
+import { Plus, History, Wrench, Settings, Bug } from "lucide-react";
 
 type Props = {
   debugBadge: DebugBadge;
@@ -27,11 +28,11 @@ export function Header({ debugBadge, onNewChat }: Props) {
           </span>
         </div>
         <div className="flex gap-0.5">
-          <IconBtn label="新会话" onClick={onNewChat}>＋</IconBtn>
-          <IconBtn label="历史" onClick={() => open("history")}>⏱</IconBtn>
-          <IconBtn label="工具库" onClick={() => open("tools")}>🧰</IconBtn>
-          <IconBtn label="设置" onClick={() => open("settings")}>⚙</IconBtn>
-          <IconBtn label="调试" onClick={() => open("debug")} badge={dot}>💭</IconBtn>
+          <IconBtn label="新会话" onClick={onNewChat}><Plus size={14} /></IconBtn>
+          <IconBtn label="历史" onClick={() => open("history")}><History size={14} /></IconBtn>
+          <IconBtn label="工具库" onClick={() => open("tools")}><Wrench size={14} /></IconBtn>
+          <IconBtn label="设置" onClick={() => open("settings")}><Settings size={14} /></IconBtn>
+          <IconBtn label="调试" onClick={() => open("debug")} badge={dot}><Bug size={14} /></IconBtn>
         </div>
       </div>
     </div>

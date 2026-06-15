@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Paperclip, Crosshair } from "lucide-react";
 import type { AttachedTab, ImagePart } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "../chat/severity";
 import { StagedImages } from "../components/staged-images";
@@ -108,7 +109,7 @@ export function InputToolbar(props: Props) {
               className="px-2 py-1 rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 text-[11px]"
               onClick={() => fileRef.current?.click()}
             >
-              📎
+              <Paperclip size={14} />
             </button>
             <button
               type="button"
@@ -117,7 +118,7 @@ export function InputToolbar(props: Props) {
               className="px-2 py-1 rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 text-[11px]"
               onClick={props.onStartCapture}
             >
-              🎯
+              <Crosshair size={14} />
             </button>
             <input
               ref={fileRef}
