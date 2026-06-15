@@ -40,13 +40,15 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Override extension version from tag
+      - name: Override package.json versions from tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="${GITHUB_REF_NAME#v}"
-          jq --arg v "$version" '.version = $v' packages/extension/package.json > tmp.json
-          mv tmp.json packages/extension/package.json
-          echo "extension version → $version"
+          for pkg in package.json packages/extension/package.json; do
+            jq --arg v "$version" '.version = $v' "$pkg" > "$pkg.tmp"
+            mv "$pkg.tmp" "$pkg"
+            echo "→ $pkg = $version"
+          done
 
       - name: Build extension
         run: pnpm build
