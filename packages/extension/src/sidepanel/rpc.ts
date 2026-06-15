@@ -14,7 +14,16 @@ async function call<T>(req: RpcRequest, retries = 4): Promise<T> {
     try {
       const res = (await chrome.runtime.sendMessage(req)) as
         | { ok: true; data: T }
-        | { ok: false; error: string };
+        | { ok: false; error: string }
+        | undefined;
+      // BG listener closed the channel without sendResponse — typically the
+      // RpcRequest schema rejected the envelope. Surface a clear message
+      // instead of the opaque "Cannot read .ok of undefined" TypeError.
+      if (res == null) {
+        throw new Error(
+          `BG returned no response for ${req.type} — likely a schema mismatch on the request envelope. Reload the extension and re-open the side panel.`
+        );
+      }
       if (!res.ok) throw new Error(res.error);
       return res.data;
     } catch (e) {
