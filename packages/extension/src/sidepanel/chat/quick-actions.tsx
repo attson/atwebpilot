@@ -30,7 +30,8 @@ export function QuickActions({ onPick }: Props) {
           key={a.id}
           type="button"
           onClick={() => onPick(a.prompt)}
-          className="px-2.5 py-1 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 text-[11px] hover:bg-zinc-800 hover:border-zinc-600"
+          aria-label={`发送提示：${a.prompt}`}
+          className="px-2.5 py-1 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 text-[11px] hover:bg-zinc-800 hover:border-zinc-600 active:bg-zinc-700"
         >
           {a.label}
         </button>
