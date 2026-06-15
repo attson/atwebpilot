@@ -127,7 +127,7 @@ export async function runOneStep(
     step,
     bindings
   });
-  let res: { ok: true; data: Json } | { ok: false; error: string };
+  let res: { ok: true; data: Json } | { ok: false; error: string } | undefined;
   try {
     res = (await chrome.tabs.sendMessage(targetTabId, stepReq)) as typeof res;
   } catch (e) {
@@ -142,6 +142,15 @@ export async function runOneStep(
     }
     // 注入完成后 listener 注册可能还需要几百 ms（@crxjs ESM loader 异步）
     res = await retryUntilReady(targetTabId, stepReq);
+  }
+  // Defensive: chrome.tabs.sendMessage resolves to undefined if the content
+  // script's listener closes the channel without sending a response (e.g.
+  // schema validation failure on an unknown tool name). Surface that as a
+  // clear error rather than letting `res.ok` blow up.
+  if (res == null) {
+    throw new Error(
+      `content script returned no response for ${step.kind === "tool" ? step.tool : "runJS"} — likely an unknown tool name or stale content script. Try reloading the tab.`
+    );
   }
   if (!res.ok) throw new Error(res.error);
   return res.data;

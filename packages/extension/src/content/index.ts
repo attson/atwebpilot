@@ -7,7 +7,19 @@ console.info("[atwebpilot] content script loaded on", location.href);
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const parsed = ContentRequest.safeParse(msg);
-  if (!parsed.success) return false;
+  if (!parsed.success) {
+    // Tag the rejection so the caller surfaces an actionable error instead of
+    // crashing on `undefined.ok` when the response channel closes silently.
+    const m = (msg as { type?: string } | null)?.type;
+    if (m && typeof m === "string" && m.startsWith("content.")) {
+      sendResponse({
+        ok: false,
+        error: `content script rejected request: ${parsed.error.issues[0]?.message ?? "schema mismatch"}`
+      });
+      return false;
+    }
+    return false;
+  }
   handle(parsed.data)
     .then((data) => sendResponse({ ok: true, data }))
     .catch((e) => sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) }));
