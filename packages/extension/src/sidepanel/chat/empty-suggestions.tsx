@@ -26,7 +26,7 @@ export function EmptySuggestions({ matchedTools, onRun, onDetail }: Props) {
   const overflow = Math.max(0, matchedTools.length - VISIBLE);
 
   return (
-    <div className="m-auto max-w-[280px] text-center">
+    <div className="text-center">
       {matchedTools.length > 0 && (
         <>
           <h3 className="text-zinc-100 text-[13px] font-semibold mb-1">
