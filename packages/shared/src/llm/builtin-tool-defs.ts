@@ -571,4 +571,73 @@ export const TOOL_DEFS: LlmTool[] = [
       required: ["fields"],
     },
   },
+  // ─── Round 6 — common helpers ─────────────────────────────────
+  {
+    name: "navigate",
+    description:
+      "[ACT] 页面导航：后退 / 前进 / 重载 / 跳转。**优先**用本工具而不是 runJS('location.href = ...')。\n" +
+      "示例：\n" +
+      "- 后退一页：{ action: 'back' }\n" +
+      "- 跳到新 URL：{ action: 'goto', url: 'https://example.com/page' }",
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["back", "forward", "reload", "goto"] },
+        url: { type: "string", description: "仅 action=goto 时使用；只允许 http/https/file/ftp" },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "getPageInfo",
+    description:
+      "[FAST·READ] 读当前页基本信息：URL / title / hostname / 语言 / OpenGraph meta。\n" +
+      "多页对话中「我在哪个页面」的首选；比 snapshotDOM 便宜得多。",
+    input_schema: {
+      type: "object",
+      properties: {
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "pressKey",
+    description:
+      "[ACT] 模拟键盘事件（keydown + 可打印字符 keypress + keyup）。\n" +
+      "常用：Enter 提交无 form 的搜索框 / Escape 关 modal / Tab 切焦点。key 用 KeyboardEvent.key 值。\n" +
+      "本工具**不**改 input 值——填值仍走 fillInput / fillByUid。\n" +
+      "示例：\n" +
+      "- 提交搜索：{ selector: 'input[name=q]', key: 'Enter' }\n" +
+      "- 关 modal：{ key: 'Escape' }",
+    input_schema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "如 'Enter' / 'Escape' / 'Tab' / 'ArrowDown' / 'a'" },
+        selector: {
+          type: "string",
+          description: "可选；不传则派发到 document.activeElement 或 document.body",
+        },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["key"],
+    },
+  },
+  {
+    name: "writeStorage",
+    description: "[DANGER] 写 localStorage 或 sessionStorage。改站点状态，需要审阅。",
+    input_schema: {
+      type: "object",
+      properties: {
+        store: { type: "string", enum: ["local", "session"] },
+        key: { type: "string" },
+        value: {
+          type: "string",
+          description: "字符串值；非字符串请自行 JSON.stringify",
+        },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["store", "key", "value"],
+    },
+  },
 ];

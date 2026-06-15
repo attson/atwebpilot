@@ -27,7 +27,9 @@ const SAFE = new Set([
   "closeTab",
   "takeSnapshot",
   "highlightElement",
-  "highlightText"
+  "highlightText",
+  // Round 6
+  "getPageInfo"
 ]);
 
 const CAUTION = new Set([
@@ -42,13 +44,17 @@ const CAUTION = new Set([
   "clickByUid",
   "fillByUid",
   "fillForm",
-  "downloadImage"
+  "downloadImage",
+  // Round 6
+  "pressKey"
 ]);
 
 const DANGEROUS_FIXED = new Set([
   "readStorage",
   "submitForm",
-  "uploadFile"
+  "uploadFile",
+  // Round 6
+  "writeStorage"
 ]);
 
 export function classifyTool(name: string, input: Json): ToolSeverity {
@@ -65,6 +71,10 @@ export function classifyTool(name: string, input: Json): ToolSeverity {
     const sev = highestSeverity(runStaticScan(source));
     if (sev === "dangerous") return "dangerous";
     return "caution";
+  }
+  if (name === "navigate") {
+    const action = isObject(input) ? (input as Record<string, Json>).action : undefined;
+    return action === "goto" ? "caution" : "safe";
   }
   return "dangerous";
 }

@@ -22,6 +22,10 @@ import { submitForm } from "./submit-form";
 import { takeSnapshot } from "./take-snapshot";
 import { uploadFile } from "./upload-file";
 import { waitFor } from "./wait-for";
+import { navigate } from "./navigate";
+import { getPageInfo } from "./get-page-info";
+import { pressKey } from "./press-key";
+import { writeStorage } from "./write-storage";
 
 export type ToolFn = (args: Json) => Promise<Json>;
 
@@ -51,7 +55,12 @@ export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
   fillByUid,
   highlightElement,
   highlightText,
-  fillForm
+  fillForm,
+  // Round 6 — common helpers
+  navigate,
+  getPageInfo,
+  pressKey,
+  writeStorage
 };
 
 export async function callTool(name: BuiltinTool, args: Json): Promise<Json> {

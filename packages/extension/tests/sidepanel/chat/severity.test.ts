@@ -44,6 +44,28 @@ describe("classifyTool", () => {
     expect(classifyTool("submitForm", {})).toBe("dangerous");
     expect(classifyTool("uploadFile", { selector: "x", url: "u" })).toBe("dangerous");
   });
+
+  it("classifies getPageInfo as safe", () => {
+    expect(classifyTool("getPageInfo", {})).toBe("safe");
+  });
+
+  it("classifies pressKey as caution", () => {
+    expect(classifyTool("pressKey", { key: "Enter" })).toBe("caution");
+  });
+
+  it("classifies writeStorage as dangerous", () => {
+    expect(classifyTool("writeStorage", { store: "local", key: "k", value: "v" })).toBe("dangerous");
+  });
+
+  it("classifies navigate back/forward/reload as safe", () => {
+    expect(classifyTool("navigate", { action: "back" })).toBe("safe");
+    expect(classifyTool("navigate", { action: "forward" })).toBe("safe");
+    expect(classifyTool("navigate", { action: "reload" })).toBe("safe");
+  });
+
+  it("classifies navigate goto as caution", () => {
+    expect(classifyTool("navigate", { action: "goto", url: "https://x.test/" })).toBe("caution");
+  });
 });
 
 describe("control-plane tools", () => {

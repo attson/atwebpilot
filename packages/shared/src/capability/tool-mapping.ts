@@ -66,6 +66,18 @@ export function capabilityForTool(
     case "highlightElement":
     case "highlightText":
       return "read:dom"; // visual-only overlay
+    // Round 6 — common helpers
+    case "navigate":
+      return "nav:tab";
+    case "getPageInfo":
+      return "read:dom";
+    case "pressKey":
+      return "interact:form";
+    // Intentionally reuses read:storage — it's already in DANGEROUS_CAPABILITIES,
+    // so the access-control outcome is correct. A dedicated write:storage capability
+    // can be added later if a finer distinction is needed.
+    case "writeStorage":
+      return "read:storage";
     default: {
       const _exhaustive: never = tool;
       throw new Error(`capabilityForTool: unknown tool ${_exhaustive}`);
