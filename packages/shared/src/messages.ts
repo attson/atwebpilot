@@ -34,7 +34,12 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "clickByUid",
       "fillByUid",
       "highlightElement",
-      "highlightText"
+      "highlightText",
+      // Round 6 — common helpers
+      "navigate",
+      "getPageInfo",
+      "pressKey",
+      "writeStorage"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),

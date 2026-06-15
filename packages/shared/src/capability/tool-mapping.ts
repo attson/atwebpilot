@@ -66,6 +66,15 @@ export function capabilityForTool(
     case "highlightElement":
     case "highlightText":
       return "read:dom"; // visual-only overlay
+    // Round 6 — common helpers
+    case "navigate":
+      return "nav:tab";
+    case "getPageInfo":
+      return "read:dom";
+    case "pressKey":
+      return "interact:form";
+    case "writeStorage":
+      return "read:storage";
     default: {
       const _exhaustive: never = tool;
       throw new Error(`capabilityForTool: unknown tool ${_exhaustive}`);

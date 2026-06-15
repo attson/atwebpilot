@@ -43,7 +43,12 @@ export type BuiltinTool =
   | "fillByUid"
   | "highlightElement"
   | "highlightText"
-  | "fillForm";
+  | "fillForm"
+  // Round 6 — common helpers
+  | "navigate"
+  | "getPageInfo"
+  | "pressKey"
+  | "writeStorage";
 
 /** BuiltinTool minus tools that can't be replayed offline:
  *  - askUser / screenshot — sidepanel-only
