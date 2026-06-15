@@ -23,11 +23,18 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "uploadFile",
       "getValue",
       "extractFormState",
-      // Round 5 replayables
+      // Round 5 — content-script-routable additions (some are replayable as Steps;
+      // the UID-based + visual ones aren't kept by save-as-tool but the runtime
+      // still needs to pass them through to the content script).
       "closeTab",
       "switchToTab",
       "downloadImage",
-      "fillForm"
+      "fillForm",
+      "takeSnapshot",
+      "clickByUid",
+      "fillByUid",
+      "highlightElement",
+      "highlightText"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),
