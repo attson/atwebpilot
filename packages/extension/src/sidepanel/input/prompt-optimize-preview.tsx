@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Sparkles, AlertTriangle } from "lucide-react";
 
 type Props = {
   original: string;
@@ -44,8 +44,23 @@ export function PromptOptimizePreview({
       className="absolute bottom-full left-3 right-3 mb-2 rounded-lg border border-zinc-700 bg-zinc-900 shadow-lg z-20 outline-none text-xs"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
-        <span className="text-zinc-300">
-          {error ? "⚠ 优化失败" : loading ? "✨ 优化中…" : "✨ 优化后"}
+        <span className="text-zinc-300 inline-flex items-center gap-1">
+          {error ? (
+            <>
+              <AlertTriangle size={12} className="text-amber-400" />
+              <span>优化失败</span>
+            </>
+          ) : loading ? (
+            <>
+              <Sparkles size={12} />
+              <span>优化中…</span>
+            </>
+          ) : (
+            <>
+              <Sparkles size={12} />
+              <span>优化后</span>
+            </>
+          )}
         </span>
         <button
           type="button"

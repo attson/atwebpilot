@@ -86,10 +86,13 @@ export function InputToolbar(props: Props) {
 
   useEffect(() => {
     return () => {
-      // 卸载时如果还在 loading，取消请求
-      if (optRef.current.kind === "loading") optRef.current.ac.abort();
+      // 卸载时 / 切换 tab 时如果还在 loading，取消请求
+      if (optRef.current.kind === "loading") {
+        optRef.current.ac.abort();
+        setOpt({ kind: "closed" });
+      }
     };
-  }, []);
+  }, [props.currentTabId]);
 
   async function runOptimize(original: string) {
     if (props.currentTabId == null) return;
