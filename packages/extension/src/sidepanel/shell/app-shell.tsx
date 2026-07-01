@@ -653,6 +653,8 @@ export function AppShell() {
         }}
         trustedDangerTools={settings.trustedDangerTools ?? []}
         onTrustedChange={(next) => void settings.save({ trustedDangerTools: next })}
+        settings={settings}
+        currentTabId={currentTabId}
         status={inputStatus}
         roundCount={session.roundCount}
         maxRounds={settings.maxRounds}
