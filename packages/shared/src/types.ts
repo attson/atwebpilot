@@ -233,6 +233,13 @@ export type LlmSettings = {
    * 复用同一份 provider / apiKey / endpoint。
    */
   optimizerModel?: string;
+  /**
+   * 聊天视图默认模式。
+   * - `"compact"`：简洁模式（一行进展提示，默认）
+   * - `"full"`：详细模式（完整 StepCard 展开）
+   * 每次新会话时从这里初始化 `session.chatMode`；Header 图标可 session-scoped 覆盖，不写回。
+   */
+  defaultChatMode?: "compact" | "full";
 };
 
 // === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===
