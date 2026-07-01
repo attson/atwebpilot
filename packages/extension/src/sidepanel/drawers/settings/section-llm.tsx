@@ -92,6 +92,16 @@ export function SectionLlm() {
         />
       </div>
       <div className="flex items-center gap-2">
+        <span className="w-20 text-zinc-400">优化模型</span>
+        <input
+          value={settings.optimizerModel ?? ""}
+          onChange={(e) => void settings.save({ optimizerModel: e.target.value })}
+          placeholder="留空 = 用对话模型（推荐 haiku）"
+          list={datalistId}
+          className="bg-zinc-800 px-2 py-1 rounded font-mono flex-1"
+        />
+      </div>
+      <div className="flex items-center gap-2">
         <span className="w-20 text-zinc-400">最大轮数</span>
         <input
           type="number"
