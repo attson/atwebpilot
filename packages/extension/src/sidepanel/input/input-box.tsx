@@ -10,6 +10,8 @@ type Props = {
   onImageFiles?: (files: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
+  /** 右下角浮动动作槽位（如「优化提示词」按钮）。有值时 textarea 自动 padding 让位。 */
+  rightAction?: React.ReactNode;
 };
 
 const MIN_PX = 56;
@@ -28,6 +30,7 @@ export function InputBox({
   onImageFiles,
   disabled,
   placeholder,
+  rightAction,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -56,46 +59,49 @@ export function InputBox({
   }, [value]);
 
   return (
-    <textarea
-      ref={ref}
-      data-testid="input-box"
-      value={value}
-      disabled={disabled}
-      placeholder={placeholder ?? "告诉 AI 你要做什么…"}
-      onChange={(e) => {
-        const next = e.target.value;
-        if (onAtTrigger && next.length > value.length && next.endsWith("@")) {
-          onAtTrigger();
-        }
-        onChange(next);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.shiftKey && !disabled) {
-          e.preventDefault();
-          if (value.trim()) onSubmit();
-        }
-      }}
-      onPaste={(e) => {
-        if (!onImageFiles) return;
-        const imgs = imagesFromClipboard(e.clipboardData?.items ?? null);
-        if (imgs.length > 0) {
-          e.preventDefault();
-          onImageFiles(imgs);
-        }
-      }}
-      onDragOver={(e) => {
-        if (onImageFiles) e.preventDefault();
-      }}
-      onDrop={(e) => {
-        if (!onImageFiles) return;
-        const imgs = imagesFromList(e.dataTransfer?.files ?? null);
-        if (imgs.length > 0) {
-          e.preventDefault();
-          onImageFiles(imgs);
-        }
-      }}
-      className="w-full resize-none bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 text-[12px] placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-700 disabled:opacity-50"
-      style={{ minHeight: MIN_PX, maxHeight: MAX_PX }}
-    />
+    <div className="relative">
+      <textarea
+        ref={ref}
+        data-testid="input-box"
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder ?? "告诉 AI 你要做什么…"}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (onAtTrigger && next.length > value.length && next.endsWith("@")) {
+            onAtTrigger();
+          }
+          onChange(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !disabled) {
+            e.preventDefault();
+            if (value.trim()) onSubmit();
+          }
+        }}
+        onPaste={(e) => {
+          if (!onImageFiles) return;
+          const imgs = imagesFromClipboard(e.clipboardData?.items ?? null);
+          if (imgs.length > 0) {
+            e.preventDefault();
+            onImageFiles(imgs);
+          }
+        }}
+        onDragOver={(e) => {
+          if (onImageFiles) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (!onImageFiles) return;
+          const imgs = imagesFromList(e.dataTransfer?.files ?? null);
+          if (imgs.length > 0) {
+            e.preventDefault();
+            onImageFiles(imgs);
+          }
+        }}
+        className={`w-full resize-none bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 text-[12px] placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-700 disabled:opacity-50 ${rightAction ? "pr-8 pb-6" : ""}`}
+        style={{ minHeight: MIN_PX, maxHeight: MAX_PX }}
+      />
+      {rightAction}
+    </div>
   );
 }
