@@ -24,9 +24,14 @@ function click(c: HTMLElement, label: string) {
   act(() => btn.click());
 }
 
+const defaultProps = {
+  chatMode: "compact" as const,
+  onToggleChatMode: () => {},
+};
+
 describe("Header", () => {
   it("renders 5 icon buttons", () => {
-    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={() => {}} />);
+    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={() => {}} {...defaultProps} />);
     for (const label of ["新会话", "历史", "工具库", "设置", "调试"]) {
       expect(c.querySelector(`button[aria-label="${label}"]`)).toBeTruthy();
     }
@@ -34,7 +39,7 @@ describe("Header", () => {
   });
 
   it("clicking each drawer button opens the matching drawer", () => {
-    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={() => {}} />);
+    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={() => {}} {...defaultProps} />);
     click(c, "历史");
     expect(useUi.getState().openedDrawer).toBe("history");
     click(c, "工具库");
@@ -48,7 +53,7 @@ describe("Header", () => {
 
   it("New chat button invokes onNewChat", () => {
     const onNewChat = vi.fn();
-    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={onNewChat} />);
+    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={onNewChat} {...defaultProps} />);
     click(c, "新会话");
     expect(onNewChat).toHaveBeenCalled();
     cleanup();
@@ -56,7 +61,7 @@ describe("Header", () => {
 
   it("error badge → red dot", () => {
     const { c, cleanup } = mount(
-      <Header debugBadge={{ kind: "error", count: 1 }} onNewChat={() => {}} />
+      <Header debugBadge={{ kind: "error", count: 1 }} onNewChat={() => {}} {...defaultProps} />
     );
     const dot = c.querySelector('[data-testid="badge-调试"]') as HTMLElement;
     expect(dot.className).toContain("bg-red-500");
@@ -65,7 +70,7 @@ describe("Header", () => {
 
   it("exchange badge → amber dot", () => {
     const { c, cleanup } = mount(
-      <Header debugBadge={{ kind: "exchange", count: 2 }} onNewChat={() => {}} />
+      <Header debugBadge={{ kind: "exchange", count: 2 }} onNewChat={() => {}} {...defaultProps} />
     );
     const dot = c.querySelector('[data-testid="badge-调试"]') as HTMLElement;
     expect(dot.className).toContain("bg-amber-500");
@@ -74,7 +79,7 @@ describe("Header", () => {
 
   it("log badge → blue dot", () => {
     const { c, cleanup } = mount(
-      <Header debugBadge={{ kind: "log", count: 3 }} onNewChat={() => {}} />
+      <Header debugBadge={{ kind: "log", count: 3 }} onNewChat={() => {}} {...defaultProps} />
     );
     const dot = c.querySelector('[data-testid="badge-调试"]') as HTMLElement;
     expect(dot.className).toContain("bg-blue-500");
@@ -82,7 +87,7 @@ describe("Header", () => {
   });
 
   it("no badge dot when debugBadge is null", () => {
-    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={() => {}} />);
+    const { c, cleanup } = mount(<Header debugBadge={null} onNewChat={() => {}} {...defaultProps} />);
     expect(c.querySelector('[data-testid="badge-调试"]')).toBeNull();
     cleanup();
   });

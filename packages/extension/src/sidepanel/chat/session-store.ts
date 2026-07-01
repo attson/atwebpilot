@@ -66,6 +66,8 @@ export type SessionData = {
   permissionMode: PermissionMode;
   /** Header `💭` badge state — set by the chat/run plumbing when something needs attention. */
   debugBadge: DebugBadge;
+  /** 聊天视图模式（session-scoped；不持久化）。默认 "compact"。 */
+  chatMode: "compact" | "full";
 };
 
 export function makeEmptySession(tabId: number, url = ""): SessionData {
@@ -90,7 +92,8 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     attachedTabs: [],
     llmExchanges: [],
     permissionMode: "default",
-    debugBadge: null
+    debugBadge: null,
+    chatMode: "compact"
   };
 }
 
@@ -314,6 +317,10 @@ export function setPermissionMode(tabId: number, mode: PermissionMode): void {
 
 export function setDebugBadge(tabId: number, badge: DebugBadge): void {
   patchSession(tabId, (s) => ({ ...s, debugBadge: badge }));
+}
+
+export function setChatMode(tabId: number, mode: "compact" | "full"): void {
+  patchSession(tabId, (s) => (s.chatMode === mode ? s : { ...s, chatMode: mode }));
 }
 
 export function setIdentity(
@@ -578,6 +585,7 @@ type LegacySession = SessionData & {
   setInputDraft: (text: string) => void;
   setPermissionMode: (mode: PermissionMode) => void;
   setDebugBadge: (badge: DebugBadge) => void;
+  setChatMode: (m: "compact" | "full") => void;
 };
 
 export function useSession(): LegacySession {
@@ -613,7 +621,8 @@ export function useSession(): LegacySession {
     setLogsOpen: (o) => setLogsOpen(tabId, o),
     setInputDraft: (t) => setInputDraft(tabId, t),
     setPermissionMode: (m) => setPermissionMode(tabId, m),
-    setDebugBadge: (b) => setDebugBadge(tabId, b)
+    setDebugBadge: (b) => setDebugBadge(tabId, b),
+    setChatMode: (m: "compact" | "full") => setChatMode(tabId, m)
   };
 }
 

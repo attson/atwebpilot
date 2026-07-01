@@ -1,10 +1,12 @@
 import { useUi, type DrawerKind } from "../chat/ui-store";
 import type { DebugBadge } from "../chat/session-store";
-import { Plus, History, Wrench, Settings, Bug } from "lucide-react";
+import { Plus, History, Wrench, Settings, Bug, Eye, EyeOff } from "lucide-react";
 
 type Props = {
   debugBadge: DebugBadge;
   onNewChat: () => void;
+  chatMode: "compact" | "full";
+  onToggleChatMode: () => void;
 };
 
 function badgeClass(b: DebugBadge): string | null {
@@ -14,7 +16,7 @@ function badgeClass(b: DebugBadge): string | null {
   return "bg-blue-500";
 }
 
-export function Header({ debugBadge, onNewChat }: Props) {
+export function Header({ debugBadge, onNewChat, chatMode, onToggleChatMode }: Props) {
   const open = useUi((s) => s.open);
   const dot = badgeClass(debugBadge);
 
@@ -28,6 +30,12 @@ export function Header({ debugBadge, onNewChat }: Props) {
           </span>
         </div>
         <div className="flex gap-0.5">
+          <IconBtn
+            label={chatMode === "compact" ? "当前简洁模式，点切换详细" : "当前详细模式，点切换简洁"}
+            onClick={onToggleChatMode}
+          >
+            {chatMode === "compact" ? <EyeOff size={14} /> : <Eye size={14} />}
+          </IconBtn>
           <IconBtn label="新会话" onClick={onNewChat}><Plus size={14} /></IconBtn>
           <IconBtn label="历史" onClick={() => open("history")}><History size={14} /></IconBtn>
           <IconBtn label="工具库" onClick={() => open("tools")}><Wrench size={14} /></IconBtn>
