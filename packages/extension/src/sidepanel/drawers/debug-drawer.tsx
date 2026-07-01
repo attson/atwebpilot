@@ -27,15 +27,53 @@ export function DebugDrawer() {
   const initialTab: Tab = session.debugBadge?.kind === "exchange" ? "exchanges" : "logs";
   const [tab, setTab] = useState<Tab>(initialTab);
 
+  function exportBundle() {
+    const bundle = {
+      exportedAt: new Date().toISOString(),
+      schema: "caiji.session-bundle.v1",
+      session: {
+        tabId: session.tabId,
+        url: session.url,
+        runRecordId: session.runRecordId,
+        status: session.status,
+        errorMessage: session.errorMessage,
+        roundCount: session.roundCount,
+        tokenUsage: session.tokenUsage,
+        permissionMode: session.permissionMode,
+      },
+      messages: session.messages,
+      cards: session.cards,
+      executedSteps: session.executedSteps,
+      llmExchanges: session.llmExchanges,
+      logs: session.logs,
+      attachedTabs: session.attachedTabs,
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `caiji-session-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <Drawer open={open} title="调试" onClose={close}>
-      <div className="flex border-b border-zinc-800 text-xs">
+      <div className="flex items-stretch border-b border-zinc-800 text-xs">
         <TabBtn active={tab === "logs"} onClick={() => setTab("logs")}>
           日志 ({session.logs.length})
         </TabBtn>
         <TabBtn active={tab === "exchanges"} onClick={() => setTab("exchanges")}>
           Exchanges ({session.llmExchanges.length})
         </TabBtn>
+        <button
+          type="button"
+          onClick={exportBundle}
+          title="导出完整会话诊断包（messages / cards / logs / exchanges / executedSteps）"
+          className="ml-auto self-center mr-2 px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 rounded text-[11px]"
+        >
+          导出诊断包
+        </button>
       </div>
       {tab === "logs" ? <LogsPane logs={session.logs} onClear={() => session.clearLogs()} /> : null}
       {tab === "exchanges" ? <ExchangesPane exchanges={session.llmExchanges} /> : null}
