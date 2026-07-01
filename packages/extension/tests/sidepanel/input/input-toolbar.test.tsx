@@ -42,6 +42,17 @@ function defaultProps(over: Partial<React.ComponentProps<typeof InputToolbar>> =
     maxRounds: 20,
     tokensIn: 0,
     tokensOut: 0,
+    settings: {
+      provider: "anthropic" as const,
+      model: "claude-sonnet-4-6",
+      apiKey: "",
+      apiKeyMode: "persistent" as const,
+      maxRounds: 20,
+      trustedDangerTools: [],
+      defaultPermissionMode: "default" as const,
+      theme: "dark" as const,
+    },
+    currentTabId: null,
     ...over,
   };
 }

@@ -228,6 +228,11 @@ export type LlmSettings = {
    * 模型只要再执行一次工具（取得进展），该计数就清零。留空 = 默认 1。0 = 关闭（旧行为：纯文本即结束）。
    */
   maxContinuationNudges?: number;
+  /**
+   * 提示词优化按钮用哪个模型。留空 = 用 `model`（对话模型）。
+   * 复用同一份 provider / apiKey / endpoint。
+   */
+  optimizerModel?: string;
 };
 
 // === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===

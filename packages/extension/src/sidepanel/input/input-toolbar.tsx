@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, Crosshair } from "lucide-react";
 import type { AttachedTab, ImagePart } from "@atwebpilot/shared/types";
+import type { LlmSettings } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "../chat/severity";
+import { optimizePrompt } from "@/sidepanel/lib/optimize-prompt";
 import { StagedImages } from "../components/staged-images";
 import { AboveInputTabs } from "./above-input-tabs";
 import { InputBox } from "./input-box";
@@ -12,6 +14,8 @@ import {
   type MentionBookmarkOption,
 } from "./mention-picker";
 import { PermissionModePill } from "./permission-mode-pill";
+import { PromptOptimizeButton } from "./prompt-optimize-button";
+import { PromptOptimizePreview } from "./prompt-optimize-preview";
 
 export type InputStatus = "idle" | "streaming" | "awaiting" | "error";
 
@@ -50,6 +54,10 @@ type Props = {
 
   // status meta
   status: InputStatus;
+
+  // prompt optimize
+  settings: LlmSettings;
+  currentTabId: number | null;
   roundCount: number;
   maxRounds: number;
   tokensIn: number;
@@ -67,6 +75,62 @@ export function InputToolbar(props: Props) {
   const tokenTotal = props.tokensIn + props.tokensOut;
   const fileRef = useRef<HTMLInputElement>(null);
 
+  type OptState =
+    | { kind: "closed" }
+    | { kind: "loading"; original: string; ac: AbortController }
+    | { kind: "preview"; original: string; optimized: string }
+    | { kind: "error"; original: string; error: string };
+  const [opt, setOpt] = useState<OptState>({ kind: "closed" });
+  const optRef = useRef(opt);
+  optRef.current = opt;
+
+  useEffect(() => {
+    return () => {
+      // 卸载时 / 切换 tab 时如果还在 loading，取消请求
+      if (optRef.current.kind === "loading") {
+        optRef.current.ac.abort();
+        setOpt({ kind: "closed" });
+      }
+    };
+  }, [props.currentTabId]);
+
+  async function runOptimize(original: string) {
+    if (props.currentTabId == null) return;
+    const ac = new AbortController();
+    setOpt({ kind: "loading", original, ac });
+    try {
+      const optimized = await optimizePrompt({
+        draft: original,
+        tabId: props.currentTabId,
+        settings: props.settings,
+        signal: ac.signal,
+      });
+      // 若在等待期间被 abort 或替换，忽略结果
+      if (ac.signal.aborted) return;
+      setOpt({ kind: "preview", original, optimized });
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      const msg = e instanceof Error ? e.message : String(e);
+      setOpt({ kind: "error", original, error: msg });
+    }
+  }
+
+  function handleOptimizeClick() {
+    if (opt.kind === "loading" || opt.kind === "preview") return;
+    if (opt.kind === "error") {
+      // 直接重试
+      void runOptimize(opt.original);
+      return;
+    }
+    const draft = props.value.trim();
+    if (!draft) return;
+    void runOptimize(props.value);
+  }
+
+  const optimizeStatus: "idle" | "loading" | "error" =
+    opt.kind === "loading" ? "loading" : opt.kind === "error" ? "error" : "idle";
+  const optimizeDisabled = !props.value.trim() || props.status === "streaming";
+
   return (
     <div className="bg-zinc-950">
       <AboveInputTabs
@@ -78,6 +142,28 @@ export function InputToolbar(props: Props) {
       <StagedImages images={props.stagedImages} onRemove={props.onRemoveImage} />
 
       <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-2 space-y-2 relative">
+        {opt.kind !== "closed" && (
+          <PromptOptimizePreview
+            original={opt.original}
+            optimized={opt.kind === "preview" ? opt.optimized : undefined}
+            error={opt.kind === "error" ? opt.error : undefined}
+            loading={opt.kind === "loading"}
+            onAccept={() => {
+              if (opt.kind === "preview") {
+                props.onChange(opt.optimized);
+                setOpt({ kind: "closed" });
+              }
+            }}
+            onRegenerate={() => {
+              if (opt.kind === "loading") opt.ac.abort();
+              void runOptimize(opt.original);
+            }}
+            onDiscard={() => {
+              if (opt.kind === "loading") opt.ac.abort();
+              setOpt({ kind: "closed" });
+            }}
+          />
+        )}
         <InputBox
           value={props.value}
           onChange={props.onChange}
@@ -85,6 +171,13 @@ export function InputToolbar(props: Props) {
           onAtTrigger={() => setMentionOpen(true)}
           onImageFiles={props.onImageFiles}
           disabled={props.status === "streaming"}
+          rightAction={
+            <PromptOptimizeButton
+              status={optimizeStatus}
+              disabled={optimizeDisabled}
+              onClick={handleOptimizeClick}
+            />
+          }
         />
 
         <div className="flex items-center justify-between gap-2">
