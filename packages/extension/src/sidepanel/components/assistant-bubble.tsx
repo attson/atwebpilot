@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { ToolUsePart } from "@atwebpilot/shared/types";
-import type { StepCardState } from "../chat/session-store";
+import { useSession, type StepCardState } from "../chat/session-store";
 import { StepCard } from "./step-card";
+import { StepRow } from "./step-row";
 
 type Props = {
   text: string;
-  toolUses: ToolUsePart[];        // finalized 的（来自 messages）
-  pendingCards?: StepCardState[]; // 流式中尚未 finalize 的 cards
+  toolUses: ToolUsePart[];         // finalized 的（来自 messages）
+  pendingCards?: StepCardState[];  // 流式中尚未 finalize 的 cards
   cardsById: Map<string, StepCardState>;
   onApprove: (
     id: string,
@@ -14,7 +15,7 @@ type Props = {
     toolName?: string
   ) => void;
   needsApproval: (card: StepCardState) => boolean;
-  isLive: boolean;                 // 是否当前流式中（影响默认折叠）
+  isLive: boolean;
   /** True if this is the final assistant message and the session is idle.
    *  Enables the "复制 / 重生成" per-message actions row. */
   isLastIdle?: boolean;
@@ -32,6 +33,8 @@ export function AssistantBubble({
   isLastIdle,
   onRegenerate
 }: Props) {
+  const chatMode = useSession().chatMode;
+
   const allCards: StepCardState[] = [];
   for (const tu of toolUses) {
     const c = cardsById.get(tu.id);
@@ -42,14 +45,108 @@ export function AssistantBubble({
   const hasAwaiting = allCards.some(
     (c) => (c.status === "awaiting" && needsApproval(c)) || c.status === "running"
   );
-  const [open, setOpen] = useState<boolean>(isLive || hasAwaiting);
 
+  // ── 所有 hooks 都无条件调用，保持 hooks 顺序稳定 ──
+  const [open, setOpen] = useState<boolean>(isLive || hasAwaiting);              // full 分支消费
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());              // compact 分支消费（单行→StepCard）
+  const [userOverride, setUserOverride] = useState<boolean | undefined>(undefined); // compact 分支消费（summary 三态）
+
+  const done = allCards.filter((c) => c.status === "ok").length;
+  const errs = allCards.filter((c) => c.status === "error").length;
+
+  const actions =
+    !isLive && (text || allCards.length > 0) ? (
+      <div
+        data-testid="message-actions"
+        className="self-end flex gap-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity"
+      >
+        {text && (
+          <button
+            type="button"
+            aria-label="复制"
+            className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
+            onClick={() => {
+              navigator.clipboard?.writeText(text).catch(() => undefined);
+            }}
+          >
+            复制
+          </button>
+        )}
+        {isLastIdle && onRegenerate && (
+          <button
+            type="button"
+            aria-label="重生成"
+            className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
+            onClick={onRegenerate}
+          >
+            重生成
+          </button>
+        )}
+      </div>
+    ) : null;
+
+  // ─────────────── compact 分支 ───────────────
+  if (chatMode === "compact") {
+    const autoOpen = isLive || hasAwaiting;
+    const summaryOpen = userOverride !== undefined ? userOverride : autoOpen;
+    const summaryText = errs > 0 ? `✓${done} · ✗${errs}` : `${allCards.length} 步`;
+
+    const toggleCard = (id: string) => {
+      setExpanded((s) => {
+        const next = new Set(s);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    };
+
+    return (
+      <div className="bg-zinc-800/60 rounded p-2 text-xs flex flex-col gap-1.5">
+        {allCards.length > 0 && (
+          <>
+            <button
+              onClick={() => setUserOverride(!summaryOpen)}
+              className="self-start text-[11px] text-zinc-400 hover:text-zinc-200 flex items-center gap-1"
+            >
+              <span>{summaryOpen ? "▾" : "▸"}</span>
+              <span>{summaryText}</span>
+            </button>
+            {summaryOpen && (
+              <div className="flex flex-col gap-0.5">
+                {allCards.map((card) => {
+                  const mustExpand =
+                    (card.status === "awaiting" && needsApproval(card)) ||
+                    expanded.has(card.toolUseId);
+                  return mustExpand ? (
+                    <StepCard
+                      key={card.toolUseId}
+                      card={card}
+                      onApprove={onApprove}
+                      needsManualApproval={needsApproval(card)}
+                    />
+                  ) : (
+                    <StepRow
+                      key={card.toolUseId}
+                      card={card}
+                      onExpand={() => toggleCard(card.toolUseId)}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+        {text && <div className="whitespace-pre-wrap">{text}</div>}
+        {actions}
+      </div>
+    );
+  }
+
+  // ─────────────── full 分支（现有实现原样保留） ───────────────
   const summary =
     allCards.length === 0
       ? null
       : (() => {
-          const done = allCards.filter((c) => c.status === "ok").length;
-          const errs = allCards.filter((c) => c.status === "error").length;
           const wait = allCards.filter(
             (c) => c.status === "awaiting" && needsApproval(c)
           ).length;
@@ -60,7 +157,6 @@ export function AssistantBubble({
           return pieces.join(" · ");
         })();
 
-  // 若有待审 / 出错 / 流式中，强制展开
   const effectiveOpen = open || hasAwaiting || isLive;
 
   return (
@@ -89,35 +185,7 @@ export function AssistantBubble({
         </div>
       )}
       {text && <div className="whitespace-pre-wrap">{text}</div>}
-      {!isLive && (text || allCards.length > 0) && (
-        <div
-          data-testid="message-actions"
-          className="self-end flex gap-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity"
-        >
-          {text && (
-            <button
-              type="button"
-              aria-label="复制"
-              className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
-              onClick={() => {
-                navigator.clipboard?.writeText(text).catch(() => undefined);
-              }}
-            >
-              复制
-            </button>
-          )}
-          {isLastIdle && onRegenerate && (
-            <button
-              type="button"
-              aria-label="重生成"
-              className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
-              onClick={onRegenerate}
-            >
-              重生成
-            </button>
-          )}
-        </div>
-      )}
+      {actions}
     </div>
   );
 }

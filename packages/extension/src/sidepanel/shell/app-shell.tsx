@@ -13,6 +13,7 @@ import {
   popLastAssistantTurn,
   setCurrentTab,
   setPermissionMode,
+  setChatMode,
   setDebugBadge,
   startNewSession,
   useCurrentTabId,
@@ -184,6 +185,17 @@ export function AppShell() {
       }
     }
   }, [settings.loaded, settings.defaultPermissionMode, currentTabId, session]);
+
+  // 新会话（无 message、无 card）时，chatMode 跟随 settings.defaultChatMode
+  useEffect(() => {
+    if (!settings.loaded || currentTabId == null) return;
+    if (session.messages.length === 0 && session.cards.length === 0) {
+      const target: "compact" | "full" = settings.defaultChatMode ?? "compact";
+      if (session.chatMode !== target) {
+        setChatMode(currentTabId, target);
+      }
+    }
+  }, [settings.loaded, settings.defaultChatMode, currentTabId, session]);
 
   // Debug badge derivation: error in current session → red dot.
   useEffect(() => {
@@ -560,7 +572,16 @@ export function AppShell() {
 
   return (
     <div className="h-full flex flex-col relative bg-zinc-950">
-      <Header debugBadge={session.debugBadge} onNewChat={onNewChat} />
+      <Header
+        debugBadge={session.debugBadge}
+        onNewChat={onNewChat}
+        chatMode={session.chatMode}
+        onToggleChatMode={() => {
+          if (currentTabId != null) {
+            setChatMode(currentTabId, session.chatMode === "compact" ? "full" : "compact");
+          }
+        }}
+      />
       <UpdateBanner />
       {currentTabId != null && (
         <TabIdentityBar

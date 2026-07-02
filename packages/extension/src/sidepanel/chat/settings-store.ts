@@ -13,7 +13,8 @@ const DEFAULTS: LlmSettings = {
   trustedDangerTools: [],
   defaultPermissionMode: "default",
   theme: "dark",
-  maxContinuationNudges: 1
+  maxContinuationNudges: 1,
+  defaultChatMode: "compact"
 };
 
 type StoreShape = LlmSettings & {
