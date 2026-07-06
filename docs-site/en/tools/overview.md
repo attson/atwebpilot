@@ -2,7 +2,7 @@
 
 <!-- English version is a short summary; auto-generated Chinese pages have full param tables. -->
 
-AtWebPilot ships **~30 built-in tools** grouped by category:
+AtWebPilot ships **41 built-in tools** grouped by category:
 
 | Category | Description | Chinese page |
 |---|---|---|
