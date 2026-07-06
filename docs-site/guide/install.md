@@ -1,0 +1,37 @@
+# 安装
+
+有三种使用方式，按需选择。
+
+## 方式 1：只用浏览器扩展（最简）
+
+1. 前往 [Releases](https://github.com/attson/atwebpilot/releases/latest) 下载 `atwebpilot-<version>.zip` 并解压
+2. 打开 `chrome://extensions`
+3. 右上角开启「开发者模式」
+4. 点「加载已解压的扩展程序」→ 选择解压出来的 `dist/` 目录
+5. 任意页面右上角点扩展图标 → 侧边面板打开
+
+## 方式 2：加 MCP 让 Claude Code 驱动浏览器
+
+```bash
+claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
+```
+
+再照方式 1 装扩展。扩展设置里 Coordinator 页填 `ws://127.0.0.1:8787/worker` → 连接。
+
+详见 [MCP Bridge](/advanced/mcp-bridge)。
+
+## 方式 3：自己 build
+
+```bash
+git clone https://github.com/attson/atwebpilot
+cd atwebpilot
+pnpm install
+pnpm build       # 产出 packages/extension/dist/
+```
+
+然后回到方式 1 步骤 2-5。
+
+## 下一步
+
+- [配置](/guide/config) — 填 API Key、选模型、设权限模式
+- [第一条任务](/guide/first-task) — 走通 "总结此页"

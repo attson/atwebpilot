@@ -21,8 +21,28 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: '首页', link: '/' },
+          {
+            text: '快速上手',
+            items: [
+              { text: '安装', link: '/guide/install' },
+              { text: '配置', link: '/guide/config' },
+              { text: '第一条任务', link: '/guide/first-task' },
+            ],
+          },
           { text: 'GitHub', link: 'https://github.com/attson/atwebpilot' },
         ],
+        sidebar: {
+          '/guide/': [
+            {
+              text: '快速上手',
+              items: [
+                { text: '安装', link: '/guide/install' },
+                { text: '配置', link: '/guide/config' },
+                { text: '第一条任务', link: '/guide/first-task' },
+              ],
+            },
+          ],
+        },
         footer: {
           message: 'MIT License',
           copyright: 'Copyright © 2026 attson',
@@ -38,8 +58,28 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Home', link: '/en/' },
+          {
+            text: 'Guide',
+            items: [
+              { text: 'Install', link: '/en/guide/install' },
+              { text: 'Configuration', link: '/en/guide/config' },
+              { text: 'First task', link: '/en/guide/first-task' },
+            ],
+          },
           { text: 'GitHub', link: 'https://github.com/attson/atwebpilot' },
         ],
+        sidebar: {
+          '/en/guide/': [
+            {
+              text: 'Guide',
+              items: [
+                { text: 'Install', link: '/en/guide/install' },
+                { text: 'Configuration', link: '/en/guide/config' },
+                { text: 'First task', link: '/en/guide/first-task' },
+              ],
+            },
+          ],
+        },
         footer: {
           message: 'MIT License',
           copyright: 'Copyright © 2026 attson',
