@@ -16,7 +16,14 @@ VitePress 站点，部署到 GitHub Pages。**独立于仓库根 pnpm workspace*
 
     pnpm build        # 先 gen 再 build，产物在 .vitepress/dist/
 
-## 首次上线（一次性）
+## 首次上线（一次性 · 仓库 Owner 操作）
 
-仓库 Owner 需去 `Settings → Pages → Source` 选 `GitHub Actions`；之后
-`.github/workflows/deploy-docs.yml` 触发就自动部署。
+1. 打开 GitHub → 仓库 → Settings → Pages
+2. Source 选择 **GitHub Actions**（不是 Deploy from a branch）
+3. 保存
+4. 触发 workflow：
+   - 手动：Actions → Deploy Docs Site → Run workflow
+   - 或推一个改动到 `docs-site/**` 的 commit 到 main
+5. 部署完成后访问 `https://<owner>.github.io/<repo>/`
+
+首次上线后，`.github/workflows/deploy-docs.yml` 会自动处理后续 push。
