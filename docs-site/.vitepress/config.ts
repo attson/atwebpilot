@@ -29,6 +29,15 @@ export default defineConfig({
               { text: '第一条任务', link: '/guide/first-task' },
             ],
           },
+          {
+            text: '高阶',
+            items: [
+              { text: '保存为工具', link: '/advanced/save-as-tool' },
+              { text: '多 tab 会话', link: '/advanced/multi-tab' },
+              { text: 'Coordinator', link: '/advanced/coordinator' },
+              { text: 'MCP Bridge', link: '/advanced/mcp-bridge' },
+            ],
+          },
           { text: 'GitHub', link: 'https://github.com/attson/atwebpilot' },
         ],
         sidebar: {
@@ -39,6 +48,17 @@ export default defineConfig({
                 { text: '安装', link: '/guide/install' },
                 { text: '配置', link: '/guide/config' },
                 { text: '第一条任务', link: '/guide/first-task' },
+              ],
+            },
+          ],
+          '/advanced/': [
+            {
+              text: '高阶',
+              items: [
+                { text: '保存为工具', link: '/advanced/save-as-tool' },
+                { text: '多 tab 会话', link: '/advanced/multi-tab' },
+                { text: 'Coordinator', link: '/advanced/coordinator' },
+                { text: 'MCP Bridge', link: '/advanced/mcp-bridge' },
               ],
             },
           ],
@@ -66,6 +86,15 @@ export default defineConfig({
               { text: 'First task', link: '/en/guide/first-task' },
             ],
           },
+          {
+            text: 'Advanced',
+            items: [
+              { text: 'Save as tool', link: '/en/advanced/save-as-tool' },
+              { text: 'Multi-tab', link: '/en/advanced/multi-tab' },
+              { text: 'Coordinator', link: '/en/advanced/coordinator' },
+              { text: 'MCP Bridge', link: '/en/advanced/mcp-bridge' },
+            ],
+          },
           { text: 'GitHub', link: 'https://github.com/attson/atwebpilot' },
         ],
         sidebar: {
@@ -76,6 +105,17 @@ export default defineConfig({
                 { text: 'Install', link: '/en/guide/install' },
                 { text: 'Configuration', link: '/en/guide/config' },
                 { text: 'First task', link: '/en/guide/first-task' },
+              ],
+            },
+          ],
+          '/en/advanced/': [
+            {
+              text: 'Advanced',
+              items: [
+                { text: 'Save as tool', link: '/en/advanced/save-as-tool' },
+                { text: 'Multi-tab', link: '/en/advanced/multi-tab' },
+                { text: 'Coordinator', link: '/en/advanced/coordinator' },
+                { text: 'MCP Bridge', link: '/en/advanced/mcp-bridge' },
               ],
             },
           ],
