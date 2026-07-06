@@ -30,6 +30,16 @@ export default defineConfig({
             ],
           },
           {
+            text: '工具',
+            items: [
+              { text: '总览', link: '/tools/overview' },
+              { text: '探查（safe）', link: '/tools/inspect' },
+              { text: '操作（caution）', link: '/tools/action' },
+              { text: '危险（dangerous）', link: '/tools/danger' },
+              { text: '元 / 视觉', link: '/tools/meta' },
+            ],
+          },
+          {
             text: '高阶',
             items: [
               { text: '保存为工具', link: '/advanced/save-as-tool' },
@@ -62,6 +72,18 @@ export default defineConfig({
               ],
             },
           ],
+          '/tools/': [
+            {
+              text: '工具参考',
+              items: [
+                { text: '总览', link: '/tools/overview' },
+                { text: '探查（safe）', link: '/tools/inspect' },
+                { text: '操作（caution）', link: '/tools/action' },
+                { text: '危险（dangerous）', link: '/tools/danger' },
+                { text: '元 / 视觉', link: '/tools/meta' },
+              ],
+            },
+          ],
         },
         footer: {
           message: 'MIT License',
@@ -84,6 +106,12 @@ export default defineConfig({
               { text: 'Install', link: '/en/guide/install' },
               { text: 'Configuration', link: '/en/guide/config' },
               { text: 'First task', link: '/en/guide/first-task' },
+            ],
+          },
+          {
+            text: 'Tools',
+            items: [
+              { text: 'Overview', link: '/en/tools/overview' },
             ],
           },
           {
@@ -116,6 +144,14 @@ export default defineConfig({
                 { text: 'Multi-tab', link: '/en/advanced/multi-tab' },
                 { text: 'Coordinator', link: '/en/advanced/coordinator' },
                 { text: 'MCP Bridge', link: '/en/advanced/mcp-bridge' },
+              ],
+            },
+          ],
+          '/en/tools/': [
+            {
+              text: 'Tool reference',
+              items: [
+                { text: 'Overview', link: '/en/tools/overview' },
               ],
             },
           ],
