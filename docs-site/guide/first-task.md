@@ -48,5 +48,5 @@ AI 想 `fillInput` + `submitForm`。`submitForm` 是 dangerous，会自动弹完
 
 ## 下一步
 
-- [工具参考](/tools/overview) — 20 个内置工具的完整参数
+- [工具参考](/tools/overview) — 41 个内置工具的完整参数
 - [保存为工具](/advanced/save-as-tool) — 把这次会话固化，下次一键跑
