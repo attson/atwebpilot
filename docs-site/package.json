@@ -1,0 +1,18 @@
+{
+  "name": "atwebpilot-docs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "pnpm gen && vitepress build",
+    "preview": "vitepress preview",
+    "gen": "tsx scripts/gen-tools.mjs"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitepress": "^1.4.0",
+    "vue": "^3.5.0"
+  }
+}
