@@ -10,3 +10,224 @@
   --vp-c-brand-2: #10b981;
   --vp-c-brand-3: #059669;
 }
+
+/* ── Hero image: allow the landscape mockup to breathe ──
+   VitePress default caps .image-container at 320×320; we override so the
+   landscape mockup can span up to 720px wide with intrinsic aspect ratio. */
+.VPHome .VPHero.has-image .container {
+  max-width: 1360px !important;
+}
+
+.VPHome .VPHero .image {
+  flex-basis: 60% !important;
+}
+
+.VPHome .VPHero .image-container {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 760px !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  transform: none !important;
+  margin: 0 auto !important;
+}
+
+.VPHome .VPHero .image-bg {
+  display: none !important;
+}
+
+.VPHome .VPHero .image-src {
+  position: static !important;
+  transform: none !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  width: 100% !important;
+  height: auto !important;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Feature cards: brand green accent + slight glow ── */
+.VPHome .VPFeatures .VPFeature {
+  border: 1px solid rgba(16, 185, 129, 0.14);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.VPHome .VPFeatures .VPFeature:hover {
+  transform: translateY(-2px);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.VPHome .VPFeatures .VPFeature .icon {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+/* ── Home content sections ── */
+.showcase {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.showcase > h2 {
+  margin-top: 64px;
+  margin-bottom: 24px;
+  padding-top: 0 !important;
+  border-top: none !important;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.showcase > h2:first-child {
+  margin-top: 24px;
+}
+
+/* Showcase grid (mockup screenshots) */
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 32px 0;
+}
+.showcase-card {
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  padding: 16px;
+  transition: transform 0.15s ease;
+}
+.showcase-card:hover {
+  transform: translateY(-2px);
+}
+.showcase-card img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background: #09090b;
+  display: block;
+}
+.showcase-card h3 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.showcase-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  line-height: 1.55;
+}
+
+/* Usage grid (3 cards, clickable) */
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 32px 0;
+}
+.usage-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  padding: 24px 20px;
+  text-decoration: none !important;
+  color: var(--vp-c-text-1) !important;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.usage-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--vp-c-brand-2);
+}
+.usage-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 14px;
+}
+.usage-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.usage-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  line-height: 1.55;
+  flex: 1;
+}
+.usage-link {
+  margin-top: 16px;
+  color: var(--vp-c-brand-1);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Steps grid (3 numbered cards) */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 32px 0 0;
+}
+.step-card {
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  padding: 24px 20px;
+  position: relative;
+}
+.step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--vp-c-brand-1);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.step-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.step-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+.step-card code {
+  background: var(--vp-c-bg-alt);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* ── Responsive: stack grids on narrow screens ── */
+@media (max-width: 768px) {
+  .showcase-grid,
+  .usage-grid,
+  .steps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .VPHome .VPHero .image-container {
+    max-width: 560px !important;
+  }
+  .VPHome .VPHero .image {
+    flex-basis: 100% !important;
+  }
+}
