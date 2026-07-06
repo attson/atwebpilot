@@ -39,7 +39,7 @@ jobs:
 
       - name: Install docs-site deps
         working-directory: docs-site
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-workspace
 
       - name: Generate tools reference
         working-directory: docs-site
