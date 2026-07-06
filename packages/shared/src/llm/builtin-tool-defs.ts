@@ -25,7 +25,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         maxDepth: { type: "integer", default: 3 },
-        root: { type: "string", description: "可选的 CSS 选择器；找不到时退回到 &lt;html&gt;" },
+        root: { type: "string", description: "可选的 CSS 选择器；找不到时退回到 <html>" },
         tabId: TAB_ID_FIELD,
       },
     },
@@ -87,7 +87,7 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "extractImages",
     description:
-      "[FAST] 在 root 范围内提取所有 &lt;img&gt; 的 src/data-src/srcset；includeBg=true 时也提取背景图。返回 [{url, via}].\n\n" +
+      "[FAST] 在 root 范围内提取所有 <img> 的 src/data-src/srcset；includeBg=true 时也提取背景图。返回 [{url, via}].\n\n" +
       "示例：\n" +
       "- 全页图：{ }（默认 root=document）\n" +
       "- 商品主图：{ root: '.product-gallery' }",
@@ -219,7 +219,7 @@ export const TOOL_DEFS: LlmTool[] = [
   },
   {
     name: "selectOption",
-    description: "[ACT] &lt;select&gt; 元素按 value 或 label 选项。同时给两者时优先 value。",
+    description: "[ACT] <select> 元素按 value 或 label 选项。同时给两者时优先 value。",
     input_schema: {
       type: "object",
       properties: {
@@ -234,7 +234,7 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "submitForm",
     description:
-      "[CONFIRM·DANGER] 提交 &lt;form&gt;。会触发服务端动作（下单、留言等），用户必须审阅。\n" +
+      "[CONFIRM·DANGER] 提交 <form>。会触发服务端动作（下单、留言等），用户必须审阅。\n" +
       "调用前建议先用 askUser 让用户最终确认。",
     input_schema: {
       type: "object",
@@ -272,7 +272,7 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "uploadFile",
     description:
-      "[CONFIRM·DANGER] 把后端代理拉到的文件填到 &lt;input type=file&gt;。某些站点会拒绝合成 File。",
+      "[CONFIRM·DANGER] 把后端代理拉到的文件填到 <input type=file>。某些站点会拒绝合成 File。",
     input_schema: {
       type: "object",
       properties: {
@@ -300,12 +300,12 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "extractFormState",
     description:
-      "[FAST·USE BEFORE FILL] 把 &lt;form&gt; 内所有可填字段读成 {name: value} 对象（radio 取选中值；checkbox 多选取数组）。\n" +
+      "[FAST·USE BEFORE FILL] 把 <form> 内所有可填字段读成 {name: value} 对象（radio 取选中值；checkbox 多选取数组）。\n" +
       "填表前先调一次，能省下大量盲填。",
     input_schema: {
       type: "object",
       properties: {
-        form: { type: "string", description: "可选：&lt;form&gt; 的 CSS selector；省略=第一个 form" },
+        form: { type: "string", description: "可选：<form> 的 CSS selector；省略=第一个 form" },
         tabId: TAB_ID_FIELD,
       },
     },

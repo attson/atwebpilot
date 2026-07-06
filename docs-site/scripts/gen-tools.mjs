@@ -18,6 +18,13 @@ const TOOL_DEFS_PATH = resolve(__dirname, '../../packages/shared/src/llm/builtin
 
 const { TOOL_DEFS } = await import(TOOL_DEFS_PATH);
 
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // —— severity 分类（与 packages/extension/src/sidepanel/chat/severity.ts 同步） ——
 const SAFE = new Set([
   'snapshotDOM', 'querySelector', 'querySelectorAll', 'extractText',
@@ -96,7 +103,7 @@ function renderTool(t) {
   const required = new Set(t.input_schema?.required ?? []);
   const rows = Object.entries(props).map(([k, v]) => {
     const type = v?.type ?? (v?.enum ? 'enum' : 'any');
-    const desc = (v?.description ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const desc = escapeHtml((v?.description ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' '));
     const req = required.has(k) ? '是' : '否';
     return `| \`${k}\` | ${type} | ${desc} | ${req} |`;
   });
@@ -107,7 +114,7 @@ function renderTool(t) {
   return [
     `## \`${t.name}\`  ${badgeFor(t.name)}`,
     '',
-    t.description.trim(),
+    escapeHtml(t.description.trim()),
     paramsTable,
     '---',
     '',
@@ -160,7 +167,8 @@ const overviewRows = TOOL_DEFS
   .map((t) => {
     const cat = CATEGORY_OF.get(t.name) ?? 'meta';
     const oneLine = (t.description.split('\n')[0] ?? '').slice(0, 60);
-    return `| \`${t.name}\` | ${badgeFor(t.name)} | ${cat} | ${oneLine.replace(/\|/g, '\\|')} |`;
+    const oneLineSafe = escapeHtml(oneLine);
+    return `| \`${t.name}\` | ${badgeFor(t.name)} | ${cat} | ${oneLineSafe.replace(/\|/g, '\\|')} |`;
   })
   .join('\n');
 

@@ -29,8 +29,8 @@
 | `closeTab` | 🟢 safe | meta | [META] 真正关闭一个 tab。**只能关 attachedTabs 里的 tab**（防止误关用户其它窗口）。 |
 | `detachTab` | 🟢 safe | meta | [META] 从会话 attachedTabs 移除 tab；不关闭该 tab。 |
 | `downloadImage` | 🟡 caution | meta | [ACT] 把一个 URL 下载到本地（Chrome Downloads）。返回 {downloadId, filena |
-| `extractFormState` | 🟢 safe | inspect | [FAST·USE BEFORE FILL] 把 &lt;form&gt; 内所有可填字段读成 {name: value |
-| `extractImages` | 🟢 safe | inspect | [FAST] 在 root 范围内提取所有 &lt;img&gt; 的 src/data-src/srcset；incl |
+| `extractFormState` | 🟢 safe | inspect | [FAST·USE BEFORE FILL] 把 &lt;form&gt; 内所有可填字段读成 {name: value} 对象（r |
+| `extractImages` | 🟢 safe | inspect | [FAST] 在 root 范围内提取所有 &lt;img&gt; 的 src/data-src/srcset；includeBg= |
 | `extractText` | 🟢 safe | inspect | [FAST] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。 |
 | `fillByUid` | 🟡 caution | action | [ACT·UID] 用 takeSnapshot 返回的 uid 填值（input/textarea/contented |
 | `fillForm` | 🟡 caution | action | [BATCH·ACT] 一次性填多个字段。每项写 selector + value 或 uid + value。返回 { |
@@ -60,6 +60,6 @@
 | `submitForm` | 🔴 dangerous | danger | [CONFIRM·DANGER] 提交 &lt;form&gt;。会触发服务端动作（下单、留言等），用户必须审阅。 |
 | `switchToTab` | 🟢 safe | meta | [META] 把 Chrome 前台切到目标 tab。tabId 必须已在 attachedTabs 或当前 tab。 |
 | `takeSnapshot` | 🟢 safe | inspect | [FIRST·UID] 抓取页面 accessibility snapshot：返回 [{uid, role, name |
-| `uploadFile` | 🔴 dangerous | danger | [CONFIRM·DANGER] 把后端代理拉到的文件填到 &lt;input type=file&gt;。某些站点会拒 |
+| `uploadFile` | 🔴 dangerous | danger | [CONFIRM·DANGER] 把后端代理拉到的文件填到 &lt;input type=file&gt;。某些站点会拒绝合成 Fi |
 | `waitFor` | 🟢 safe | inspect | [FLOW] 等待固定 ms，或等待选择器出现（带 timeoutMs 兜底）。 |
 | `writeStorage` | 🔴 dangerous | danger | [DANGER] 写 localStorage 或 sessionStorage。改站点状态，需要审阅。 |
