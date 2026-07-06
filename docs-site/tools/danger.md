@@ -42,7 +42,7 @@
 
 ## `submitForm`  🔴 dangerous
 
-[CONFIRM·DANGER] 提交 <form>。会触发服务端动作（下单、留言等），用户必须审阅。
+[CONFIRM·DANGER] 提交 &lt;form&gt;。会触发服务端动作（下单、留言等），用户必须审阅。
 调用前建议先用 askUser 让用户最终确认。
 
 **参数：**
@@ -56,7 +56,7 @@
 
 ## `uploadFile`  🔴 dangerous
 
-[CONFIRM·DANGER] 把后端代理拉到的文件填到 <input type=file>。某些站点会拒绝合成 File。
+[CONFIRM·DANGER] 把后端代理拉到的文件填到 &lt;input type=file&gt;。某些站点会拒绝合成 File。
 
 **参数：**
 

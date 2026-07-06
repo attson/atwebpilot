@@ -29,8 +29,8 @@
 | `closeTab` | 🟢 safe | meta | [META] 真正关闭一个 tab。**只能关 attachedTabs 里的 tab**（防止误关用户其它窗口）。 |
 | `detachTab` | 🟢 safe | meta | [META] 从会话 attachedTabs 移除 tab；不关闭该 tab。 |
 | `downloadImage` | 🟡 caution | meta | [ACT] 把一个 URL 下载到本地（Chrome Downloads）。返回 {downloadId, filena |
-| `extractFormState` | 🟢 safe | inspect | [FAST·USE BEFORE FILL] 把 <form> 内所有可填字段读成 {name: value} 对象（r |
-| `extractImages` | 🟢 safe | inspect | [FAST] 在 root 范围内提取所有 <img> 的 src/data-src/srcset；includeBg= |
+| `extractFormState` | 🟢 safe | inspect | [FAST·USE BEFORE FILL] 把 &lt;form&gt; 内所有可填字段读成 {name: value |
+| `extractImages` | 🟢 safe | inspect | [FAST] 在 root 范围内提取所有 &lt;img&gt; 的 src/data-src/srcset；incl |
 | `extractText` | 🟢 safe | inspect | [FAST] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。 |
 | `fillByUid` | 🟡 caution | action | [ACT·UID] 用 takeSnapshot 返回的 uid 填值（input/textarea/contented |
 | `fillForm` | 🟡 caution | action | [BATCH·ACT] 一次性填多个字段。每项写 selector + value 或 uid + value。返回 { |
@@ -54,12 +54,12 @@
 | `scroll` | 🟢 safe | inspect | [FLOW] 滚动页面。to 可为 'bottom' / 'top' / number。max 是滚动次数；untilS |
 | `searchBookmarks` | 🟢 safe | meta | [META] 搜索浏览器书签（chrome.bookmarks.search）。返回 [{id, title, url} |
 | `searchHistory` | 🟢 safe | meta | [META] 搜索浏览器历史。daysBack 默认 7。返回 [{url, title, lastVisitTime, |
-| `selectOption` | 🟡 caution | action | [ACT] <select> 元素按 value 或 label 选项。同时给两者时优先 value。 |
+| `selectOption` | 🟡 caution | action | [ACT] &lt;select&gt; 元素按 value 或 label 选项。同时给两者时优先 value。 |
 | `setCheckbox` | 🟡 caution | action | [ACT] 设置 checkbox 勾选状态；派发 change 事件。 |
 | `snapshotDOM` | 🟢 safe | inspect | [FIRST·LEGACY] 返回页面 DOM 简化树（tag/id/classes/直接文本/children）。 |
-| `submitForm` | 🔴 dangerous | danger | [CONFIRM·DANGER] 提交 <form>。会触发服务端动作（下单、留言等），用户必须审阅。 |
+| `submitForm` | 🔴 dangerous | danger | [CONFIRM·DANGER] 提交 &lt;form&gt;。会触发服务端动作（下单、留言等），用户必须审阅。 |
 | `switchToTab` | 🟢 safe | meta | [META] 把 Chrome 前台切到目标 tab。tabId 必须已在 attachedTabs 或当前 tab。 |
 | `takeSnapshot` | 🟢 safe | inspect | [FIRST·UID] 抓取页面 accessibility snapshot：返回 [{uid, role, name |
-| `uploadFile` | 🔴 dangerous | danger | [CONFIRM·DANGER] 把后端代理拉到的文件填到 <input type=file>。某些站点会拒绝合成 Fi |
+| `uploadFile` | 🔴 dangerous | danger | [CONFIRM·DANGER] 把后端代理拉到的文件填到 &lt;input type=file&gt;。某些站点会拒 |
 | `waitFor` | 🟢 safe | inspect | [FLOW] 等待固定 ms，或等待选择器出现（带 timeoutMs 兜底）。 |
 | `writeStorage` | 🔴 dangerous | danger | [DANGER] 写 localStorage 或 sessionStorage。改站点状态，需要审阅。 |

@@ -56,7 +56,7 @@
 
 ## `selectOption`  🟡 caution
 
-[ACT] <select> 元素按 value 或 label 选项。同时给两者时优先 value。
+[ACT] &lt;select&gt; 元素按 value 或 label 选项。同时给两者时优先 value。
 
 **参数：**
 
