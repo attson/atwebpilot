@@ -596,7 +596,7 @@ export function AppShell() {
       <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-3 py-3">
         {emptyState ? (
           <div className="m-auto max-w-[280px]">
-            <QuickActions onPick={(prompt) => void send(prompt)} />
+            <QuickActions currentUrl={session.url || undefined} onPick={(prompt) => void send(prompt)} />
             <EmptySuggestions
               matchedTools={toSuggested(recommendations)}
               onRun={(id) => ui.open("tools", id)}
