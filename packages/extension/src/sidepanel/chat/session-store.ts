@@ -164,6 +164,17 @@ export function appendSystemNote(tabId: number, text: string): void {
   );
 }
 
+/**
+ * Append a [自愈] system note to the message thread unconditionally.
+ * Used by the self-heal event listener to surface heal status in the chat UI.
+ */
+export function appendHealNote(tabId: number, text: string): void {
+  patchSession(tabId, (s) => ({
+    ...s,
+    messages: [...s.messages, { role: "user" as const, content: `[自愈] ${text}` }]
+  }));
+}
+
 export function appendUserMessage(tabId: number, text: string): void {
   patchSession(tabId, (s) => ({
     ...s,

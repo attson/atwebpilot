@@ -6,7 +6,7 @@ import type { ChatMessage, TextPart, ToolUsePart } from "@atwebpilot/shared/type
 import { classifyTool, evaluateAutoApproval } from "../chat/severity";
 import { AssistantBubble } from "./assistant-bubble";
 
-const SYSTEM_PREFIXES = ["🆕", "🗑", "⚠", "[页面跳转]", "[已恢复]"];
+const SYSTEM_PREFIXES = ["🆕", "🗑", "⚠", "[页面跳转]", "[已恢复]", "[自愈]"];
 
 function isSystemNote(content: string): boolean {
   return SYSTEM_PREFIXES.some((p) => content.startsWith(p));

@@ -5,6 +5,7 @@ import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
 import {
   addLlmExchange,
+  appendHealNote,
   appendUserMessageWithImages,
   attachTab,
   detachTab,
@@ -113,6 +114,36 @@ export function AppShell() {
   useEffect(() => {
     const dispose = installSelfHealHost();
     return dispose;
+  }, []);
+
+  // Self-heal event listener: surface heal status as inline system notes in the chat thread
+  useEffect(() => {
+    function onHealEvent(msg: unknown) {
+      if (!msg || typeof msg !== "object") return;
+      const m = msg as { type?: string; event?: Record<string, unknown> };
+      if (m.type !== "session.event" || !m.event) return;
+      const ev = m.event;
+      const tabId = useStore.getState().currentTabId;
+      if (tabId == null) return;
+      if (ev.type === "self_heal_started") {
+        appendHealNote(
+          tabId,
+          `正在自动修复失败步骤 (step ${ev.failedStepIndex})…`
+        );
+      } else if (ev.type === "self_heal_completed") {
+        appendHealNote(
+          tabId,
+          `已自愈，升级到 v${ev.newVersion} (fixedStep=${ev.fixedStepIndex})`
+        );
+      } else if (ev.type === "self_heal_failed") {
+        appendHealNote(
+          tabId,
+          `自愈失败: ${ev.reason ?? "unknown"}`
+        );
+      }
+    }
+    chrome.runtime.onMessage.addListener(onHealEvent);
+    return () => chrome.runtime.onMessage.removeListener(onHealEvent);
   }, []);
 
   // Element-capture result handler: content script → runtime msg → sidepanel inserts selector
