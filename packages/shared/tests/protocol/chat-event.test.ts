@@ -42,3 +42,17 @@ describe("ChatSessionEventSchema", () => {
     expect(ChatSessionEventSchema.safeParse({ type: "imaginary" }).success).toBe(false);
   });
 });
+
+describe("self_heal_* SessionEvents", () => {
+  const cases = [
+    { type: "self_heal_started", toolId: "t1", toolName: "PDD 采集", failedStepIndex: 2 },
+    { type: "self_heal_completed", toolId: "t1", newVersion: 2, fixedStepIndex: 2 },
+    { type: "self_heal_failed", toolId: "t1", reason: "invalid_output" }
+  ];
+  for (const c of cases) {
+    it(`round-trip ${c.type}`, () => {
+      const r = ChatSessionEventSchema.safeParse(c);
+      expect(r.success).toBe(true);
+    });
+  }
+});

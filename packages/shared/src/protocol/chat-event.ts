@@ -45,6 +45,27 @@ export const ChatSessionEventSchema = z.discriminatedUnion("type", [
     status: SessionEndStatus,
     lastOutput: JsonValue.nullable(),
     reason: z.string().optional()
+  }),
+  z.object({
+    type: z.literal("self_heal_started"),
+    toolId: z.string(),
+    toolName: z.string(),
+    failedStepIndex: z.number().int().min(0)
+  }),
+  z.object({
+    type: z.literal("self_heal_completed"),
+    toolId: z.string(),
+    newVersion: z.number().int().min(2),
+    fixedStepIndex: z.number().int().min(0)
+  }),
+  z.object({
+    type: z.literal("self_heal_failed"),
+    toolId: z.string(),
+    reason: z.enum([
+      "llm_error", "budget_exceeded", "invalid_output",
+      "static_scan_reject", "step_still_fails",
+      "no_sidepanel", "no_api_key"
+    ])
   })
 ]);
 export type ChatSessionEvent = z.infer<typeof ChatSessionEventSchema>;
