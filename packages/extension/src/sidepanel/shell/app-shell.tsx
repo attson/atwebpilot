@@ -75,6 +75,7 @@ import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
 import { useExternalReplay } from "@/sidepanel/hooks/use-external-replay";
 import { ExternalReplayModal } from "@/sidepanel/components/external-replay-modal";
 import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
+import { installSelfHealHost } from "@/sidepanel/self-heal-host";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
   return tools.map((t) => ({
@@ -107,6 +108,12 @@ export function AppShell() {
 
   useHeartbeat();
   const externalReplay = useExternalReplay();
+
+  // Self-heal host: listen for BG heal requests and run LLM in sidepanel context
+  useEffect(() => {
+    const dispose = installSelfHealHost();
+    return dispose;
+  }, []);
 
   // Element-capture result handler: content script → runtime msg → sidepanel inserts selector
   useEffect(() => {
