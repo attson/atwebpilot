@@ -8,6 +8,8 @@
 
 任意一段成功对话都能一键固化为 URL 模式匹配的可重放工具。每个浏览器 tab 有独立的对话上下文，互不干扰；按 URL 持久化历史会话（每个 URL ≤20 条），切回时通过顶部历史 drawer 一键恢复，关 tab 不丢。
 
+首次打开熟悉网站会看到**场景推荐**（12 个内置 preset：维基/知乎/GitHub/Medium/公众号 总结类 + PDD/淘宝/京东/1688/Amazon 采集类），一键跑起来；tool 重放遇到网站小改动**自动自愈**（一次 LLM 生成补丁 → static-scan 拒 dangerous → 存为用户 v2 继续），失败堆栈不再是普通用户的终点。
+
 ---
 
 ## 安装
@@ -66,6 +68,9 @@ git push origin v0.0.1
 | max_tokens | 单次 LLM 响应上限（默认 4096，长任务可调 8192/16k） |
 | 最大轮数 | 一次会话最多 LLM round 数，默认 20 |
 | 续作 nudge 次数 | 模型说完没调工具时再问一遍是否真完成；默认 1，session-total 上限 |
+| 自愈开关 | 默认 on。Tool 重放失败时自动跑一次 LLM 补丁；关闭后行为回到 v0.0.44 及之前 |
+| 自愈 tokens 上限 | 每次自愈 LLM 输出 tokens 上限（默认 4096，可调 1024–8192） |
+| 权限模式 | read（全 auto safe）/ default（caution 按勾选）/ trust（含 caution 免审）/ yolo（全部自动含 dangerous）；顶部 pill 可当次切换 |
 | 自动通过策略 | safe 永远 auto；caution 看勾选；dangerous 按工具名白名单（5 选 N） |
 
 API Key 不会进 IndexedDB，也不会被「导出工具库」带走。
@@ -140,7 +145,23 @@ URL 模式   [https://*.pinduoduo.com/**]
 - 会话按 URL 持久化（IndexedDB `chat_sessions`，每 URL ≤20 条）→ 关 tab 不丢；切回原 URL 通过顶部历史 drawer 一键恢复，或新建会话
 - 同 tab 内 navigate（点超链接 / SPA 路由变更）→ 会话保留 + 末尾追加一条 `[页面跳转] 新 URL: ...` 的 system note
 
-### 5. 后台 LLM 交流记录（Plan 11）
+### 5. 场景库（Plan 27，v0.0.45）
+
+- 顶部图标进入「场景库」drawer；12 个内置 preset 按分类展示（商品采集 / 内容站）
+- 每张卡片显示 URL pattern 与当前 tab 是否命中；命中即可「在当前 tab 运行」
+- 状态角标：`NEW`（未使用）/ `已复制`（v1）/ `已升级 vN`（自愈过至少 1 次）
+- `prompt-form` preset 也在 chat 空态的 quick-actions 里根据 URL 优先展示
+
+### 6. 自愈（Plan 27，v0.0.45）
+
+- Tool 重放时任一 step 失败 → BG 自动跑一次 LLM：拿新 snapshotDOM + 已成功产物 + 错误信息，让模型输出补丁 steps
+- 补丁 zod 校验 + static-scan gate（**dangerous 严格拒**，只允许 safe/caution 集合）
+- 通过后替换失败步以后的 steps → `appendVersion` 存为用户本地 v2 → 继续跑
+- 会话消息流实时出现 `[自愈] 正在自动修复失败步骤…` → `[自愈] 已自愈，升级到 v2`
+- 单次运行**最多 1 次**自愈；补丁再失败 → 抛 `step_still_fails` 事件 + 走原 `[让 AI 修复]` 深度修复
+- 关键不变：BG 不持 API key，heal 时通过 sidepanel RPC 借用 LLM（复用现有 key 位置）
+
+### 7. 后台 LLM 交流记录（Plan 11）
 
 每次 LLM stream 的 request（去掉 apiKey）和组装后的 response 都会被 `recording-client` 抓下来，按 round 存进会话；右上角 `Exchanges N [查看]` 打开专用面板，定位 prompt cache / continuation guard / stop_reason 这类调参问题不再靠盲猜。
 
@@ -164,28 +185,33 @@ URL 模式   [https://*.pinduoduo.com/**]
 
 ---
 
-## 工具集（19 个 BuiltinTool + runJS）
+## 工具集（36 个 BuiltinTool + runJS）
+
+按用途 & 严重级别分层。详细定义在 `packages/shared/src/llm/builtin-tool-defs.ts`；文档站有生成的完整 [工具参考](https://attson.github.io/atwebpilot/zh-CN/tools/overview.html)。
 
 | 类别 | 工具 |
 |---|---|
-| 探查（safe） | `snapshotDOM`、`querySelector`、`querySelectorAll`、`extractText`、`extractImages`、`getValue`、`extractFormState`、`hover`、`focus` |
-| 流程（safe） | `scroll`、`waitFor` |
-| 交互（caution） | `click`、`fillInput`、`setCheckbox`、`selectOption` |
+| 探查（safe） | `snapshotDOM`、`querySelector`、`querySelectorAll`、`extractText`、`extractImages`、`getValue`、`extractFormState`、`hover`、`focus`、`takeSnapshot`（UID-based） |
+| 流程（safe） | `scroll`、`waitFor`、`getPageInfo` |
+| 视觉辅助（safe） | `highlightElement`、`highlightText`、`screenshot`、`askUser` |
+| 元信息（safe） | `searchBookmarks`、`searchHistory`、`downloadImage` |
+| 交互（caution） | `click`、`fillInput`、`setCheckbox`、`selectOption`、`fillForm`（批量）、`clickByUid`、`fillByUid`、`pressKey`、`navigate` |
+| Tab 控制面（caution） | `switchToTab`、`closeTab` |
 | 网络（caution） | `httpRequest`（无 cookie）、`runJS`（扫描通过） |
-| dangerous | `submitForm`、`uploadFile`、`readStorage`、`httpRequest(withCredentials)`、`runJS`（含 cookie/eval/storage 等关键词） |
+| dangerous | `submitForm`、`uploadFile`、`readStorage`、`writeStorage`、`httpRequest(withCredentials)`、`runJS`（含 cookie/eval/storage 等关键词） |
 
 ---
 
 ## 测试与构建
 
 ```bash
-pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension
-pnpm test           # 全量测试 ~492（346 extension + 101 shared + 45 coordinator）
+pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension / mcp-server
+pnpm test           # 全量测试 ~718（526 extension + 119 shared + 45 coordinator + 28 mcp-server）
 pnpm test:watch
 pnpm build          # 产出 packages/extension/dist/
 ```
 
-测试覆盖：纯逻辑（url-pattern / static-scan / infer-json-schema / protocol zod）+ 工具调用层（每个内置工具一组 happy-dom 测试）+ chat loop（含 continuation guard）+ WS 协议端到端（起真 `ws` server 跑 HELLO / EXEC / START_CHAT_SESSION）。无 Playwright；UI smoke 是手动。
+测试覆盖：纯逻辑（url-pattern / static-scan / infer-json-schema / protocol zod / preset schema+match）+ 工具调用层（每个内置工具一组 happy-dom 测试）+ chat loop（含 continuation guard + self-heal）+ WS 协议端到端（起真 `ws` server 跑 HELLO / EXEC / START_CHAT_SESSION）+ MCP server（LoopbackWSHub / tool-gen）。无 Playwright；UI smoke 是手动。
 
 ---
 
@@ -257,7 +283,8 @@ packages/
       ├─ content/          Content script + 19 个内置工具（每文件一个）
       └─ sidepanel/        React UI + zustand session store + LLM 客户端 + coordinator 设置页
 docs/superpowers/
-├─ specs/                  设计文档（12 份；见 specs/README.md）
+├─ specs/                  设计文档（27 份；见 specs/README.md）
 ├─ plans/                  实施计划（每份对应一份 spec）
 └─ scripts/                辅助脚本（含 mini-coordinator.mjs 本地 smoke）
+docs-site/                  VitePress 中英双语展示站（Plan 26；`.github/workflows/deploy-docs.yml` 发到 gh-pages）
 ```

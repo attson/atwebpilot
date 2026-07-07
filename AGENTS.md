@@ -38,17 +38,20 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 ├─ packages/
 │  ├─ shared/                         纯函数 + 类型 + zod wire schemas（无 chrome / 无 DOM 依赖）
 │  │  └─ src/
-│  │     ├─ types.ts                  Tool / Step / RunRecord(+source) / ChatMessage / Severity / ToolUsePart / JsonSchema
-│  │     ├─ messages.ts               zod RPC schemas (sidepanel <-> bg <-> content)
-│  │     ├─ url-pattern.ts            glob → RegExp
+│  │     ├─ types.ts                  Tool(+origin?) / Step / RunRecord(+source, +healed?) / ChatMessage / Severity / ToolUsePart / JsonSchema / LlmSettings(+selfHealEnabled, +maxSelfHealOutputTokens)
+│  │     ├─ messages.ts               zod RPC schemas (sidepanel <-> bg <-> content)；含 ToolOriginSchema、presets.list/presets.materialize RPC
+│  │     ├─ preset.ts                 Plan 27：PresetSchema / PromptPreset / ToolPreset zod + TS types（discriminator "kind"）
+│  │     ├─ presets/                  静态 registry（无 IO）：`index.ts` 聚合 12 条 + `content/*.ts` + `ecommerce/*.ts`
+│  │     ├─ match-presets.ts          `matchPresetsByUrl(url, registry?) → Preset[]`；复用 url-pattern
+│  │     ├─ url-pattern.ts            glob → RegExp；`matchesAny(url, patterns)`
 │  │     ├─ static-scan.ts            runJS source → severity findings (regex rules)
 │  │     ├─ infer-json-schema.ts      Minimal JSON Schema inference for save dialog
-│  │     ├─ llm/                      LlmClient interface + LlmStreamEvent union（Phase 2 起被 background 共用）
-│  │     └─ protocol/                 WS protocol：envelope / errors / messages / chat-event；ClientToServerSchema、ServerToClientSchema discriminated unions
+│  │     ├─ llm/                      LlmClient interface + LlmStreamEvent union + builtin-tool-defs（Phase 2 起被 background 共用；文档站从 TOOL_DEFS 生成参考页）
+│  │     └─ protocol/                 WS protocol：envelope / errors / messages / chat-event（含 self_heal_started/completed/failed 镜像）；ClientToServerSchema、ServerToClientSchema discriminated unions
 │  ├─ coordinator/                    参考 WS 服务器（worker registry / session manager / dispatcher / catalog / clock）
 │  │  └─ src/                         （仅供测试与本地 smoke；生产部署不在这里）
 │  ├─ mcp-server/                     stdio MCP server + LoopbackWSHub（Plan 13；Claude 经 coordinator 驱动浏览器）
-│  └─ extension/                      AtWebPilot 浏览器扩展（19 工具 + sidepanel + LLM agent loop + WS worker）
+│  └─ extension/                      AtWebPilot 浏览器扩展（36 工具 + sidepanel + LLM agent loop + WS worker）
 │     ├─ src/
 │     │  ├─ manifest.ts               MV3 manifest (defineManifest)
 │     │  ├─ background/               Service worker
@@ -65,24 +68,31 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │  │  ├─ coordinator-state-bridge.ts   READ_SIDEPANEL_STATE → chrome.runtime ping/pong（500ms 超时）→ SIDEPANEL_STATE_REPLY
 │     │  │  ├─ mock-llm-client.ts     Plan 12：脚本化 LlmStreamEvent[][]，每 stream() 取下一轮
 │     │  │  ├─ bg-tool-runner.ts      ToolRunner 接口的 background 实现（直接调 runOneStep）
-│     │  │  └─ storage/{db,tools,runs,export-import,sessions}.ts   IndexedDB (DB_NAME = "caiji" — do NOT rename)；`runs` 表 record 有 `source: "user" | "coordinator"`（后向兼容：读时缺字段补 "user"）
+│     │  │  ├─ self-heal.ts           Plan 27：`attemptHeal(ctx, deps)` 纯函数 + DI；zod parse patched Step[] + static-scan gate（严格拒 dangerous）
+│     │  │  ├─ self-heal-bridge.ts    Plan 27：BG → sidepanel 借 LLM 的 chrome.runtime.sendMessage 包装（30s timeout → `no_sidepanel`）
+│     │  │  └─ storage/{db,tools,runs,export-import,sessions}.ts   IndexedDB (DB_NAME = "caiji" — do NOT rename)；`runs` 表 record 有 `source: "user" | "coordinator"` 与可选 `healed?: {fromVersion,toVersion,fixedStepIndex}`；`tools` 表带可选 `origin?: {kind:"preset", presetId, presetVersion}`；`materializePreset(id)` 幂等复制 preset 到 IDB；`exportTools()` 跳过未修改的 preset 副本；`importTools()` 剥掉未知 preset origin
 │     │  ├─ content/                  Content script (isolated world)
 │     │  │  ├─ index.ts               chrome.runtime.onMessage → callTool / injectMain
 │     │  │  ├─ runner.ts + ctx.ts     Step Runner with ${var} bindings + timeout
 │     │  │  ├─ inject-main.ts         Bridge to BG.scripting.injectMain
 │     │  │  └─ tools/*.ts             One file per BuiltinTool
 │     │  └─ sidepanel/                React UI (the only user surface)
-│     │     ├─ rpc.ts                 typed wrappers + onTabRecommendations + onTabEvents + retry on SW wake
+│     │     ├─ rpc.ts                 typed wrappers + onTabRecommendations（含 `presets` 字段） + onTabEvents + retry on SW wake；`rpc.listPresets/materializePreset` 走 BG
+│     │     ├─ self-heal-host.ts      Plan 27：接 BG selfheal 请求 → 用本地 LlmClient 一次性非流式跑 → 回补丁 steps；BG 侧不持 key
 │     │     ├─ chat/
-│     │     │  ├─ session-store.ts    zustand: sessionsByTab + currentTabId + per-tab attachedTabs + llmExchanges
+│     │     │  ├─ session-store.ts    zustand: sessionsByTab + currentTabId + per-tab attachedTabs + llmExchanges；`appendHealNote(tabId, text)` 用于 `[自愈]` 系统气泡
 │     │     │  ├─ persistence/        Plan 8：sessions IDB store；每 URL ≤20 archived sessions + cascade 删 runs
 │     │     │  ├─ approval.ts         Per-tab Approver factory
-│     │     │  ├─ severity.ts         classifyTool / autoApproves(sev,name,toggle,allowlist)
+│     │     │  ├─ severity.ts         classifyTool(name, args) / autoApproves(sev,name,toggle,allowlist)
 │     │     │  ├─ tool-runner.ts      ToolRunner 接口；sidepanel 实现 wraps rpc.runOneStep
-│     │     │  ├─ run-session.ts      LLM tool-use loop (DI: client/runner/approver/rpc/tabsRpc); emits SessionEvent；continuation guard 总额上限（v0.0.15）
+│     │     │  ├─ run-session.ts      LLM tool-use loop (DI: client/runner/approver/rpc/tabsRpc); emits SessionEvent（含 self_heal_started/completed/failed，18 变体）；continuation guard 总额上限（v0.0.15）
 │     │     │  ├─ cross-tab-events.ts Plan 7：tabs.spawned / urlChanged / removed → store mutation + system note（仅当 session 处于 running/streaming 时把 opener-match 算 AI 开 — v0.0.14 修）
 │     │     │  ├─ tab-tracker.ts      chrome.tabs events → store actions
-│     │     │  └─ settings-store.ts   LlmSettings (provider/model/apiKey/endpoint/maxRounds/maxTokens/autoApproveDangerous/maxContinuationNudges)
+│     │     │  ├─ quick-actions.tsx   Plan 23+27：空态 chip；URL 命中的 prompt-form preset 优先展示，不足 3 条以默认 3 条补齐
+│     │     │  ├─ empty-suggestions.tsx  Plan 27：命中当前 URL 的 preset 卡片（含推荐场景 banner），tool preset → materialize + 打开工具详情；prompt preset → 填输入
+│     │     │  ├─ intervention-store.ts / permission-mode-pill.tsx  Plan 17：会话中断 + 顶部权限模式切换
+│     │     │  ├─ ui-store.ts         drawer 栈（DrawerKind 含 tools/settings/scenarios/logs 等）
+│     │     │  └─ settings-store.ts   LlmSettings (provider/model/apiKey/endpoint/maxRounds/maxTokens/trustedDangerTools/maxContinuationNudges/defaultChatMode/defaultPermissionMode/theme/**selfHealEnabled/maxSelfHealOutputTokens**)
 │     │     ├─ llm/
 │     │     │  ├─ types.ts            re-export from @atwebpilot/shared/llm（兼容存量 import）
 │     │     │  ├─ anthropic.ts / openai.ts    SSE parsers（surface stop_reason on message_end）
@@ -90,28 +100,32 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │     │  ├─ http-error.ts       HTTP 错误规范化（含 retry-after 解析）
 │     │     │  ├─ truncate.ts         exchange log payload 截断
 │     │     │  ├─ client.ts           pickClient(provider)
-│     │     │  ├─ tool-schema.ts      19 BuiltinTool LlmTool defs + runJS + listTabs/openTab/attachTab/detachTab
-│     │     │  ├─ system-prompt.ts    buildSystemPrompt({url,title,savedTools,attachedTabs})
+│     │     │  ├─ tool-schema.ts      36 BuiltinTool LlmTool defs + runJS + listTabs/openTab/attachTab/detachTab（Round 5+6 分 tier 加）
+│     │     │  ├─ system-prompt.ts    buildSystemPrompt({url,title,savedTools,attachedTabs})；含 tier 选择提示
 │     │     │  ├─ summary-step.ts     One-shot 非流式生成 "summary runJS step"（Plan 5）
+│     │     │  ├─ self-heal-prompt.ts Plan 27：`buildSelfHealMessages(ctx, maxOutputTokens)` — 允许 step 白名单 + DOM 截断 + 已成功产物摘要
 │     │     │  └─ tool-draft-generator.ts   Plan 6：AI 总结对话生成工具草案（提示词或 steps）
 │     │     ├─ pages/
-│     │     │  ├─ chat-page.tsx       Default route；full session loop（tabId 在 send() 闭包里）
-│     │     │  ├─ tools-page.tsx      List + per-row export + page import
-│     │     │  ├─ tool-detail-page.tsx Replay tool；ResultView hoisted；autoRun supported
-│     │     │  ├─ run-page.tsx        DEV：paste Tool JSON
-│     │     │  ├─ settings-page.tsx   LLM + 自动通过策略 + 备份 + maxContinuationNudges
+│     │     │  ├─ scenarios-page.tsx           Plan 27：场景库 drawer；搜索 / 分类 / 状态角标（NEW/已复制/已升级 vN）；命中 URL 即可「在当前 tab 运行」
 │     │     │  └─ coordinator-settings-page.tsx   WS URL/token 配置 + 状态展示 + allow_remote_chat checkbox
+│     │     ├─ drawers/
+│     │     │  ├─ tool-detail-pane.tsx         替换旧 tool-detail-page；`[让 AI 修复]` 追加 `run.healed` 摘要
+│     │     │  ├─ tools-drawer.tsx / scenarios-drawer.tsx / logs-drawer.tsx / settings-drawer.tsx
+│     │     │  └─ settings/section-llm.tsx     LLM + `selfHealEnabled` + `maxSelfHealOutputTokens` 输入
+│     │     ├─ input/                          input-box / mention-picker / prompt-optimize-button（Plan 25）
+│     │     ├─ shell/
+│     │     │  └─ app-shell.tsx                路由 / 顶部 header / drawer 栈 / heal 事件 listener / tab-tracker mount / coordinator-state-bridge mount
 │     │     ├─ coordinator-state-bridge.ts   Plan 12 sidepanel 端：响应 ping.sidepanelState → 读 zustand 拼快照 → pong
-│     │     ├─ components/            Stateless except where needed (chat-view, step-card, exchange-log, etc.)
-│     │     └─ app.tsx                Routing + tab-tracker mount + coordinator-state-bridge mount
+│     │     └─ components/            Stateless except where needed (chat-view, step-card, exchange-log, etc.)
 │     ├─ tests/                       Unit + integration（含 background/coordinator-e2e.test.ts：起真 `ws` server 跑 HELLO/EXEC/START_CHAT_SESSION 端到端）
 │     ├─ vite.config.ts               Vite 配置含 @crxjs；build 产物在 packages/extension/dist/
 │     ├─ tsconfig.json
 │     └─ package.json
-└─ docs/superpowers/
-   ├─ specs/                          Design docs；见 specs/README.md（已涵盖 Plan 1-12）
-   ├─ plans/                          Implementation plans（每份对应一份 spec）
-   └─ scripts/                        辅助脚本（如 mini-coordinator.mjs：Layer-5 手动 smoke）
+├─ docs/superpowers/
+│  ├─ specs/                          Design docs；见 specs/README.md（已涵盖 Plan 1-27）
+│  ├─ plans/                          Implementation plans（每份对应一份 spec）
+│  └─ scripts/                        辅助脚本（如 mini-coordinator.mjs：Layer-5 手动 smoke）
+└─ docs-site/                         VitePress 中英双语展示站（Plan 26）；`deploy-docs.yml` push to gh-pages；36 工具从 `TOOL_DEFS` 生成参考页
 ```
 
 ## monorepo 开发常用命令
@@ -196,6 +210,48 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
   (Plan 12). Extension still has a re-export shim at
   `sidepanel/llm/types.ts` for back-compat — keep it; new code should
   import from `@atwebpilot/shared/llm` directly.
+- **BG never holds the API key.** Self-heal (Plan 27) needs an LLM but
+  runs BG-side; the bridge in `background/self-heal-bridge.ts` posts the
+  `HealContext` to sidepanel via `chrome.runtime.sendMessage`, and
+  `sidepanel/self-heal-host.ts` runs the one-shot call with the key from
+  `useSettings()`. Do NOT add BG-side LLM paths that read the key
+  directly — the sidepanel-borrow-key contract is the only sanctioned
+  route.
+- **Self-heal is single-shot per run.** `healApplied` flips true after
+  the first successful heal in a `runTool` iteration; a second failure
+  in the same run falls into the normal error path (and emits
+  `self_heal_failed { reason: "step_still_fails" }` when `healApplied`
+  is already true). Do not add cascading retries — that's how a bad
+  patch burns unbounded tokens.
+- **Self-heal patches are static-scan-gated STRICTLY.** User-triggered
+  `[让 AI 修复]` runs through the chat loop and can generate `dangerous`
+  steps that the user then approves. Autonomous self-heal cannot — the
+  gate in `attemptHeal` rejects any patch containing a `dangerous` step
+  as `static_scan_reject`. Do not weaken this — the trust model is that
+  autonomous LLM output is less trusted than user-initiated chat.
+- **`Tool.origin` is optional and load-bearing.** Presets are copied
+  from the static `PRESETS` registry into IDB via `materializePreset`,
+  carrying `origin: {kind:"preset", presetId, presetVersion}`. Export
+  filter skips `origin.kind === "preset" && versions.length === 1`
+  (unmodified preset copies shouldn't ship in export bundles). Import
+  strips `origin` when the referenced preset id is not in the current
+  registry. Don't make `origin` required.
+- **Coordinator EXEC path does NOT self-heal.** `bg-tool-runner.ts` +
+  `coordinator-chat.ts` bypass `rpc-handlers.runTool`'s heal branch;
+  even if they went through it, `runTool` skips heal when
+  `req.target.kind !== "tool"` or the sidepanel isn't reachable
+  (`no_sidepanel` reason). Remote-driven sessions must fail loudly and
+  let the coordinator side see the error, not silently self-repair.
+- **Preset registry is a pure module.** `packages/shared/src/presets/`
+  is a static array with no IO. Never introduce dynamic import, fetch,
+  or IDB read at registry time — the `matchPresetsByUrl` call runs
+  hundreds of times per session. Adding remote refresh is a spec-level
+  decision (see Plan 27 §15).
+- **`SessionEvent` union uses `type` as discriminator, not `kind`.**
+  All 18 variants (`tool_running` / `session_end` / … /
+  `self_heal_started` etc.) key on `.type`. The `chat-event.ts` zod
+  mirror is `z.discriminatedUnion("type", …)`. If a plan brief snippet
+  writes `kind: "self_heal_started"`, that's a spec typo — use `type`.
 
 ## Common tasks
 
@@ -227,10 +283,27 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 
 ### Add a new tool-use turn event (`SessionEvent`) variant
 
-1. Add to the union in `packages/extension/src/sidepanel/chat/run-session.ts`
+1. Add to the union in `packages/extension/src/sidepanel/chat/run-session.ts` — use `type` discriminator (matches existing 18 variants)
 2. Mirror in `packages/shared/src/protocol/chat-event.ts` (`ChatSessionEventSchema`) and add a round-trip case to `chat-event.test.ts`
-3. Sidepanel consumer (chat-page / step-card) handles it via `onEvent`
-4. Don't break the existing 15 variants — extension and shared mirror must stay in sync (the round-trip test guards this)
+3. Sidepanel consumer (chat-page / step-card / app-shell heal listener) handles it via `onEvent` or via the `type: "session.event"` runtime broadcast
+4. Don't break the existing 18 variants — extension and shared mirror must stay in sync (the round-trip test guards this)
+
+### Add a new Preset (Plan 27)
+
+1. Create file under `packages/shared/src/presets/content/<slug>.ts` (prompt-form) or `presets/ecommerce/<slug>.ts` (tool-form)
+2. Export a single named `Preset` value; `id` must be a stable kebab-case slug and globally unique
+3. Wire it into `packages/shared/src/presets/index.ts`'s `PRESETS` array
+4. `preset-registry.test.ts` validates all entries via zod + uniqueness — no new test needed
+5. Tool-form presets must use only safe + caution steps (no `submitForm`/`uploadFile`/`readStorage`/`httpRequest(withCredentials)`/dangerous `runJS`)
+6. If tool-form and you have a stable step sequence: consider adding a fixture `packages/extension/tests/fixtures/presets/<id>-snapshot.json` and an assertion test
+
+### Add a new sidepanel drawer
+
+1. Add a case to `DrawerKind` in `packages/extension/src/sidepanel/chat/ui-store.ts`
+2. Create the drawer component under `packages/extension/src/sidepanel/drawers/<name>-drawer.tsx`
+3. Register in the switch inside `packages/extension/src/sidepanel/shell/app-shell.tsx`
+4. Add a header icon that calls `useUi.getState().open("<kind>")`
+5. Do NOT rely on `location.hash` — the sidepanel has no hash router; navigation is Zustand-store-driven
 
 ### Working with sessions
 
@@ -245,8 +318,8 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 
 ```bash
 pnpm install
-pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension; CI gate
-pnpm test           # pnpm -r test; ~492 tests total (346 extension + 101 shared + 45 coordinator)
+pnpm typecheck      # pnpm -r typecheck across 4 packages; CI gate
+pnpm test           # pnpm -r test; ~718 tests total (526 extension + 119 shared + 45 coordinator + 28 mcp-server)
 pnpm test:watch     # extension only (the largest, fastest-iterating slice)
 pnpm build          # vite build → packages/extension/dist/
 ```
@@ -278,27 +351,51 @@ node docs/superpowers/scripts/mini-coordinator.mjs   # 起一个最小 WS server
 # 脚本会自动发 START_CHAT_SESSION（mock_llm 三轮）→ 应看到 1 个 continuation_nudge + 1 个 session_end(done)
 ```
 
-## What's been built (state as of v0.0.16)
+## What's been built (state as of v0.0.45)
 
-Read `docs/superpowers/specs/README.md` for the spec index. At a glance:
+Read `docs/superpowers/specs/README.md` for the full spec index (Plan 1-27). At a glance:
 
-- **Plan 1** — executable skeleton: 9 builtin tools, IDB tools/runs, runner
-- **Plan 2** — AI conversation: streaming Anthropic+OpenAI, step approval, runJS static scan
-- **Plan 3** — AtWebPilot rebrand: 9 more tools (fillInput / setCheckbox / selectOption / submitForm / hover / focus / uploadFile / getValue / extractFormState), per-tool dangerous allowlist
-- **Plan 4** — per-tab sessions: each tab its own conversation; closed-tab sessions previously kept 5 min in memory (replaced by Plan 8)
-- **Plan 5** — AI-generated summary step: save dialog asks LLM for a runJS step that integrates prior step outputs into stable JSON
-- **Plan 6** — two tool-save flavors (`prompt` vs `steps`): AI summarises the conversation into a tool draft; prompt-tools jump straight to chat with the prompt prefilled at run time
-- **Plan 7** — multi-tab context: one session can attach multiple tabs (`@`-mention, `openTab` tool, `attachTab` tool); 19 existing tools accept an optional `tabId`; new control-plane tools `listTabs`/`attachTab`/`detachTab`/`openTab`
-- **Plan 8** — sidepanel session persistence: `chat_sessions` IDB store, per-URL ≤20 archived sessions, history drawer, banner switcher; in-memory `closedSessions` removed
-- **Plan 9** — GitHub Actions: `build-extension.yml` runs typecheck+test+build on every push, attaches a versioned zip; pushing `v*` tag triggers a release (version injected from tag)
-- **Plan 10** — Remote Coordinator (Phase 1+2): WS protocol (`HELLO`/`WELCOME`/`EXEC`/`RESULT`/...) in `packages/shared/src/protocol`; coordinator core in `packages/coordinator`; extension acts as a worker via `CoordinatorClient` (chrome.alarms heartbeat + backoff reconnect)
-- **Plan 11** — Raw LLM exchange log + continuation guard: `recording-client.ts` captures every LLM round; dedicated viewer panel; `continuation guard` nudges the model when it stops with a text-only turn (`maxContinuationNudges`, default 1)
-- **Plan 12** — Remote-testable chat session (v0.0.16): `START_CHAT_SESSION`/`ABORT_SESSION`/`READ_SIDEPANEL_STATE`/`CHAT_EVENT`/`SIDEPANEL_STATE_REPLY`; `CoordinatorChatHost` runs `runChatSession` BG-side with `MockLlmClient`+`BackgroundToolRunner`+`AutoApprover`; `allow_remote_chat` opt-in; `RunRecord.source` tag
+**Foundations (Plans 1-11)**
+- **Plan 1-3** — Executable skeleton, streaming Anthropic+OpenAI, 18 initial tools, per-tool dangerous allowlist, `AtWebPilot` rebrand
+- **Plan 4** — Per-tab sessions; closed-tab sessions initially 5-min in-memory (later replaced by Plan 8)
+- **Plan 5-6** — AI-generated summary step; two tool-save flavors (`prompt` vs `steps`); AI-generated tool draft from conversation
+- **Plan 7** — Multi-tab context: `@`-mention, `openTab`, `attachTab`, optional `tabId` on all tools
+- **Plan 8** — Sidepanel session persistence: `chat_sessions` IDB store, per-URL ≤20 archived, history drawer
+- **Plan 9** — GitHub Actions build + tagged release; version injected from `v*` tag
+- **Plan 10** — Remote Coordinator (Phase 1+2): WS protocol + coordinator core + extension worker (`CoordinatorClient` + alarms heartbeat)
+- **Plan 11** — Raw LLM exchange log + continuation guard (`maxContinuationNudges`)
+
+**Extension surface expansion (Plans 12-15)**
+- **Plan 12** — Remote-testable chat session (v0.0.16): `START_CHAT_SESSION`/`CHAT_EVENT`/`SIDEPANEL_STATE_REPLY`; `CoordinatorChatHost` runs `runChatSession` BG-side; `allow_remote_chat` opt-in; `RunRecord.source` tag
+- **Plan 13** — MCP Bridge: `packages/mcp-server` = stdio MCP server + `LoopbackWSHub`; auto-generates 19 `browser_*` tools + 4 control tools from `TOOL_DEFS`
+- **Plan 14-15** — Rename to atwebpilot; publish `@attson/atwebpilot-mcp` on npm on `v*` tag (v0.0.19)
+
+**UX overhauls (Plans 16-25)**
+- **Plan 16** — AIPex UI refactor: `app-shell.tsx` replaces `app.tsx`; drawer stack; compact chat by default
+- **Plan 17-18** — Intervention pill, `@` mention picker, tab quick-switch above input; save-tool dialog, tools drawer per-row actions
+- **Plan 19** — LLM strategy Round 5 + 11 tools: 4 tiers (control-plane / visual / UID-based / batch); `system-prompt` guides tier selection
+- **Plan 20** — Round 6: `navigate` / `getPageInfo` / `pressKey` / `writeStorage` (dangerous)
+- **Plan 21-22** — UX batch (diagnostics export, header version, defensive `rpc.call`); lucide-react icon migration
+- **Plan 23** — Quick-actions chips on empty state
+- **Plan 24** — Simple / Detailed chat mode (default `compact`)
+- **Plan 25** — Prompt-optimize button: LLM rewrites user draft
+
+**Docs + Product (Plans 26-27)**
+- **Plan 26** — GitHub Pages VitePress site (`docs-site/`) — zh-CN primary + EN overview; auto-gen tool reference
+- **Plan 27** (v0.0.45) — **Scenario Presets + Self-Heal**:
+  - 12 built-in presets under `@atwebpilot/shared/presets` (7 content prompt-form + 5 ecommerce tool-form)
+  - Three exposure paths: tab-watcher banner + quick-actions URL override + Scenarios drawer
+  - `Tool.origin` (optional preset origin) + `RunRecord.healed` (optional heal metadata)
+  - `background/self-heal.ts` pure DI module + `sidepanel/self-heal-host.ts` LLM borrower + `background/self-heal-bridge.ts` BG↔sidepanel bridge
+  - `rpc-handlers.runTool` catch-and-heal: single-shot, dangerous-scan-gated, `appendVersion` v(N+1), `[自愈]` system bubbles
+  - Coordinator EXEC path opts out; sidepanel unavailable ⇒ `no_sidepanel` reason, no silent fallback
 
 ### Recent material bug fixes worth remembering
 
 - **v0.0.14** — `tabs.spawned` opener-match handler was attributing user Ctrl+clicks (idle session) to AI. Gated on `session.status ∈ {running, streaming}`. See `packages/extension/src/sidepanel/chat/cross-tab-events.ts`.
 - **v0.0.15** — Continuation guard `nudgesSinceProgress` reset on any tool call, allowing infinite "AI 确认完成" loops when the model alternated text-only with a verification tool. Renamed to session-total `totalNudges`; reset removed. See `packages/extension/src/sidepanel/chat/run-session.ts`.
+- **v0.0.37+** — Tag-based version injection covers BOTH root `package.json` AND extension `packages/extension/package.json`. Do NOT bump either in a PR commit; push the `v*` tag and CI overrides both. See `.github/workflows/build-extension.yml`.
+- **v0.0.45** — `SessionEvent` mirror in `chat-event.ts` uses `type` as discriminator (not `kind`); Plan 27 brief's `kind:` snippets were a spec typo. Also `broadcastSessionEvent({type:"session.event", event})` wraps events in a runtime envelope; the sidepanel listener in `app-shell.tsx` unwraps and forwards to `appendHealNote`.
 
 ## Anti-patterns to avoid
 
