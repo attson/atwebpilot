@@ -303,6 +303,15 @@ async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promis
           classifyTool(step.tool, step.args as Json) !== "dangerous";
 
         if (!canHeal) {
+          // If we already applied a heal and the re-run step also failed,
+          // surface the specific reason so callers can distinguish it.
+          if (healApplied && toolId) {
+            broadcastSessionEvent({
+              type: "self_heal_failed",
+              toolId,
+              reason: "step_still_fails"
+            });
+          }
           await appendStepLog(run.id, {
             stepIndex: i,
             input: step.kind === "tool" ? (step.args as Json) : step.source,

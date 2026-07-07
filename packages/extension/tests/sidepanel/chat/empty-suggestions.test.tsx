@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { EmptySuggestions, type SuggestedTool } from "@/sidepanel/chat/empty-suggestions";
+import type { Preset } from "@atwebpilot/shared/preset";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -68,5 +69,96 @@ describe("EmptySuggestions", () => {
     expect(onRun).toHaveBeenCalledWith("t7");
     expect(onDetail).toHaveBeenCalledWith("t7");
     cleanup();
+  });
+
+  describe("preset banner", () => {
+    const mkToolPreset = (): Preset => ({
+      id: "p-tool-1",
+      kind: "tool",
+      name: "提取商品信息",
+      description: "自动抓取当前页面商品数据",
+      category: "ecommerce",
+      urlPatterns: ["https://item.taobao.com/*"],
+      version: 1,
+      steps: [{ kind: "tool", tool: "querySelector", args: { selector: "h1" } }],
+    });
+
+    const mkPromptPreset = (): Preset => ({
+      id: "p-prompt-1",
+      kind: "prompt",
+      name: "总结页面",
+      description: "用 AI 总结当前页面要点",
+      category: "content",
+      urlPatterns: ["https://*/*"],
+      version: 1,
+      prompt: "请总结这个页面的主要内容",
+    });
+
+    it("renders no preset section when presets is empty", () => {
+      const { c, cleanup } = mount(
+        <EmptySuggestions matchedTools={[]} onRun={() => {}} onDetail={() => {}} presets={[]} />
+      );
+      expect(c.textContent).not.toContain("推荐场景");
+      cleanup();
+    });
+
+    it("renders preset section when presets provided", () => {
+      const { c, cleanup } = mount(
+        <EmptySuggestions
+          matchedTools={[]}
+          onRun={() => {}}
+          onDetail={() => {}}
+          presets={[mkToolPreset(), mkPromptPreset()]}
+        />
+      );
+      expect(c.textContent).toContain("推荐场景");
+      expect(c.textContent).toContain("提取商品信息");
+      expect(c.textContent).toContain("总结页面");
+      cleanup();
+    });
+
+    it("tool preset button shows 运行, prompt preset shows 使用", () => {
+      const { c, cleanup } = mount(
+        <EmptySuggestions
+          matchedTools={[]}
+          onRun={() => {}}
+          onDetail={() => {}}
+          presets={[mkToolPreset(), mkPromptPreset()]}
+        />
+      );
+      const buttons = Array.from(c.querySelectorAll("button")).map((b) => b.textContent ?? "");
+      expect(buttons).toContain("运行");
+      expect(buttons).toContain("使用");
+      cleanup();
+    });
+
+    it("clicking preset button invokes onPresetPick with the preset", () => {
+      const onPresetPick = vi.fn();
+      const preset = mkPromptPreset();
+      const { c, cleanup } = mount(
+        <EmptySuggestions
+          matchedTools={[]}
+          onRun={() => {}}
+          onDetail={() => {}}
+          presets={[preset]}
+          onPresetPick={onPresetPick}
+        />
+      );
+      const useBtn = Array.from(c.querySelectorAll("button")).find((b) =>
+        b.textContent?.includes("使用")
+      ) as HTMLButtonElement | undefined;
+      act(() => useBtn?.click());
+      expect(onPresetPick).toHaveBeenCalledWith(preset);
+      cleanup();
+    });
+
+    it("backward-compat: omitting presets prop still renders without crash", () => {
+      const { c, cleanup } = mount(
+        <EmptySuggestions matchedTools={[mk(1)]} onRun={() => {}} onDetail={() => {}} />
+      );
+      expect(c.textContent).toContain("tool 1");
+      expect(c.textContent).not.toContain("推荐场景");
+      cleanup();
+    });
   });
 });

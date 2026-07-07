@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImagePart, Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
+import type { Preset } from "@atwebpilot/shared/preset";
 
 import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
@@ -99,6 +100,7 @@ export function AppShell() {
 
   const [input, setInput] = useState(session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
+  const [recommendedPresets, setRecommendedPresets] = useState<Preset[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
   const [allTools, setAllTools] = useState<Tool[]>([]);
@@ -201,7 +203,10 @@ export function AppShell() {
     const off = onTabRecommendations((m) => {
       currentTabInfo()
         .then((info) => {
-          if (info.tabId === m.tabId) setRecommendations(m.tools);
+          if (info.tabId === m.tabId) {
+            setRecommendations(m.tools);
+            setRecommendedPresets(m.presets ?? []);
+          }
         })
         .catch(() => {});
     });
@@ -640,6 +645,21 @@ export function AppShell() {
               matchedTools={toSuggested(recommendations)}
               onRun={(id) => ui.open("tools", id)}
               onDetail={openToolDetail}
+              presets={recommendedPresets}
+              onPresetPick={async (preset) => {
+                if (preset.kind === "tool") {
+                  try {
+                    const tool = await rpc.materializePreset(preset.id);
+                    ui.open("tools", tool.id);
+                  } catch {
+                    // best-effort; silently ignore if materialize fails
+                  }
+                } else {
+                  // prompt preset: fill input and let user send
+                  setInput(preset.prompt);
+                  session.setInputDraft(preset.prompt);
+                }
+              }}
             />
           </div>
         ) : (
