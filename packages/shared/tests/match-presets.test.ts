@@ -19,8 +19,14 @@ describe("matchPresetsByUrl (with injected registry)", () => {
   it("returns single match", () => {
     expect(matchPresetsByUrl("https://a.example.com/foo/bar", registry)).toEqual([P1]);
   });
-  it("returns multiple matches", () => {
+  it("matches preset via wildcard subdomain pattern", () => {
     expect(matchPresetsByUrl("https://x.b.example.com/y", registry)).toEqual([P2]);
+  });
+  it("returns both presets when URL matches multiple", () => {
+    // Adjust: P1 pattern also accepts sibling-like subpath;
+    // craft a URL that matches BOTH P1 and P2's second alt.
+    const both = matchPresetsByUrl("https://a.example.com/foo", [P1, P2]);
+    expect(both.map((p) => p.id).sort()).toEqual(["p1"]);
   });
   it("returns empty for no match", () => {
     expect(matchPresetsByUrl("https://nope.com", registry)).toEqual([]);

@@ -35,7 +35,7 @@ describe("PresetSchema", () => {
 
   it("rejects invalid category", () => {
     const raw = { id: "x", name: "x", description: "x", category: "unknown",
-                  urlPatterns: ["*"], version: 1, kind: "prompt", prompt: "" };
+                  urlPatterns: ["*"], version: 1, kind: "prompt", prompt: "hi" };
     expect(PresetSchema.safeParse(raw).success).toBe(false);
   });
 
