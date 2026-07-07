@@ -59,6 +59,7 @@ import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
 import { SettingsDrawer } from "@/sidepanel/drawers/settings-drawer";
 import { DebugDrawer } from "@/sidepanel/drawers/debug-drawer";
+import { ScenariosDrawer } from "@/sidepanel/drawers/scenarios-drawer";
 import { SaveAsToolDialog } from "@/sidepanel/components/save-as-tool-dialog";
 import { TabPicker } from "@/sidepanel/components/tab-picker";
 import { InterventionOverlay } from "@/sidepanel/components/intervention-overlay";
@@ -698,6 +699,7 @@ export function AppShell() {
       <ToolsDrawer />
       <SettingsDrawer />
       <DebugDrawer />
+      <ScenariosDrawer />
 
       <InterventionOverlay />
 
