@@ -1,5 +1,6 @@
 import type { RpcRequest } from "@atwebpilot/shared/messages";
 import type { ExportBundle, Json, RunRecord, Step, Tool } from "@atwebpilot/shared/types";
+import type { Preset } from "@atwebpilot/shared/preset";
 
 function isReceiverMissing(msg: string): boolean {
   return (
@@ -88,6 +89,10 @@ export const rpc = {
       ...(active == null ? {} : { active })
     }),
 
+  // presets
+  listPresets: () => call<Preset[]>({ type: "presets.list" }),
+  materializePreset: (presetId: string) => call<Tool>({ type: "presets.materialize", presetId }),
+
   // chat session
   startSession: (input: { url: string }) =>
     call<RunRecord>({ type: "chat.session.start", url: input.url }),
@@ -114,8 +119,16 @@ export async function currentTabInfo(): Promise<{ tabId: number; url: string }> 
   return { tabId: tab.id, url: tab.url ?? "" };
 }
 
+export type TabRecommendationsMsg = {
+  type: "tabs.recommendations";
+  tabId: number;
+  url: string;
+  tools: Tool[];
+  presets: Preset[];
+};
+
 export function onTabRecommendations(
-  cb: (msg: { tabId: number; url: string; tools: Tool[] }) => void
+  cb: (msg: TabRecommendationsMsg) => void
 ): () => void {
   const listener = (msg: unknown) => {
     if (
@@ -123,7 +136,8 @@ export function onTabRecommendations(
       msg !== null &&
       (msg as { type?: string }).type === "tabs.recommendations"
     ) {
-      cb(msg as { type: "tabs.recommendations"; tabId: number; url: string; tools: Tool[] });
+      const m = msg as TabRecommendationsMsg;
+      cb({ ...m, presets: m.presets ?? [] });
     }
   };
   chrome.runtime.onMessage.addListener(listener);

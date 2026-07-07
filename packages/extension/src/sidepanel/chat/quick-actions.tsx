@@ -1,31 +1,41 @@
+import { matchPresetsByUrl } from "@atwebpilot/shared/match-presets";
+import type { PromptPreset } from "@atwebpilot/shared/preset";
+
 type Action = { id: string; label: string; prompt: string };
 
-const ACTIONS: Action[] = [
-  {
-    id: "summarize",
-    label: "总结网页",
-    prompt: "总结一下当前网页的主要内容。",
-  },
-  {
-    id: "key-points",
-    label: "抽取重点",
-    prompt: "把这个网页的关键信息抽出成 5 条。",
-  },
-  {
-    id: "extract-comments",
-    label: "抽评论",
-    prompt:
+const DEFAULTS: Action[] = [
+  { id: "summarize",        label: "总结网页",   prompt: "总结一下当前网页的主要内容。" },
+  { id: "key-points",       label: "抽取重点",   prompt: "把这个网页的关键信息抽出成 5 条。" },
+  { id: "extract-comments", label: "抽评论",     prompt:
       "把本页所有评论 / 回复抽下来，完整拉取不要省略。" +
-      "如果存在分页或下拉懒加载，请翻页 / 滚动到底，直到拿全所有评论再返回。",
-  },
+      "如果存在分页或下拉懒加载，请翻页 / 滚动到底，直到拿全所有评论再返回。"
+  }
 ];
 
-type Props = { onPick: (prompt: string) => void };
+type Props = {
+  currentUrl?: string;
+  onPick: (prompt: string) => void;
+};
 
-export function QuickActions({ onPick }: Props) {
+function pickActions(currentUrl?: string): Action[] {
+  if (!currentUrl) return DEFAULTS;
+  const promptPresets = matchPresetsByUrl(currentUrl).filter(
+    (p): p is PromptPreset => p.kind === "prompt"
+  );
+  const fromPresets: Action[] = promptPresets.slice(0, 3).map((p) => ({
+    id: `preset:${p.id}`,
+    label: p.name,
+    prompt: p.prompt
+  }));
+  const fill = DEFAULTS.slice(0, Math.max(0, 3 - fromPresets.length));
+  return [...fromPresets, ...fill];
+}
+
+export function QuickActions({ currentUrl, onPick }: Props) {
+  const actions = pickActions(currentUrl);
   return (
     <div className="flex flex-wrap gap-1.5 justify-center mb-3">
-      {ACTIONS.map((a) => (
+      {actions.map((a) => (
         <button
           key={a.id}
           type="button"

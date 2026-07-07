@@ -1,20 +1,60 @@
+import { z } from "zod";
 import {
   ContentRequest as ContentRequestSchema,
   RpcRequest as RpcRequestSchema,
+  StepSchema,
   type RpcRequest
 } from "@atwebpilot/shared/messages";
+import { runStaticScan } from "@atwebpilot/shared/static-scan";
 import type { Json, RunRecord, Step, ToolDraft } from "@atwebpilot/shared/types";
 import { fetchAsBase64, httpRequest } from "./http-proxy";
+import { attemptHeal } from "./self-heal";
+import { requestSidepanelLlm } from "./self-heal-bridge";
 import { exportAll, importBundle } from "./storage/export-import";
-import { appendStepLog, createRun, finalizeRun, getRun, listRuns } from "./storage/runs";
+import { appendStepLog, createRun, finalizeRun, getRun, listRuns, setRunHealed } from "./storage/runs";
 import {
+  appendVersion,
   deleteTool as deleteToolDb,
   getTool,
   listTools,
   matchingTools,
+  materializePreset,
   recordRunStat,
   saveDraft
 } from "./storage/tools";
+import { classifyTool } from "@/sidepanel/chat/severity";
+
+async function readLlmSettings(): Promise<{
+  selfHealEnabled: boolean;
+  maxSelfHealOutputTokens: number;
+  apiKey: string;
+}> {
+  const KEY = "caiji.llm";
+  const raw = (await chrome.storage.local.get([KEY]))[KEY] ?? {};
+  const session = (await chrome.storage.session?.get([KEY]))?.[KEY] ?? {};
+  const apiKey = (raw as Record<string, string>).apiKey || (session as Record<string, string>).apiKey || "";
+  return {
+    selfHealEnabled: (raw as Record<string, unknown>).selfHealEnabled !== false, // default true
+    maxSelfHealOutputTokens: ((raw as Record<string, unknown>).maxSelfHealOutputTokens as number | undefined) ?? 4096,
+    apiKey
+  };
+}
+
+function broadcastSessionEvent(ev: unknown): void {
+  try {
+    void chrome.runtime.sendMessage({ type: "session.event", event: ev });
+  } catch {
+    // swallow — sidepanel may not be open
+  }
+}
+
+async function collectPrevSteps(runId: string): Promise<{ input: Json | string; output: Json }[]> {
+  const run = await getRun(runId);
+  if (!run) return [];
+  return run.stepLog
+    .filter((e) => !e.error)
+    .map((e) => ({ input: e.input, output: e.output as Json }));
+}
 
 export async function handleRpc(raw: unknown): Promise<{ ok: true; data: Json } | { ok: false; error: string }> {
   const parsed = RpcRequestSchema.safeParse(raw);
@@ -101,6 +141,13 @@ async function dispatch(req: RpcRequest): Promise<Json> {
       return (await openTabRpc(req.url, req.active ?? false)) as unknown as Json;
     case "http.fetchBinary": {
       return (await fetchAsBase64(req.url)) as unknown as Json;
+    }
+    case "presets.list": {
+      const { PRESETS } = await import("@atwebpilot/shared/presets");
+      return PRESETS as unknown as Json;
+    }
+    case "presets.materialize": {
+      return (await materializePreset(req.presetId)) as unknown as Json;
     }
   }
 }
@@ -226,6 +273,14 @@ async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promis
   const bindings: Record<string, Json> = {};
   let lastOutput: Json = null;
 
+  // Self-heal is only available for persisted tools (not drafts) with LLM configured.
+  const settings = await readLlmSettings();
+  const allowHeal =
+    req.target.kind === "tool" &&
+    settings.selfHealEnabled &&
+    (settings.apiKey?.length ?? 0) > 0;
+  let healApplied = false;
+
   try {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -238,18 +293,123 @@ async function runTool(req: Extract<RpcRequest, { type: "runs.start" }>): Promis
       const res = (await chrome.tabs.sendMessage(req.tabId, stepReq)) as
         | { ok: true; data: Json }
         | { ok: false; error: string };
+
       if (!res.ok) {
-        await appendStepLog(run.id, {
-          stepIndex: i,
-          input: step.kind === "tool" ? (step.args as Json) : step.source,
-          output: null,
-          ms: Date.now() - start,
-          error: res.error
+        // Decide whether to attempt self-heal.
+        const canHeal =
+          allowHeal &&
+          !healApplied &&
+          step.kind === "tool" &&
+          classifyTool(step.tool, step.args as Json) !== "dangerous";
+
+        if (!canHeal) {
+          // If we already applied a heal and the re-run step also failed,
+          // surface the specific reason so callers can distinguish it.
+          if (healApplied && toolId) {
+            broadcastSessionEvent({
+              type: "self_heal_failed",
+              toolId,
+              reason: "step_still_fails"
+            });
+          }
+          await appendStepLog(run.id, {
+            stepIndex: i,
+            input: step.kind === "tool" ? (step.args as Json) : step.source,
+            output: null,
+            ms: Date.now() - start,
+            error: res.error
+          });
+          await finalizeRun(run.id, { status: "error" });
+          if (toolId) await recordRunStat(toolId, false);
+          return (await getRun(run.id)) as RunRecord;
+        }
+
+        // --- Self-heal path ---
+        broadcastSessionEvent({
+          type: "self_heal_started",
+          toolId: toolId!,
+          toolName: (await getTool(toolId!))?.name ?? "",
+          failedStepIndex: i
         });
-        await finalizeRun(run.id, { status: "error" });
-        if (toolId) await recordRunStat(toolId, false);
-        return (await getRun(run.id)) as RunRecord;
+
+        const domSnapshot = await runOneStep(
+          { kind: "tool", tool: "snapshotDOM", args: {} } as Step,
+          req.tabId,
+          [],
+          {}
+        ).catch(() => ({} as Json));
+
+        const prevSteps = await collectPrevSteps(run.id);
+
+        const heal = await attemptHeal(
+          {
+            tool: (await getTool(toolId!))! as Extract<Awaited<ReturnType<typeof getTool>>, { kind: "steps" }>,
+            failedStepIndex: i,
+            failedInput: step,
+            errorText: res.error,
+            prevSteps,
+            domSnapshot,
+            url
+          },
+          {
+            requestSidepanelLlm,
+            snapshot: async () => domSnapshot,
+            staticScan: (steps: Step[]) =>
+              steps.flatMap((s) =>
+                s.kind === "js" ? runStaticScan(s.source).map((f) => f.severity as "safe" | "caution" | "dangerous") : []
+              ),
+            parseSteps: (raw) => {
+              const parsed = z.array(StepSchema).safeParse(raw);
+              return parsed.success ? (parsed.data as Step[]) : null;
+            },
+            now: Date.now
+          },
+          { maxOutputTokens: settings.maxSelfHealOutputTokens }
+        );
+
+        if (!heal.ok) {
+          broadcastSessionEvent({ type: "self_heal_failed", toolId: toolId!, reason: heal.reason });
+          await appendStepLog(run.id, {
+            stepIndex: i,
+            // At this point step is always a tool step (canHeal check above requires step.kind === "tool")
+            input: (step as Extract<Step, { kind: "tool" }>).args as Json,
+            output: null,
+            ms: Date.now() - start,
+            error: `${res.error} · heal:${heal.reason}`
+          });
+          await finalizeRun(run.id, { status: "error" });
+          if (toolId) await recordRunStat(toolId, false);
+          return (await getRun(run.id)) as RunRecord;
+        }
+
+        // Splice in patched steps from position i onward.
+        steps.splice(i, steps.length - i, ...heal.patchedSteps);
+        const prevVer = toolVersion ?? 1;
+        const newVer = prevVer + 1;
+        const currentTool = (await getTool(toolId!))!;
+        await appendVersion(toolId!, {
+          steps,
+          outputSchema: (currentTool.kind === "steps" ? currentTool.outputSchema : {}) as import("@atwebpilot/shared/types").JsonSchema,
+          note: `自愈修复 step ${i}`
+        });
+        healApplied = true;
+        await setRunHealed(run.id, {
+          fromVersion: prevVer,
+          toVersion: newVer,
+          fixedStepIndex: i
+        }).catch(() => {});
+
+        broadcastSessionEvent({
+          type: "self_heal_completed",
+          toolId: toolId!,
+          newVersion: newVer,
+          fixedStepIndex: i
+        });
+
+        i--; // re-run current step index with patched step
+        continue;
       }
+
       await appendStepLog(run.id, {
         stepIndex: i,
         input: step.kind === "tool" ? (step.args as Json) : step.source,

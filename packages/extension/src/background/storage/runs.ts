@@ -64,3 +64,12 @@ export async function listRuns(filter?: { toolId?: string }): Promise<RunRecord[
     .map((r) => withSourceDefault(r) as RunRecord)
     .sort((a, b) => b.startedAt - a.startedAt);
 }
+
+export async function setRunHealed(
+  runId: string,
+  healed: { fromVersion: number; toVersion: number; fixedStepIndex: number }
+): Promise<void> {
+  const db = await getDB();
+  const row = await db.get("runs", runId);
+  if (row) await db.put("runs", { ...row, healed });
+}

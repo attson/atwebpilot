@@ -59,6 +59,12 @@ const ToolStatsSchema = z.object({
   lastRunOk: z.boolean().optional()
 });
 
+export const ToolOriginSchema = z.object({
+  kind: z.literal("preset"),
+  presetId: z.string().min(1),
+  presetVersion: z.number().int().min(1)
+});
+
 export const StepsToolDraftSchema = z.object({
   kind: z.literal("steps"),
   name: z.string().min(1),
@@ -109,7 +115,8 @@ export const StepsToolSchema = z.object({
   createdAt: z.number(),
   updatedAt: z.number(),
   versions: z.array(StepsToolVersionSchema).min(1),
-  stats: ToolStatsSchema
+  stats: ToolStatsSchema,
+  origin: ToolOriginSchema.optional()
 });
 
 export const PromptToolSchema = z.object({
@@ -122,7 +129,8 @@ export const PromptToolSchema = z.object({
   createdAt: z.number(),
   updatedAt: z.number(),
   versions: z.array(PromptToolVersionSchema).min(1),
-  stats: ToolStatsSchema
+  stats: ToolStatsSchema,
+  origin: ToolOriginSchema.optional()
 });
 
 export const ToolSchema = z.discriminatedUnion("kind", [StepsToolSchema, PromptToolSchema]);
@@ -203,7 +211,11 @@ export const RpcRequest = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("http.fetchBinary"),
     url: z.string().url()
-  })
+  }),
+
+  // presets
+  z.object({ type: z.literal("presets.list") }),
+  z.object({ type: z.literal("presets.materialize"), presetId: z.string().min(1) })
 ]);
 
 export type RpcRequest = z.infer<typeof RpcRequest>;

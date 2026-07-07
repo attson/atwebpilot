@@ -141,7 +141,9 @@ export class CoordinatorChatHost {
           trustedDangerTools: [],
           defaultPermissionMode: "default",
           theme: "dark",
-          maxContinuationNudges: msg.settings_override?.maxContinuationNudges ?? 1
+          maxContinuationNudges: msg.settings_override?.maxContinuationNudges ?? 1,
+          selfHealEnabled: true,
+          maxSelfHealOutputTokens: 4096
         },
         systemPrompt: await this.loadSystem(),
         tools: TOOL_DEFS,

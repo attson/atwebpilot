@@ -93,6 +93,12 @@ export type ToolVersion = StepsToolVersion | PromptToolVersion;
 
 export type ToolStats = { runs: number; lastRunAt?: number; lastRunOk?: boolean };
 
+export type ToolOrigin = {
+  kind: "preset";
+  presetId: string;
+  presetVersion: number;
+};
+
 export type StepsTool = {
   kind: "steps";
   id: string;
@@ -105,6 +111,7 @@ export type StepsTool = {
   updatedAt: number;
   versions: StepsToolVersion[];
   stats: ToolStats;
+  origin?: ToolOrigin;
 };
 
 export type PromptTool = {
@@ -118,6 +125,7 @@ export type PromptTool = {
   updatedAt: number;
   versions: PromptToolVersion[];
   stats: ToolStats;
+  origin?: ToolOrigin;
 };
 
 export type Tool = StepsTool | PromptTool;
@@ -164,6 +172,11 @@ export type RunRecord = {
   stepLog: RunStepLogEntry[];
   output?: Json;
   source: RunSource;
+  healed?: {
+    fromVersion: number;
+    toVersion: number;
+    fixedStepIndex: number;
+  };
 };
 
 export type ExportBundle = {
@@ -240,6 +253,10 @@ export type LlmSettings = {
    * 每次新会话时从这里初始化 `session.chatMode`；Header 图标可 session-scoped 覆盖，不写回。
    */
   defaultChatMode?: "compact" | "full";
+  /** 是否启用 step 失败后的自愈功能。默认 true。 */
+  selfHealEnabled: boolean;
+  /** 自愈 LLM 调用的 max_tokens 上限。默认 4096。 */
+  maxSelfHealOutputTokens: number;
 };
 
 // === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===

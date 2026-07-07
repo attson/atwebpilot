@@ -128,6 +128,30 @@ export function SectionLlm() {
           className="bg-zinc-800 px-2 py-1 rounded w-24"
         />
       </div>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={settings.selfHealEnabled ?? true}
+          onChange={(e) => void settings.save({ selfHealEnabled: e.target.checked })}
+        />
+        <span className="text-zinc-300">自动自愈失败 step（默认开）</span>
+      </label>
+      <label className="flex items-center gap-2">
+        <span className="text-zinc-400">自愈 LLM 输出上限</span>
+        <input
+          type="number"
+          min={1024}
+          max={8192}
+          step={512}
+          value={settings.maxSelfHealOutputTokens ?? 4096}
+          onChange={(e) => {
+            const v = parseInt(e.target.value || "4096", 10);
+            void settings.save({ maxSelfHealOutputTokens: Number.isFinite(v) && v > 0 ? v : 4096 });
+          }}
+          className="w-24 px-1 bg-zinc-900 border border-zinc-700 rounded"
+        />
+        <span className="text-zinc-400">tokens</span>
+      </label>
     </section>
   );
 }

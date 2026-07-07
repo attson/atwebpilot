@@ -60,7 +60,10 @@ export type SessionEvent =
   | { type: "continuation_nudge"; round: number; attempt: number }
   | { type: "stream_error"; error: string }
   | { type: "exception"; error: string }
-  | { type: "session_end"; status: "done" | "aborted" | "max_rounds" | "error"; lastOutput: Json; reason?: string };
+  | { type: "session_end"; status: "done" | "aborted" | "max_rounds" | "error"; lastOutput: Json; reason?: string }
+  | { type: "self_heal_started"; toolId: string; toolName: string; failedStepIndex: number }
+  | { type: "self_heal_completed"; toolId: string; newVersion: number; fixedStepIndex: number }
+  | { type: "self_heal_failed"; toolId: string; reason: "llm_error" | "budget_exceeded" | "invalid_output" | "static_scan_reject" | "step_still_fails" | "no_sidepanel" | "no_api_key" };
 
 export type RunSessionArgs = {
   client: LlmClient;

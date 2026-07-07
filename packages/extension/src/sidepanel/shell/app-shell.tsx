@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImagePart, Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
+import type { Preset } from "@atwebpilot/shared/preset";
 
 import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
 import {
   addLlmExchange,
+  appendHealNote,
   appendUserMessageWithImages,
   attachTab,
   detachTab,
@@ -59,6 +61,7 @@ import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
 import { SettingsDrawer } from "@/sidepanel/drawers/settings-drawer";
 import { DebugDrawer } from "@/sidepanel/drawers/debug-drawer";
+import { ScenariosDrawer } from "@/sidepanel/drawers/scenarios-drawer";
 import { SaveAsToolDialog } from "@/sidepanel/components/save-as-tool-dialog";
 import { TabPicker } from "@/sidepanel/components/tab-picker";
 import { InterventionOverlay } from "@/sidepanel/components/intervention-overlay";
@@ -74,6 +77,7 @@ import { usePendingPrompt } from "@/sidepanel/hooks/use-pending-prompt";
 import { useExternalReplay } from "@/sidepanel/hooks/use-external-replay";
 import { ExternalReplayModal } from "@/sidepanel/components/external-replay-modal";
 import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
+import { installSelfHealHost } from "@/sidepanel/self-heal-host";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
   return tools.map((t) => ({
@@ -96,6 +100,7 @@ export function AppShell() {
 
   const [input, setInput] = useState(session.inputDraft ?? "");
   const [recommendations, setRecommendations] = useState<Tool[]>([]);
+  const [recommendedPresets, setRecommendedPresets] = useState<Preset[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickableTabs, setPickableTabs] = useState<MentionTabOption[]>([]);
   const [allTools, setAllTools] = useState<Tool[]>([]);
@@ -106,6 +111,42 @@ export function AppShell() {
 
   useHeartbeat();
   const externalReplay = useExternalReplay();
+
+  // Self-heal host: listen for BG heal requests and run LLM in sidepanel context
+  useEffect(() => {
+    const dispose = installSelfHealHost();
+    return dispose;
+  }, []);
+
+  // Self-heal event listener: surface heal status as inline system notes in the chat thread
+  useEffect(() => {
+    function onHealEvent(msg: unknown) {
+      if (!msg || typeof msg !== "object") return;
+      const m = msg as { type?: string; event?: Record<string, unknown> };
+      if (m.type !== "session.event" || !m.event) return;
+      const ev = m.event;
+      const tabId = useStore.getState().currentTabId;
+      if (tabId == null) return;
+      if (ev.type === "self_heal_started") {
+        appendHealNote(
+          tabId,
+          `正在自动修复失败步骤 (step ${ev.failedStepIndex})…`
+        );
+      } else if (ev.type === "self_heal_completed") {
+        appendHealNote(
+          tabId,
+          `已自愈，升级到 v${ev.newVersion} (fixedStep=${ev.fixedStepIndex})`
+        );
+      } else if (ev.type === "self_heal_failed") {
+        appendHealNote(
+          tabId,
+          `自愈失败: ${ev.reason ?? "unknown"}`
+        );
+      }
+    }
+    chrome.runtime.onMessage.addListener(onHealEvent);
+    return () => chrome.runtime.onMessage.removeListener(onHealEvent);
+  }, []);
 
   // Element-capture result handler: content script → runtime msg → sidepanel inserts selector
   useEffect(() => {
@@ -162,7 +203,10 @@ export function AppShell() {
     const off = onTabRecommendations((m) => {
       currentTabInfo()
         .then((info) => {
-          if (info.tabId === m.tabId) setRecommendations(m.tools);
+          if (info.tabId === m.tabId) {
+            setRecommendations(m.tools);
+            setRecommendedPresets(m.presets ?? []);
+          }
         })
         .catch(() => {});
     });
@@ -596,11 +640,26 @@ export function AppShell() {
       <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-3 py-3">
         {emptyState ? (
           <div className="m-auto max-w-[280px]">
-            <QuickActions onPick={(prompt) => void send(prompt)} />
+            <QuickActions currentUrl={session.url || undefined} onPick={(prompt) => void send(prompt)} />
             <EmptySuggestions
               matchedTools={toSuggested(recommendations)}
               onRun={(id) => ui.open("tools", id)}
               onDetail={openToolDetail}
+              presets={recommendedPresets}
+              onPresetPick={async (preset) => {
+                if (preset.kind === "tool") {
+                  try {
+                    const tool = await rpc.materializePreset(preset.id);
+                    ui.open("tools", tool.id);
+                  } catch {
+                    // best-effort; silently ignore if materialize fails
+                  }
+                } else {
+                  // prompt preset: fill input and let user send
+                  setInput(preset.prompt);
+                  session.setInputDraft(preset.prompt);
+                }
+              }}
             />
           </div>
         ) : (
@@ -698,6 +757,7 @@ export function AppShell() {
       <ToolsDrawer />
       <SettingsDrawer />
       <DebugDrawer />
+      <ScenariosDrawer />
 
       <InterventionOverlay />
 

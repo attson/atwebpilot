@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type DrawerKind = "history" | "tools" | "settings" | "debug";
+export type DrawerKind = "history" | "tools" | "settings" | "debug" | "scenarios";
 
 type UiState = {
   /** Which right-side drawer is currently visible. Global (not per-session). */

@@ -46,11 +46,12 @@ export function ToolDetailPane({ id, onRunPromptTool, onFixWithAi }: Props) {
     } 步失败：\n- step: ${JSON.stringify(failedEntry?.input)}\n- 错误: ${
       failedEntry?.error ?? "(未知)"
     }\n\n请基于当前页面 DOM 重新设计这一步（或整个工具）。`;
-    const initialContext = `# 工具「${tool.name}」原 steps:\n\`\`\`json\n${JSON.stringify(
-      tool.steps,
-      null,
-      2
-    )}\n\`\`\`\n# 当前 URL: ${run.url}`;
+    const healedNote = run.healed
+      ? `\n\n> 自动自愈已尝试并失败 · from v${run.healed.fromVersion} 至 v${run.healed.toVersion} · fixedStep=${run.healed.fixedStepIndex}\n`
+      : "";
+    const initialContext =
+      `# 工具「${tool.name}」原 steps:\n\`\`\`json\n${JSON.stringify(tool.steps, null, 2)}\n\`\`\`\n` +
+      `# 当前 URL: ${run.url}${healedNote}`;
     onFixWithAi({ initialPrompt, initialContext });
   }
 

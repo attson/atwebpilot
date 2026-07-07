@@ -20,6 +20,8 @@ const BASE_SETTINGS: LlmSettings = {
   defaultPermissionMode: "default",
   theme: "dark",
   maxContinuationNudges: 1,
+  selfHealEnabled: true,
+  maxSelfHealOutputTokens: 4096,
 };
 
 async function* fakeStream(events: LlmStreamEvent[]): AsyncIterable<LlmStreamEvent> {

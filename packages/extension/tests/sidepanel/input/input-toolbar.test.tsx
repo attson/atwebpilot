@@ -51,6 +51,8 @@ function defaultProps(over: Partial<React.ComponentProps<typeof InputToolbar>> =
       trustedDangerTools: [],
       defaultPermissionMode: "default" as const,
       theme: "dark" as const,
+      selfHealEnabled: true,
+      maxSelfHealOutputTokens: 4096,
     },
     currentTabId: null,
     ...over,
