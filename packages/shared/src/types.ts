@@ -93,6 +93,12 @@ export type ToolVersion = StepsToolVersion | PromptToolVersion;
 
 export type ToolStats = { runs: number; lastRunAt?: number; lastRunOk?: boolean };
 
+export type ToolOrigin = {
+  kind: "preset";
+  presetId: string;
+  presetVersion: number;
+};
+
 export type StepsTool = {
   kind: "steps";
   id: string;
@@ -105,6 +111,7 @@ export type StepsTool = {
   updatedAt: number;
   versions: StepsToolVersion[];
   stats: ToolStats;
+  origin?: ToolOrigin;
 };
 
 export type PromptTool = {
@@ -118,6 +125,7 @@ export type PromptTool = {
   updatedAt: number;
   versions: PromptToolVersion[];
   stats: ToolStats;
+  origin?: ToolOrigin;
 };
 
 export type Tool = StepsTool | PromptTool;
@@ -164,6 +172,11 @@ export type RunRecord = {
   stepLog: RunStepLogEntry[];
   output?: Json;
   source: RunSource;
+  healed?: {
+    fromVersion: number;
+    toVersion: number;
+    fixedStepIndex: number;
+  };
 };
 
 export type ExportBundle = {
