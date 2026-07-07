@@ -12,6 +12,7 @@ import {
   getTool,
   listTools,
   matchingTools,
+  materializePreset,
   recordRunStat,
   saveDraft
 } from "./storage/tools";
@@ -101,6 +102,13 @@ async function dispatch(req: RpcRequest): Promise<Json> {
       return (await openTabRpc(req.url, req.active ?? false)) as unknown as Json;
     case "http.fetchBinary": {
       return (await fetchAsBase64(req.url)) as unknown as Json;
+    }
+    case "presets.list": {
+      const { PRESETS } = await import("@atwebpilot/shared/presets");
+      return PRESETS as unknown as Json;
+    }
+    case "presets.materialize": {
+      return (await materializePreset(req.presetId)) as unknown as Json;
     }
   }
 }

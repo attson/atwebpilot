@@ -211,7 +211,11 @@ export const RpcRequest = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("http.fetchBinary"),
     url: z.string().url()
-  })
+  }),
+
+  // presets
+  z.object({ type: z.literal("presets.list") }),
+  z.object({ type: z.literal("presets.materialize"), presetId: z.string().min(1) })
 ]);
 
 export type RpcRequest = z.infer<typeof RpcRequest>;

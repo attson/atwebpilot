@@ -13,7 +13,9 @@
     "./protocol": "./src/protocol/index.ts",
     "./capability": "./src/capability/index.ts",
     "./mcp-tools": "./src/mcp-tools/index.ts",
-    "./llm": "./src/llm/index.ts"
+    "./llm": "./src/llm/index.ts",
+    "./preset": "./src/preset.ts",
+    "./presets": "./src/presets/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

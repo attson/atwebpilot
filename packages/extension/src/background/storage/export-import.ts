@@ -1,5 +1,6 @@
 import { ToolSchema } from "@atwebpilot/shared/messages";
 import type { ExportBundle, Tool } from "@atwebpilot/shared/types";
+import { PRESETS } from "@atwebpilot/shared/presets";
 import { getDB } from "./db";
 
 function parseTool(raw: unknown): Tool | undefined {
@@ -9,7 +10,11 @@ function parseTool(raw: unknown): Tool | undefined {
 
 export async function exportAll(): Promise<ExportBundle> {
   const db = await getDB();
-  const tools = (await db.getAll("tools")).map(parseTool).filter((t): t is Tool => !!t);
+  const allTools = (await db.getAll("tools")).map(parseTool).filter((t): t is Tool => !!t);
+  // Gap Fix T8.5: exclude unmodified preset copies (origin.kind === "preset" && only 1 version)
+  const tools = allTools.filter(
+    (t) => !(t.origin?.kind === "preset" && t.versions.length === 1)
+  );
   return { schema: "caiji.tools/v2", exportedAt: Date.now(), tools };
 }
 
@@ -27,10 +32,24 @@ export async function importBundle(
   if (!raw || raw.schema !== "caiji.tools/v2" || !Array.isArray(raw.tools)) {
     throw new Error("invalid bundle: schema mismatch");
   }
+  // Gap Fix T8.5: strip origin when the referenced preset id is not in current PRESETS
+  const validPresetIds = new Set(PRESETS.map((p) => p.id));
   const db = await getDB();
   let imported = 0;
   let skipped = 0;
-  for (const candidate of raw.tools) {
+  for (const rawCandidate of raw.tools) {
+    // Sanitize unknown preset origins before parsing
+    const candidate =
+      rawCandidate &&
+      typeof rawCandidate === "object" &&
+      (rawCandidate as Record<string, unknown>).origin &&
+      typeof (rawCandidate as Record<string, unknown>).origin === "object" &&
+      ((rawCandidate as Record<string, unknown>).origin as Record<string, unknown>).kind === "preset" &&
+      !validPresetIds.has(
+        ((rawCandidate as Record<string, unknown>).origin as Record<string, unknown>).presetId as string
+      )
+        ? { ...(rawCandidate as Record<string, unknown>), origin: undefined }
+        : rawCandidate;
     const incoming = parseTool(candidate);
     if (!incoming) {
       skipped++;

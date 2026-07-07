@@ -1,6 +1,7 @@
 import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import { ToolSchema } from "@atwebpilot/shared/messages";
-import type { JsonSchema, PromptTool, Step, StepsTool, Tool, ToolDraft } from "@atwebpilot/shared/types";
+import type { JsonSchema, PromptTool, Step, StepsTool, Tool, ToolDraft, ToolOrigin } from "@atwebpilot/shared/types";
+import { PRESETS } from "@atwebpilot/shared/presets";
 import { getDB } from "./db";
 
 function uuid(): string {
@@ -100,6 +101,57 @@ export async function deleteTool(id: string): Promise<void> {
 export async function matchingTools(url: string): Promise<Tool[]> {
   const all = await listTools();
   return all.filter((t) => matchesAny(url, t.urlPatterns));
+}
+
+/**
+ * Copy a tool-form Preset into IDB. If a tool already exists for the same
+ * presetId, return it (idempotent). Prompt-form presets cannot be materialized
+ * — they are used as suggestion text only.
+ */
+export async function materializePreset(presetId: string): Promise<Tool> {
+  const preset = PRESETS.find((p) => p.id === presetId);
+  if (!preset) throw new Error(`unknown preset: ${presetId}`);
+  if (preset.kind !== "tool") {
+    throw new Error(`prompt preset ${presetId} is not materializable`);
+  }
+
+  const existing = (await listTools()).find(
+    (t) => t.origin?.kind === "preset" && t.origin.presetId === presetId
+  );
+  if (existing) return existing;
+
+  const origin: ToolOrigin = {
+    kind: "preset",
+    presetId: preset.id,
+    presetVersion: preset.version
+  };
+  const now = Date.now();
+  const tool: StepsTool = {
+    id: uuid(),
+    kind: "steps",
+    name: preset.name,
+    description: preset.description,
+    urlPatterns: [...preset.urlPatterns],
+    steps: JSON.parse(JSON.stringify(preset.steps)) as Step[],
+    outputSchema: (preset.expectedResultShape ?? {}) as JsonSchema,
+    createdAt: now,
+    updatedAt: now,
+    versions: [
+      {
+        version: 1,
+        kind: "steps",
+        steps: JSON.parse(JSON.stringify(preset.steps)) as Step[],
+        outputSchema: (preset.expectedResultShape ?? {}) as JsonSchema,
+        createdAt: now
+      }
+    ],
+    stats: { runs: 0 },
+    origin
+  };
+
+  const db = await getDB();
+  await db.put("tools", tool);
+  return tool;
 }
 
 export async function recordRunStat(id: string, ok: boolean): Promise<void> {
