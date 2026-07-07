@@ -1,12 +1,28 @@
 import { matchingTools } from "./storage/tools";
+import { matchPresetsByUrl } from "@atwebpilot/shared/match-presets";
+import type { Preset } from "@atwebpilot/shared/preset";
+import type { Tool } from "@atwebpilot/shared/types";
 
 export async function refreshRecommendations(tabId: number, url: string): Promise<void> {
   const tools = await matchingTools(url);
+  const rawPresets = matchPresetsByUrl(url);
+
+  // Dedup: if a preset has already been materialized as a user tool
+  // (tool.origin.presetId === preset.id), don't surface the preset again.
+  const materializedIds = new Set(
+    tools
+      .map((t: Tool) => t.origin)
+      .filter((o): o is NonNullable<Tool["origin"]> => !!o && o.kind === "preset")
+      .map((o) => o.presetId)
+  );
+  const presets = rawPresets.filter((p: Preset) => !materializedIds.has(p.id));
+
+  const badgeCount = tools.length + presets.length;
   await chrome.action.setBadgeText({
     tabId,
-    text: tools.length ? String(tools.length) : ""
+    text: badgeCount ? String(badgeCount) : ""
   });
-  if (tools.length) {
+  if (badgeCount) {
     await chrome.action.setBadgeBackgroundColor({ tabId, color: "#10b981" });
   }
   try {
@@ -14,7 +30,8 @@ export async function refreshRecommendations(tabId: number, url: string): Promis
       type: "tabs.recommendations",
       tabId,
       url,
-      tools
+      tools,
+      presets
     });
   } catch {
     // sidepanel 不在听就 swallow
