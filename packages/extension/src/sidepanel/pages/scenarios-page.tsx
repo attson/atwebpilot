@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Preset } from "@atwebpilot/shared/preset";
 import type { Tool } from "@atwebpilot/shared/types";
+import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import { rpc, currentTabInfo } from "@/sidepanel/rpc";
 import { useUi } from "@/sidepanel/chat/ui-store";
 
@@ -79,21 +80,7 @@ export function ScenariosPage() {
 
   function urlMatches(p: Preset): boolean {
     if (!currentUrl) return false;
-    return p.urlPatterns.some((pat) => {
-      try {
-        const re = new RegExp(
-          "^" +
-            pat
-              .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-              .replace(/\*\*/g, ".*")
-              .replace(/\*/g, "[^/]*") +
-            "$"
-        );
-        return re.test(currentUrl);
-      } catch {
-        return false;
-      }
-    });
+    return matchesAny(currentUrl, p.urlPatterns);
   }
 
   return (
