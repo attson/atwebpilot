@@ -8,7 +8,11 @@ import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session"
 import { pickClient } from "@/sidepanel/llm/client";
 import { createRecordingClient } from "@/sidepanel/llm/recording-client";
 import { useSettings } from "@/sidepanel/chat/settings-store";
-import { Approver } from "@/sidepanel/chat/approval";
+import {
+  Approver,
+  registerApproverForTab,
+  broadcastApprovalDecision,
+} from "@/sidepanel/chat/approval";
 import {
   useStore,
   addLlmExchange,
@@ -35,6 +39,11 @@ import type { Json, Step, ReplayableTool } from "@atwebpilot/shared/types";
 /**
  * Widget-specific approver: intercepts dangerous tools and hands off to
  * the sidepanel before delegating the decision to the user via super.request().
+ *
+ * Also broadcasts any resolved decision so the sidepanel context (which may
+ * have shown a confirm modal) can close out its own awaiting promise — and
+ * vice-versa: the installApprovalListener relay in react-root.tsx delivers
+ * sidepanel decisions back into this instance's pending map.
  */
 class WidgetApprover extends Approver {
   constructor(private readonly tabId: number) {
@@ -53,6 +62,13 @@ class WidgetApprover extends Approver {
       }
     }
     return super.request(toolUseId);
+  }
+
+  override resolve(toolUseId: string, decision: Decision): void {
+    if (!this.has(toolUseId)) return;
+    super.resolve(toolUseId, decision);
+    // Relay decision to sidepanel context so it can unblock any parallel waiter
+    broadcastApprovalDecision(this.tabId, toolUseId, decision);
   }
 }
 
@@ -83,6 +99,9 @@ export async function runFromInput(tabId: number, text: string): Promise<void> {
   );
 
   const approver = new WidgetApprover(tabId);
+  // Register in the module map so that Panel.handleApprove (via getApproverForTab)
+  // and the broadcast relay can reach this instance.
+  registerApproverForTab(tabId, approver);
 
   const systemPrompt = buildSystemPrompt({
     url,

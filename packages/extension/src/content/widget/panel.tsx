@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { X, Minus, ExternalLink } from "lucide-react";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptySuggestions } from "@/sidepanel/chat/empty-suggestions";
@@ -9,6 +9,11 @@ import {
   ensureSession,
   setCurrentTab,
 } from "@/sidepanel/chat/session-store";
+import {
+  getApproverForTab,
+  broadcastApprovalDecision,
+  type Decision,
+} from "@/sidepanel/chat/approval";
 import { rpc, currentTabInfo } from "@/sidepanel/rpc";
 import { getPanelSize } from "./per-site";
 
@@ -58,9 +63,24 @@ export function Panel({ onClose, onMinimize }: Props) {
     await rpc.widgetOpenSidepanel({ tabId }).catch(() => {});
   }
 
-  const handleApprove = () => {
-    console.warn("[widget] approval not yet wired");
-  };
+  const handleApprove = useCallback(
+    (
+      id: string,
+      decisionKind: "run" | "run-and-always-allow" | "skip" | "deny",
+      toolName?: string
+    ) => {
+      if (!tabId) return;
+      const decision: Decision =
+        decisionKind === "run-and-always-allow" && toolName
+          ? { kind: "run-and-always-allow", toolName }
+          : ({ kind: decisionKind } as Decision);
+      // Resolve locally (handles the case where widget holds the pending promise)
+      getApproverForTab(tabId).resolve(id, decision);
+      // Broadcast to sidepanel context in case IT holds the pending promise
+      broadcastApprovalDecision(tabId, id, decision);
+    },
+    [tabId]
+  );
 
   return (
     <div

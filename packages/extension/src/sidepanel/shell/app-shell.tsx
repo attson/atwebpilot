@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImagePart, Json, ReplayableTool, Step, Tool, AttachedTab } from "@atwebpilot/shared/types";
 import type { Preset } from "@atwebpilot/shared/preset";
 
-import { getGlobalApprover, type Decision } from "@/sidepanel/chat/approval";
+import {
+  getGlobalApprover,
+  installApprovalListener,
+  broadcastApprovalDecision,
+  type Decision,
+} from "@/sidepanel/chat/approval";
 import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
 import {
   addLlmExchange,
@@ -123,6 +128,13 @@ export function AppShell() {
   useEffect(() => {
     const dispose = installBroadcastSubscriber();
     return dispose;
+  }, []);
+
+  // Cross-process approval relay: decisions resolved by the widget are
+  // forwarded into the sidepanel's local approversByTab map so that
+  // getGlobalApprover / getApproverForTab can unblock the awaiting promise.
+  useEffect(() => {
+    return installApprovalListener();
   }, []);
 
   // Pending approval focus: when sidepanel opens after dangerous-tool handoff,
@@ -340,22 +352,33 @@ export function AppShell() {
       decision: "run" | "run-and-always-allow" | "skip" | "deny",
       toolName?: string
     ) => {
+      const resolvedDecision: Decision =
+        decision === "run-and-always-allow" && toolName
+          ? { kind: "run-and-always-allow", toolName }
+          : ({ kind: decision } as Decision);
+
       if (decision === "run-and-always-allow" && toolName) {
         void settings.save({
           trustedDangerTools: Array.from(
             new Set([...(settings.trustedDangerTools ?? []), toolName])
           ),
         });
-        approver.resolve(id, { kind: "run-and-always-allow", toolName });
+        approver.resolve(id, resolvedDecision);
         session.setCardStatus(id, { status: "running" });
-        return;
+      } else {
+        approver.resolve(id, resolvedDecision);
+        session.setCardStatus(id, {
+          status: decision === "run" ? "running" : decision === "skip" ? "skipped" : "denied",
+        });
       }
-      approver.resolve(id, { kind: decision } as Decision);
-      session.setCardStatus(id, {
-        status: decision === "run" ? "running" : decision === "skip" ? "skipped" : "denied",
-      });
+
+      // Broadcast so widget context (which holds the real pending promise when
+      // a dangerous tool was handed off from widget to sidepanel) can unblock.
+      if (currentTabId != null) {
+        broadcastApprovalDecision(currentTabId, id, resolvedDecision);
+      }
     },
-    [session, approver, settings]
+    [session, approver, settings, currentTabId]
   );
 
   const send = useCallback(
