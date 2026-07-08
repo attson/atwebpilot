@@ -1,7 +1,11 @@
 import { isHostHidden } from "./per-site";
+import { setTeardown } from "./lifecycle";
 
 const HOST_TAG = "atwebpilot-widget";
 const SETTINGS_KEY = "caiji.llm";
+
+// unmountWidget() is exported from ./lifecycle so components can trigger
+// teardown without importing this module (which has auto-mount side effects).
 
 export async function mountWidget(): Promise<void> {
   // Idempotent
@@ -30,7 +34,7 @@ export async function mountWidget(): Promise<void> {
   const { attachStyles } = await import("./styles");
   attachStyles(shadow);
   const { bootstrap } = await import("./react-root");
-  bootstrap(shadow);
+  setTeardown(bootstrap(shadow));
 
   console.info("[atwebpilot-widget] mounted on", location.host);
 }

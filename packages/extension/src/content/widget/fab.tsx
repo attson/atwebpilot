@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { getFabPos, setFabPos, hideHost } from "./per-site";
-import { rpc } from "@/sidepanel/rpc";
-import { currentTabId } from "@/sidepanel/rpc";
+import { rpc, currentTabId } from "@/sidepanel/rpc";
+import { unmountWidget } from "./lifecycle";
 
 type Props = {
   onToggle: () => void;
@@ -86,7 +86,7 @@ export function FAB({ onToggle, active }: Props) {
             className="block w-full text-left px-3 py-2 hover:bg-zinc-800"
             onClick={() => {
               setPos(DEFAULT_POS);
-              setFabPos(location.host, DEFAULT_POS);
+              setFabPos(location.host, DEFAULT_POS).catch(() => {});
               setMenu(false);
             }}
           >
@@ -106,7 +106,7 @@ export function FAB({ onToggle, active }: Props) {
             className="block w-full text-left px-3 py-2 hover:bg-zinc-800 text-amber-400"
             onClick={async () => {
               await hideHost(location.host);
-              document.querySelector("atwebpilot-widget")?.remove();
+              unmountWidget();
             }}
           >
             本站不再显示
