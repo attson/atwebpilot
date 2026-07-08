@@ -7,6 +7,12 @@ const storage: Record<string, any> = { "caiji.llm": { widgetEnabled: true } };
       get: vi.fn(async (keys: string[]) => Object.fromEntries(keys.map(k => [k, storage[k]]))),
       set: vi.fn(async () => {})
     }
+  },
+  runtime: {
+    onMessage: {
+      addListener: vi.fn(),
+      removeListener: vi.fn()
+    }
   }
 };
 

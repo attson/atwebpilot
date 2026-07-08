@@ -29,12 +29,8 @@ export async function mountWidget(): Promise<void> {
 
   const { attachStyles } = await import("./styles");
   attachStyles(shadow);
-
-  // Placeholder — the React root will replace this in a later task.
-  const div = document.createElement("div");
-  div.textContent = "AtWebPilot widget mounted";
-  div.setAttribute("data-atwebpilot", "placeholder");
-  shadow.appendChild(div);
+  const { bootstrap } = await import("./react-root");
+  bootstrap(shadow);
 
   console.info("[atwebpilot-widget] mounted on", location.host);
 }
