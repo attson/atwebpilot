@@ -68,6 +68,8 @@ export type SessionData = {
   debugBadge: DebugBadge;
   /** 聊天视图模式（session-scoped；不持久化）。默认 "compact"。 */
   chatMode: "compact" | "full";
+  /** 广播冲突仲裁字段；每次 mutation 后自增（Task 7）。初始 0。 */
+  _rev: number;
 };
 
 export function makeEmptySession(tabId: number, url = ""): SessionData {
@@ -93,7 +95,8 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     llmExchanges: [],
     permissionMode: "default",
     debugBadge: null,
-    chatMode: "compact"
+    chatMode: "compact",
+    _rev: 0
   };
 }
 
