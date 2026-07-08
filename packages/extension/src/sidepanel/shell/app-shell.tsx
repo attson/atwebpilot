@@ -12,6 +12,7 @@ import {
   detachTab,
   ensureSession,
   getSessionFor,
+  installBroadcastSubscriber,
   popLastAssistantTurn,
   setCurrentTab,
   setPermissionMode,
@@ -115,6 +116,12 @@ export function AppShell() {
   // Self-heal host: listen for BG heal requests and run LLM in sidepanel context
   useEffect(() => {
     const dispose = installSelfHealHost();
+    return dispose;
+  }, []);
+
+  // Broadcast subscriber: receive session.state.changed from widget and apply if newer
+  useEffect(() => {
+    const dispose = installBroadcastSubscriber();
     return dispose;
   }, []);
 
