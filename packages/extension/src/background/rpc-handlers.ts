@@ -67,7 +67,7 @@ export async function handleRpc(raw: unknown): Promise<{ ok: true; data: Json } 
   }
 }
 
-async function dispatch(req: RpcRequest): Promise<Json> {
+export async function dispatch(req: RpcRequest): Promise<Json> {
   switch (req.type) {
     case "tools.list":
       return (await listTools()) as unknown as Json;
@@ -148,6 +148,27 @@ async function dispatch(req: RpcRequest): Promise<Json> {
     }
     case "presets.materialize": {
       return (await materializePreset(req.presetId)) as unknown as Json;
+    }
+    case "widget.openSidepanel": {
+      await chrome.sidePanel.open({ tabId: req.tabId });
+      if (req.pendingApprovalId) {
+        await chrome.storage.session.set({
+          "caiji.pendingApproval": {
+            tabId: req.tabId,
+            approvalId: req.pendingApprovalId,
+            ts: Date.now()
+          }
+        });
+      }
+      return null;
+    }
+    case "widget.markHostHidden": {
+      const KEY = "caiji.widget.hiddenHosts";
+      const raw = (await chrome.storage.local.get([KEY]))[KEY];
+      const list = Array.isArray(raw) ? [...raw] : [];
+      if (!list.includes(req.host)) list.push(req.host);
+      await chrome.storage.local.set({ [KEY]: list });
+      return null;
     }
   }
 }

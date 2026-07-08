@@ -16,7 +16,8 @@ const DEFAULTS: LlmSettings = {
   maxContinuationNudges: 1,
   defaultChatMode: "compact",
   selfHealEnabled: true,
-  maxSelfHealOutputTokens: 4096
+  maxSelfHealOutputTokens: 4096,
+  widgetEnabled: true
 };
 
 type StoreShape = LlmSettings & {

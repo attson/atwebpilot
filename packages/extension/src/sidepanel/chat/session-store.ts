@@ -2,6 +2,33 @@ import { create } from "zustand";
 import type { AttachedTab, ChatMessage, ImagePart, Json, LlmExchange, PersistedSessionData, Step, ToolUsePart } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "./severity";
 
+export const SELF_INSTANCE_ID: string =
+  (globalThis.crypto?.randomUUID?.() ?? String(Math.random()).slice(2));
+
+function broadcastMutation(tabId: number): void {
+  const snap = useStore.getState().sessionsByTab[tabId];
+  if (!snap) return;
+  try {
+    void chrome.runtime.sendMessage({
+      type: "session.state.changed",
+      tabId,
+      snapshot: snap,
+      senderId: SELF_INSTANCE_ID
+    });
+  } catch { /* swallow */ }
+}
+
+function mutateSession(tabId: number, updater: (s: SessionData) => SessionData): void {
+  useStore.setState((state) => {
+    const cur = state.sessionsByTab[tabId];
+    if (!cur) return state;
+    const next = updater(cur);
+    const bumped = { ...next, _rev: (cur._rev ?? 0) + 1 };
+    return { sessionsByTab: { ...state.sessionsByTab, [tabId]: bumped } };
+  });
+  broadcastMutation(tabId);
+}
+
 export const MAX_EXCHANGES = 60;
 
 export type DebugBadge = { kind: "error" | "exchange" | "log"; count: number } | null;
@@ -68,6 +95,8 @@ export type SessionData = {
   debugBadge: DebugBadge;
   /** 聊天视图模式（session-scoped；不持久化）。默认 "compact"。 */
   chatMode: "compact" | "full";
+  /** 广播冲突仲裁字段；每次 mutation 后自增（Task 7）。初始 0。 */
+  _rev: number;
 };
 
 export function makeEmptySession(tabId: number, url = ""): SessionData {
@@ -93,7 +122,8 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     llmExchanges: [],
     permissionMode: "default",
     debugBadge: null,
-    chatMode: "compact"
+    chatMode: "compact",
+    _rev: 0
   };
 }
 
@@ -128,24 +158,18 @@ function patchSession(tabId: number, fn: (s: SessionData) => SessionData): void 
 // === per-tab actions ===
 
 export function ensureSession(tabId: number, url: string): void {
-  useStore.setState((state) => {
-    if (state.sessionsByTab[tabId]) {
-      if (url && state.sessionsByTab[tabId].url !== url) {
-        return {
-          ...state,
-          sessionsByTab: {
-            ...state.sessionsByTab,
-            [tabId]: { ...state.sessionsByTab[tabId], url }
-          }
-        };
-      }
-      return state;
+  const existing = useStore.getState().sessionsByTab[tabId];
+  if (existing) {
+    if (url && existing.url !== url) {
+      mutateSession(tabId, (s) => ({ ...s, url }));
     }
-    return {
-      ...state,
-      sessionsByTab: { ...state.sessionsByTab, [tabId]: makeEmptySession(tabId, url) }
-    };
-  });
+    return;
+  }
+  // New session: initialize with _rev 0, then broadcast
+  useStore.setState((state) => ({
+    sessionsByTab: { ...state.sessionsByTab, [tabId]: makeEmptySession(tabId, url) }
+  }));
+  broadcastMutation(tabId);
 }
 
 export function setCurrentTab(tabId: number): void {
@@ -153,11 +177,11 @@ export function setCurrentTab(tabId: number): void {
 }
 
 export function setUrl(tabId: number, url: string): void {
-  patchSession(tabId, (s) => ({ ...s, url }));
+  mutateSession(tabId, (s) => ({ ...s, url }));
 }
 
 export function appendSystemNote(tabId: number, text: string): void {
-  patchSession(tabId, (s) =>
+  mutateSession(tabId, (s) =>
     s.messages.length === 0
       ? s
       : { ...s, messages: [...s.messages, { role: "user", content: text }] }
@@ -169,14 +193,14 @@ export function appendSystemNote(tabId: number, text: string): void {
  * Used by the self-heal event listener to surface heal status in the chat UI.
  */
 export function appendHealNote(tabId: number, text: string): void {
-  patchSession(tabId, (s) => ({
+  mutateSession(tabId, (s) => ({
     ...s,
     messages: [...s.messages, { role: "user" as const, content: `[自愈] ${text}` }]
   }));
 }
 
 export function appendUserMessage(tabId: number, text: string): void {
-  patchSession(tabId, (s) => ({
+  mutateSession(tabId, (s) => ({
     ...s,
     messages: [...s.messages, { role: "user", content: text }]
   }));
@@ -185,7 +209,7 @@ export function appendUserMessage(tabId: number, text: string): void {
 /** Like appendUserMessage but attaches images as a content array. */
 export function appendUserMessageWithImages(tabId: number, text: string, images: ImagePart[]): void {
   if (images.length === 0) return appendUserMessage(tabId, text);
-  patchSession(tabId, (s) => {
+  mutateSession(tabId, (s) => {
     const content: Array<{ type: "text"; text: string } | ImagePart> = [];
     for (const img of images) content.push(img);
     if (text) content.push({ type: "text", text });
@@ -194,18 +218,18 @@ export function appendUserMessageWithImages(tabId: number, text: string, images:
 }
 
 export function beginAssistantTurn(tabId: number): void {
-  patchSession(tabId, (s) => ({ ...s, streamingAssistantText: "" }));
+  mutateSession(tabId, (s) => ({ ...s, streamingAssistantText: "" }));
 }
 
 export function appendAssistantText(tabId: number, delta: string): void {
-  patchSession(tabId, (s) => ({
+  mutateSession(tabId, (s) => ({
     ...s,
     streamingAssistantText: s.streamingAssistantText + delta
   }));
 }
 
 export function finalizeAssistantTurn(tabId: number, toolUses: ToolUsePart[]): void {
-  patchSession(tabId, (s) => {
+  mutateSession(tabId, (s) => {
     const arr: Array<
       | { type: "text"; text: string }
       | { type: "tool_use"; id: string; name: string; input: Json }
@@ -224,7 +248,7 @@ export function upsertCard(
   tabId: number,
   card: Partial<StepCardState> & { toolUseId: string }
 ): void {
-  patchSession(tabId, (s) => {
+  mutateSession(tabId, (s) => {
     const idx = s.cards.findIndex((c) => c.toolUseId === card.toolUseId);
     if (idx === -1) {
       const next: StepCardState = {
@@ -252,7 +276,7 @@ export function setCardStatus(
   toolUseId: string,
   patch: Partial<Pick<StepCardState, "status" | "output" | "error" | "ms" | "input" | "inputReady">>
 ): void {
-  patchSession(tabId, (s) => {
+  mutateSession(tabId, (s) => {
     const idx = s.cards.findIndex((c) => c.toolUseId === toolUseId);
     if (idx === -1) return s;
     const cards = s.cards.slice();
@@ -265,7 +289,7 @@ export function appendToolResults(
   tabId: number,
   results: Array<{ tool_use_id: string; content: string; is_error?: boolean }>
 ): void {
-  patchSession(tabId, (s) => ({
+  mutateSession(tabId, (s) => ({
     ...s,
     messages: [
       ...s.messages,
@@ -283,22 +307,22 @@ export function appendToolResults(
 }
 
 export function pushExecutedStep(tabId: number, step: Step): void {
-  patchSession(tabId, (s) => ({ ...s, executedSteps: [...s.executedSteps, step] }));
+  mutateSession(tabId, (s) => ({ ...s, executedSteps: [...s.executedSteps, step] }));
 }
 
 export function setLastOutput(tabId: number, v: Json): void {
-  patchSession(tabId, (s) => ({ ...s, lastOutput: v }));
+  mutateSession(tabId, (s) => ({ ...s, lastOutput: v }));
 }
 
 export function incrementRound(tabId: number): void {
-  patchSession(tabId, (s) => ({ ...s, roundCount: s.roundCount + 1 }));
+  mutateSession(tabId, (s) => ({ ...s, roundCount: s.roundCount + 1 }));
 }
 
 export function addUsage(
   tabId: number,
   u: { input_tokens: number; output_tokens: number }
 ): void {
-  patchSession(tabId, (s) => ({
+  mutateSession(tabId, (s) => ({
     ...s,
     tokenUsage: {
       input: s.tokenUsage.input + (u.input_tokens ?? 0),
@@ -308,49 +332,49 @@ export function addUsage(
 }
 
 export function addLlmExchange(tabId: number, ex: LlmExchange): void {
-  patchSession(tabId, (s) => ({
+  mutateSession(tabId, (s) => ({
     ...s,
     llmExchanges: [...s.llmExchanges, ex].slice(-MAX_EXCHANGES)
   }));
 }
 
 export function setStatus(tabId: number, status: SessionStatus): void {
-  patchSession(tabId, (s) => ({ ...s, status }));
+  mutateSession(tabId, (s) => ({ ...s, status }));
 }
 
 export function setError(tabId: number, errorMessage: string | null): void {
-  patchSession(tabId, (s) => ({ ...s, errorMessage }));
+  mutateSession(tabId, (s) => ({ ...s, errorMessage }));
 }
 
 export function setPermissionMode(tabId: number, mode: PermissionMode): void {
-  patchSession(tabId, (s) => ({ ...s, permissionMode: mode }));
+  mutateSession(tabId, (s) => ({ ...s, permissionMode: mode }));
 }
 
 export function setDebugBadge(tabId: number, badge: DebugBadge): void {
-  patchSession(tabId, (s) => ({ ...s, debugBadge: badge }));
+  mutateSession(tabId, (s) => ({ ...s, debugBadge: badge }));
 }
 
 export function setChatMode(tabId: number, mode: "compact" | "full"): void {
-  patchSession(tabId, (s) => (s.chatMode === mode ? s : { ...s, chatMode: mode }));
+  mutateSession(tabId, (s) => (s.chatMode === mode ? s : { ...s, chatMode: mode }));
 }
 
 export function setIdentity(
   tabId: number,
   p: { url: string; runRecordId: string }
 ): void {
-  patchSession(tabId, (s) => ({ ...s, url: p.url, runRecordId: p.runRecordId }));
+  mutateSession(tabId, (s) => ({ ...s, url: p.url, runRecordId: p.runRecordId }));
 }
 
 export function setAbortController(tabId: number, ac: AbortController | null): void {
-  patchSession(tabId, (s) => ({ ...s, abortController: ac }));
+  mutateSession(tabId, (s) => ({ ...s, abortController: ac }));
 }
 
 export function showSave(tabId: number): void {
-  patchSession(tabId, (s) => ({ ...s, showSaveDialog: true }));
+  mutateSession(tabId, (s) => ({ ...s, showSaveDialog: true }));
 }
 
 export function hideSave(tabId: number): void {
-  patchSession(tabId, (s) => ({ ...s, showSaveDialog: false }));
+  mutateSession(tabId, (s) => ({ ...s, showSaveDialog: false }));
 }
 
 export function appendLog(
@@ -374,11 +398,11 @@ export function setLogsOpen(tabId: number, open: boolean): void {
 }
 
 export function setInputDraft(tabId: number, text: string): void {
-  patchSession(tabId, (s) => ({ ...s, inputDraft: text }));
+  mutateSession(tabId, (s) => ({ ...s, inputDraft: text }));
 }
 
 export function resetSession(tabId: number): void {
-  patchSession(tabId, (s) => ({ ...makeEmptySession(tabId, s.url) }));
+  mutateSession(tabId, (s) => ({ ...makeEmptySession(tabId, s.url) }));
 }
 
 /**
@@ -639,4 +663,22 @@ export function useSession(): LegacySession {
 
 export function useCurrentTabId(): number | null {
   return useStore((s) => s.currentTabId);
+}
+
+export function installBroadcastSubscriber(): () => void {
+  const listener = (msg: unknown) => {
+    const m = msg as {
+      type?: string; tabId?: number; snapshot?: SessionData; senderId?: string;
+    } | null;
+    if (!m || m.type !== "session.state.changed") return;
+    if (m.senderId === SELF_INSTANCE_ID) return;   // self — skip
+    if (typeof m.tabId !== "number" || !m.snapshot) return;
+    const current = useStore.getState().sessionsByTab[m.tabId];
+    if ((current?._rev ?? 0) >= (m.snapshot._rev ?? 0)) return;  // stale — skip
+    useStore.setState((state) => ({
+      sessionsByTab: { ...state.sessionsByTab, [m.tabId!]: m.snapshot! }
+    }));
+  };
+  chrome.runtime.onMessage.addListener(listener);
+  return () => chrome.runtime.onMessage.removeListener(listener);
 }

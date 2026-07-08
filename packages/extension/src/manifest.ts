@@ -28,7 +28,8 @@ export default defineManifest({
         "src/content/index.ts",
         "src/content/breathing-border.ts",
         "src/content/element-capture.ts",
-        "src/content/external-replay.ts"
+        "src/content/external-replay.ts",
+        "src/content/widget/mount.ts"
       ],
       run_at: "document_idle"
     }

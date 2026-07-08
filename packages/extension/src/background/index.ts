@@ -19,6 +19,7 @@ import {
   parseReplayPayload,
   PENDING_REPLAY_KEY,
 } from "../sidepanel/lib/external-replay";
+import { installSessionBroker } from "./session-broker";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[atwebpilot] service worker installed");
@@ -47,6 +48,7 @@ chrome.sidePanel
 
 installTabWatcher();
 installTabCloseArchiver();
+installSessionBroker();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Tiny side-channel for content scripts that need to know their own tabId

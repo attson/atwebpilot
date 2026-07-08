@@ -53,6 +53,7 @@ function defaultProps(over: Partial<React.ComponentProps<typeof InputToolbar>> =
       theme: "dark" as const,
       selfHealEnabled: true,
       maxSelfHealOutputTokens: 4096,
+      widgetEnabled: true,
     },
     currentTabId: null,
     ...over,

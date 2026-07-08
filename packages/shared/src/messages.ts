@@ -215,7 +215,18 @@ export const RpcRequest = z.discriminatedUnion("type", [
 
   // presets
   z.object({ type: z.literal("presets.list") }),
-  z.object({ type: z.literal("presets.materialize"), presetId: z.string().min(1) })
+  z.object({ type: z.literal("presets.materialize"), presetId: z.string().min(1) }),
+
+  // widget RPCs
+  z.object({
+    type: z.literal("widget.openSidepanel"),
+    tabId: z.number().int(),
+    pendingApprovalId: z.string().optional()
+  }),
+  z.object({
+    type: z.literal("widget.markHostHidden"),
+    host: z.string().min(1)
+  })
 ]);
 
 export type RpcRequest = z.infer<typeof RpcRequest>;
