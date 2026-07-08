@@ -1,0 +1,40 @@
+import { isHostHidden } from "./per-site";
+
+const HOST_TAG = "atwebpilot-widget";
+const SETTINGS_KEY = "caiji.llm";
+
+export async function mountWidget(): Promise<void> {
+  // Idempotent
+  if (document.querySelector(HOST_TAG)) return;
+
+  // Top-level window only
+  if (window !== window.top) return;
+
+  // HTML only (skip PDF, XML feeds, etc.)
+  // Treat absent/undefined contentType as html (happy-dom + real-browser content scripts land here).
+  if (document.contentType && document.contentType !== "text/html") return;
+
+  // Global toggle
+  const settings = (await chrome.storage.local.get([SETTINGS_KEY]))[SETTINGS_KEY] as
+    { widgetEnabled?: boolean } | undefined;
+  if (settings?.widgetEnabled === false) return;
+
+  // Per-host hide list
+  if (await isHostHidden(location.host)) return;
+
+  const host = document.createElement(HOST_TAG);
+  host.style.all = "initial";
+  document.documentElement.appendChild(host);
+  const shadow = host.attachShadow({ mode: "open" });
+
+  // Placeholder — styles.ts will be wired in Task 8.
+  const div = document.createElement("div");
+  div.textContent = "AtWebPilot widget mounted";
+  div.setAttribute("data-atwebpilot", "placeholder");
+  shadow.appendChild(div);
+
+  console.info("[atwebpilot-widget] mounted on", location.host);
+}
+
+// Auto-mount at document_idle (crxjs runs this at run_at time).
+void mountWidget();
