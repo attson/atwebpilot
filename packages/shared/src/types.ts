@@ -257,6 +257,8 @@ export type LlmSettings = {
   selfHealEnabled: boolean;
   /** 自愈 LLM 调用的 max_tokens 上限。默认 4096。 */
   maxSelfHealOutputTokens: number;
+  /** Plan 28: 页内浮窗总闸;默认 true */
+  widgetEnabled: boolean;
 };
 
 // === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===

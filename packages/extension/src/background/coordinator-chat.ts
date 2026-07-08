@@ -143,7 +143,8 @@ export class CoordinatorChatHost {
           theme: "dark",
           maxContinuationNudges: msg.settings_override?.maxContinuationNudges ?? 1,
           selfHealEnabled: true,
-          maxSelfHealOutputTokens: 4096
+          maxSelfHealOutputTokens: 4096,
+          widgetEnabled: true,
         },
         systemPrompt: await this.loadSystem(),
         tools: TOOL_DEFS,
