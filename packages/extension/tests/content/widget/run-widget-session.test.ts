@@ -61,9 +61,18 @@ vi.mock("@/sidepanel/llm/client", () => ({
 vi.mock("@/sidepanel/llm/recording-client", () => ({
   createRecordingClient: vi.fn(() => ({})),
 }));
-vi.mock("@/sidepanel/chat/approval", () => ({
-  getApproverForTab: vi.fn(() => ({ request: vi.fn() })),
-}));
+vi.mock("@/sidepanel/chat/approval", () => {
+  // Minimal Approver class stub for WidgetApprover to subclass
+  class Approver {
+    request(_id: string) {
+      return Promise.resolve({ kind: "run" as const });
+    }
+    resolve(_id: string, _d: unknown) {}
+    resolveAllPending(_d: unknown) {}
+    has(_id: string) { return false; }
+  }
+  return { Approver };
+});
 vi.mock("@/sidepanel/llm/tool-schema", () => ({
   TOOL_DEFS: [],
 }));

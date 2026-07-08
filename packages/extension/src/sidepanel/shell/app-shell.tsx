@@ -125,6 +125,30 @@ export function AppShell() {
     return dispose;
   }, []);
 
+  // Pending approval focus: when sidepanel opens after dangerous-tool handoff,
+  // scroll to and briefly highlight the awaiting step card.
+  useEffect(() => {
+    const KEY = "caiji.pendingApproval";
+    void chrome.storage.session.get([KEY]).then(async (res) => {
+      const p = (res as Record<string, unknown>)[KEY] as
+        | { tabId: number; approvalId: string; ts: number }
+        | undefined;
+      if (!p) return;
+      if (Date.now() - p.ts > 30_000) {
+        await chrome.storage.session.remove([KEY]);
+        return;
+      }
+      await chrome.storage.session.remove([KEY]);
+      const el = document.querySelector(`[data-approval-id="${p.approvalId}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (el as HTMLElement | null)?.classList?.add("ring-2", "ring-amber-400");
+      setTimeout(
+        () => (el as HTMLElement | null)?.classList?.remove("ring-2", "ring-amber-400"),
+        2000
+      );
+    });
+  }, []);
+
   // Self-heal event listener: surface heal status as inline system notes in the chat thread
   useEffect(() => {
     function onHealEvent(msg: unknown) {

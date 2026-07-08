@@ -8,7 +8,7 @@ import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session"
 import { pickClient } from "@/sidepanel/llm/client";
 import { createRecordingClient } from "@/sidepanel/llm/recording-client";
 import { useSettings } from "@/sidepanel/chat/settings-store";
-import { getApproverForTab } from "@/sidepanel/chat/approval";
+import { Approver } from "@/sidepanel/chat/approval";
 import {
   useStore,
   addLlmExchange,
@@ -27,7 +27,34 @@ import { rpc } from "@/sidepanel/rpc";
 import { RpcToolRunner } from "@/sidepanel/chat/tool-runner";
 import { TOOL_DEFS } from "@/sidepanel/llm/tool-schema";
 import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
+import { classifyTool } from "@/sidepanel/chat/severity";
+import { handOffToSidepanel } from "./handoff";
+import type { Decision } from "@/sidepanel/chat/approval";
 import type { Json, Step, ReplayableTool } from "@atwebpilot/shared/types";
+
+/**
+ * Widget-specific approver: intercepts dangerous tools and hands off to
+ * the sidepanel before delegating the decision to the user via super.request().
+ */
+class WidgetApprover extends Approver {
+  constructor(private readonly tabId: number) {
+    super();
+  }
+
+  override async request(toolUseId: string): Promise<Decision> {
+    // Look up the card to determine severity — card is in "awaiting" state
+    // by the time run-session calls approver.request()
+    const cards = useStore.getState().sessionsByTab[this.tabId]?.cards ?? [];
+    const card = cards.find((c) => c.toolUseId === toolUseId);
+    if (card) {
+      const sev = classifyTool(card.name, card.input);
+      if (sev === "dangerous") {
+        await handOffToSidepanel(this.tabId, toolUseId);
+      }
+    }
+    return super.request(toolUseId);
+  }
+}
 
 export async function runFromInput(tabId: number, text: string): Promise<void> {
   const settings = useSettings.getState();
@@ -55,7 +82,7 @@ export async function runFromInput(tabId: number, text: string): Promise<void> {
       >
   );
 
-  const approver = getApproverForTab(tabId);
+  const approver = new WidgetApprover(tabId);
 
   const systemPrompt = buildSystemPrompt({
     url,

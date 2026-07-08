@@ -33,7 +33,10 @@ export function StepCard({ card, onApprove, needsManualApproval }: Props) {
       : "border-zinc-700";
 
   return (
-    <div className={`rounded border ${cls} bg-zinc-900 p-2 text-xs flex flex-col gap-1`}>
+    <div
+      data-approval-id={card.toolUseId}
+      className={`rounded border ${cls} bg-zinc-900 p-2 text-xs flex flex-col gap-1`}
+    >
       <div className="flex items-center gap-2">
         <span className="text-zinc-400">tool:</span>
         <span className="font-medium">{card.name}</span>
