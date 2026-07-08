@@ -93,6 +93,12 @@ export const rpc = {
   listPresets: () => call<Preset[]>({ type: "presets.list" }),
   materializePreset: (presetId: string) => call<Tool>({ type: "presets.materialize", presetId }),
 
+  // widget RPCs
+  widgetOpenSidepanel: (input: { tabId: number; pendingApprovalId?: string }) =>
+    call<null>({ type: "widget.openSidepanel", ...input }),
+  widgetMarkHostHidden: (host: string) =>
+    call<null>({ type: "widget.markHostHidden", host }),
+
   // chat session
   startSession: (input: { url: string }) =>
     call<RunRecord>({ type: "chat.session.start", url: input.url }),
