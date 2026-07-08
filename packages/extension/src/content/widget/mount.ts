@@ -27,7 +27,10 @@ export async function mountWidget(): Promise<void> {
   document.documentElement.appendChild(host);
   const shadow = host.attachShadow({ mode: "open" });
 
-  // Placeholder — styles.ts will be wired in Task 8.
+  const { attachStyles } = await import("./styles");
+  attachStyles(shadow);
+
+  // Placeholder — the React root will replace this in a later task.
   const div = document.createElement("div");
   div.textContent = "AtWebPilot widget mounted";
   div.setAttribute("data-atwebpilot", "placeholder");
