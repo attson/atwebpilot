@@ -1,8 +1,167 @@
 /**
- * Stub — replaced in Task 12.
- * This file exists so that Task 11's Panel can dynamic-import it without
- * a build-time "cannot resolve module" error.
+ * Widget-side chat session runner.
+ *
+ * Reuses the same runChatSession / LlmClient pipeline as the sidepanel,
+ * but invoked from the content-script / widget context.
  */
-export async function runFromInput(_tabId: number, _text: string): Promise<void> {
-  // Task 12 will implement the full run loop.
+import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session";
+import { pickClient } from "@/sidepanel/llm/client";
+import { createRecordingClient } from "@/sidepanel/llm/recording-client";
+import { useSettings } from "@/sidepanel/chat/settings-store";
+import { getApproverForTab } from "@/sidepanel/chat/approval";
+import {
+  useStore,
+  addLlmExchange,
+  appendAssistantText,
+  beginAssistantTurn,
+  finalizeAssistantTurn,
+  incrementRound,
+  upsertCard,
+  setCardStatus,
+  setStatus,
+  setError,
+  pushExecutedStep,
+  setLastOutput,
+} from "@/sidepanel/chat/session-store";
+import { rpc } from "@/sidepanel/rpc";
+import { RpcToolRunner } from "@/sidepanel/chat/tool-runner";
+import { TOOL_DEFS } from "@/sidepanel/llm/tool-schema";
+import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
+import type { Json, Step, ReplayableTool } from "@atwebpilot/shared/types";
+
+export async function runFromInput(tabId: number, text: string): Promise<void> {
+  const settings = useSettings.getState();
+  if (!settings.apiKey) {
+    setError(tabId, "未配置 API Key。请在扩展面板设置。");
+    return;
+  }
+
+  const sessionState = useStore.getState().sessionsByTab[tabId];
+  if (!sessionState) return;
+
+  const url = sessionState.url;
+  const permissionMode = sessionState.permissionMode ?? "default";
+
+  const client = createRecordingClient(
+    pickClient(settings.provider),
+    (ex) => addLlmExchange(tabId, ex),
+    { provider: settings.provider }
+  );
+
+  const runner = new RpcToolRunner(
+    (req) =>
+      chrome.runtime.sendMessage(req) as Promise<
+        { ok: true; data: Json } | { ok: false; error: string }
+      >
+  );
+
+  const approver = getApproverForTab(tabId);
+
+  const systemPrompt = buildSystemPrompt({
+    url,
+    savedTools: [],
+    attachedTabs: [],
+    lastUserText: text,
+  });
+
+  function stepFromCard(id: string): Step {
+    const cards = useStore.getState().sessionsByTab[tabId]?.cards ?? [];
+    const card = cards.find((c) => c.toolUseId === id);
+    if (!card) throw new Error(`card not found: ${id}`);
+    if (card.name === "runJS") {
+      return { kind: "js", source: (card.input as { source: string }).source };
+    }
+    return { kind: "tool", tool: card.name as ReplayableTool, args: card.input };
+  }
+
+  const onEvent = (e: SessionEvent) => {
+    switch (e.type) {
+      case "round_start":
+        incrementRound(tabId);
+        beginAssistantTurn(tabId);
+        break;
+      case "text_delta":
+        appendAssistantText(tabId, e.text);
+        break;
+      case "tool_use_start":
+        upsertCard(tabId, { toolUseId: e.id, name: e.name, status: "draft", inputReady: false });
+        break;
+      case "tool_use_input_delta": {
+        const cards = useStore.getState().sessionsByTab[tabId]?.cards ?? [];
+        const fresh = cards.find((c) => c.toolUseId === e.id);
+        upsertCard(tabId, {
+          toolUseId: e.id,
+          partialJson: (fresh?.partialJson ?? "") + e.partial_json,
+        });
+        break;
+      }
+      case "tool_use_end":
+        upsertCard(tabId, { toolUseId: e.id, input: e.input, inputReady: true, status: "awaiting" });
+        setStatus(tabId, "awaiting");
+        break;
+      case "assistant_turn_end":
+        finalizeAssistantTurn(tabId, e.toolUses);
+        break;
+      case "tool_running":
+        setCardStatus(tabId, e.id, { status: "running" });
+        setStatus(tabId, "running");
+        break;
+      case "tool_done":
+        setCardStatus(tabId, e.id, { status: "ok", output: e.output, ms: e.ms });
+        pushExecutedStep(tabId, stepFromCard(e.id));
+        setLastOutput(tabId, e.output);
+        setStatus(tabId, "streaming");
+        break;
+      case "tool_error":
+        setCardStatus(tabId, e.id, { status: "error", error: e.error, ms: e.ms });
+        setStatus(tabId, "streaming");
+        break;
+      case "tool_skipped":
+        setCardStatus(tabId, e.id, { status: "skipped" });
+        break;
+      case "usage":
+        // Handled by createRecordingClient via the onExchange callback
+        break;
+      case "continuation_nudge":
+        setStatus(tabId, "streaming");
+        break;
+      case "stream_error":
+        setError(tabId, e.error);
+        break;
+      case "exception":
+        setError(tabId, e.error);
+        break;
+      case "session_end":
+        if (e.status === "done") {
+          setStatus(tabId, "done");
+        } else if (e.status === "max_rounds") {
+          setStatus(tabId, "error");
+          setError(tabId, "达到最大轮数");
+        } else if (e.status === "aborted") {
+          setStatus(tabId, "aborted");
+        } else {
+          setStatus(tabId, "error");
+          if (e.reason) setError(tabId, e.reason);
+        }
+        break;
+    }
+  };
+
+  await runChatSession({
+    client,
+    runner,
+    approver,
+    rpc: {
+      startSession: (i) => rpc.startSession(i).then((r) => ({ id: r.id })),
+      appendStepLog: (runId, entry) => rpc.appendStepLog(runId, entry),
+      finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output),
+    },
+    input: { userPrompt: text, tabId, url },
+    settings: { ...settings, trustedDangerTools: settings.trustedDangerTools ?? [] },
+    systemPrompt,
+    tools: TOOL_DEFS,
+    permissionMode,
+    onEvent,
+    tabsRpc: { listTabs: rpc.listTabs, openTab: rpc.openTab },
+  });
 }
