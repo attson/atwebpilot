@@ -35,7 +35,15 @@ export const useSettings = create<StoreShape>((set, get) => ({
   loaded: false,
   load: async () => {
     const fromLocal = (await chrome.storage.local.get([KEY]))[KEY] as LegacyLlmSettings | undefined;
-    const fromSession = (await chrome.storage.session.get([KEY]))[KEY] as Partial<LlmSettings> | undefined;
+    // chrome.storage.session is not accessible to content scripts by default
+    // (Chrome 102+ ACL restriction). The widget bundle would otherwise throw
+    // here — degrade to `undefined` so the load completes.
+    let fromSession: Partial<LlmSettings> | undefined;
+    try {
+      fromSession = (await chrome.storage.session.get([KEY]))[KEY] as Partial<LlmSettings> | undefined;
+    } catch {
+      fromSession = undefined;
+    }
     const migrated = (await chrome.storage.local.get([MIGRATION_KEY]))[MIGRATION_KEY] === true;
 
     const incoming: LegacyLlmSettings = { ...(fromLocal ?? {}) };
@@ -81,3 +89,30 @@ export const ANTHROPIC_MODELS = [
   "claude-haiku-4-5-20251001"
 ];
 export const OPENAI_MODELS = ["gpt-4o-mini", "gpt-4o"];
+
+/**
+ * Sync LlmSettings across contexts (sidepanel + widget) by watching
+ * chrome.storage for changes to the `caiji.llm` key. Each context has
+ * its own zustand instance; when one calls `save()`, the other's copy
+ * is stale until this listener triggers a fresh `load()`.
+ *
+ * Mount from app-shell and widget's react-root; returns a disposer.
+ */
+export function installSettingsSyncListener(): () => void {
+  const listener = (
+    changes: { [key: string]: chrome.storage.StorageChange },
+    areaName: string
+  ) => {
+    if (areaName !== "local" && areaName !== "session") return;
+    if (!(KEY in changes)) return;
+    void useSettings.getState().load().catch(() => {});
+  };
+  try {
+    chrome.storage.onChanged.addListener(listener);
+  } catch { /* no chrome in tests */ }
+  return () => {
+    try {
+      chrome.storage.onChanged.removeListener(listener);
+    } catch { /* noop */ }
+  };
+}

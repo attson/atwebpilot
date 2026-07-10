@@ -15,6 +15,7 @@ import {
   type Decision,
 } from "@/sidepanel/chat/approval";
 import { rpc } from "@/sidepanel/rpc";
+import { useSettings } from "@/sidepanel/chat/settings-store";
 import { getPanelSize } from "./per-site";
 import { getWidgetTabInfo } from "./tab-info";
 
@@ -29,6 +30,7 @@ export function Panel({ onClose, onMinimize }: Props) {
   const [input, setInput] = useState("");
 
   const session = useSession();
+  const maxRounds = useSettings((s) => s.maxRounds);
 
   useEffect(() => {
     getPanelSize().then(setSize);
@@ -146,7 +148,7 @@ export function Panel({ onClose, onMinimize }: Props) {
           {session.tokenUsage.input}in / {session.tokenUsage.output}out
         </span>
         <span>
-          round {session.roundCount} / 20
+          round {session.roundCount} / {maxRounds}
         </span>
       </footer>
 

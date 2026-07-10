@@ -4,7 +4,7 @@ import { FAB } from "./fab";
 import { Panel } from "./panel";
 import { startWidgetStoreSync } from "./store";
 import { installApprovalListener } from "@/sidepanel/chat/approval";
-import { useSettings } from "@/sidepanel/chat/settings-store";
+import { useSettings, installSettingsSyncListener } from "@/sidepanel/chat/settings-store";
 
 function WidgetApp() {
   const [open, setOpen] = useState(false);
@@ -37,6 +37,9 @@ export function bootstrap(shadow: ShadowRoot): () => void {
   // Fire-and-forget; swallow errors so a partial chrome stub in tests (or
   // storage race on hot-reload) doesn't produce an unhandled rejection.
   useSettings.getState().load().catch(() => {});
+  // Auto-refresh when sidepanel updates settings (they live in separate
+  // zustand instances but share chrome.storage.local).
+  const disposeSettingsSync = installSettingsSyncListener();
   root.render(
     <React.StrictMode>
       <WidgetApp />
@@ -45,6 +48,7 @@ export function bootstrap(shadow: ShadowRoot): () => void {
   return () => {
     root.unmount();
     dispose();
+    disposeSettingsSync();
     container.remove();
   };
 }
