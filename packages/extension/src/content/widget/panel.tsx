@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
 import { ChatView } from "@/sidepanel/components/chat-view";
-import { EmptySuggestions } from "@/sidepanel/chat/empty-suggestions";
+import { EmptyState } from "./empty-state";
 import { InputBox } from "@/sidepanel/input/input-box";
 import { StatusBar } from "./status-bar";
 import { ErrorBanner } from "./error-banner";
@@ -159,14 +159,7 @@ export function Panel({ onClose, onMinimize }: Props) {
       {/* Body */}
       <div className="flex-1 overflow-auto min-h-0">
         {session.messages.length === 0 && !isBusy ? (
-          <div className="p-3 text-xs text-zinc-400">
-            <EmptySuggestions
-              matchedTools={[]}
-              onRun={() => {}}
-              onDetail={() => {}}
-              presets={[]}
-            />
-          </div>
+          <EmptyState session={session} onFillInput={setInput} />
         ) : (
           <ChatView onApprove={handleApprove} />
         )}
