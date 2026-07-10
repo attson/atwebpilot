@@ -18,11 +18,19 @@ export function handleTabEvent(ev: TabEvent): void {
           sid === ev.openerTabId ||
           s.attachedTabs.some((a) => a.tabId === ev.openerTabId);
         if (!owns) continue;
-        // Only attribute opener-matched spawns to AI when the session is
-        // actively running. Otherwise the user opened the tab manually
-        // (Ctrl/middle/right-click on a link in the session tab), and
-        // chrome.tabs.create from the openTab tool doesn't set openerTabId.
-        if (s.status !== "running" && s.status !== "streaming") continue;
+        // Only attribute opener-matched spawns to AI when a tool JUST ran
+        // (within the last 1500ms). The prior `status ∈ {running, streaming}`
+        // gate was too loose — during a widget/sidepanel run the sidepanel
+        // saw broadcast status="streaming" even while the AI was quiescent
+        // between rounds, so a user Ctrl+click on the page got misattributed.
+        //
+        // AI's `openTab` tool uses `chrome.tabs.create` (no opener). The only
+        // AI-caused spawn with openerTabId is a `click` tool hitting a
+        // target=_blank link — which fires within milliseconds of tool_running.
+        const now = Date.now();
+        const recentAi =
+          s._lastToolRunningAt != null && now - s._lastToolRunningAt < 1500;
+        if (!recentAi) continue;
         attachTab(sid, {
           tabId: ev.tabId,
           windowId: ev.windowId,
