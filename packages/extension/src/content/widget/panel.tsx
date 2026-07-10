@@ -14,8 +14,9 @@ import {
   broadcastApprovalDecision,
   type Decision,
 } from "@/sidepanel/chat/approval";
-import { rpc, currentTabInfo } from "@/sidepanel/rpc";
+import { rpc } from "@/sidepanel/rpc";
 import { getPanelSize } from "./per-site";
+import { getWidgetTabInfo } from "./tab-info";
 
 type Props = {
   onClose: () => void;
@@ -31,13 +32,16 @@ export function Panel({ onClose, onMinimize }: Props) {
 
   useEffect(() => {
     getPanelSize().then(setSize);
-    currentTabInfo()
+    // Widget runs in a content script — cannot use `chrome.tabs.query`. Ask BG.
+    getWidgetTabInfo()
       .then((info) => {
         setTabId(info.tabId);
         setCurrentTab(info.tabId);
         ensureSession(info.tabId, info.url);
       })
-      .catch(() => {});
+      .catch((e) => {
+        console.warn("[atwebpilot-widget] tabId lookup failed:", e);
+      });
   }, []);
 
   const isBusy =

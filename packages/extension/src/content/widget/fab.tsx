@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { getFabPos, setFabPos, hideHost } from "./per-site";
-import { rpc, currentTabId } from "@/sidepanel/rpc";
+import { rpc } from "@/sidepanel/rpc";
 import { unmountWidget } from "./lifecycle";
+import { getWidgetTabInfo } from "./tab-info";
 
 type Props = {
   onToggle: () => void;
@@ -95,8 +96,12 @@ export function FAB({ onToggle, active }: Props) {
           <button
             className="block w-full text-left px-3 py-2 hover:bg-zinc-800"
             onClick={async () => {
-              const tabId = await currentTabId();
-              rpc.widgetOpenSidepanel({ tabId }).catch(() => {});
+              try {
+                const { tabId } = await getWidgetTabInfo();
+                await rpc.widgetOpenSidepanel({ tabId });
+              } catch (e) {
+                console.warn("[atwebpilot-widget] openSidepanel failed:", e);
+              }
               setMenu(false);
             }}
           >
