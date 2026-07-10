@@ -44,8 +44,12 @@ vi.mock("@/sidepanel/rpc", () => ({
   rpc: {
     widgetOpenSidepanel: vi.fn().mockResolvedValue(undefined),
   },
-  currentTabInfo: vi.fn().mockResolvedValue({ tabId: 42, url: "https://example.com" }),
-  currentTabId: vi.fn().mockResolvedValue(42),
+}));
+
+// Widget looks up its tab via a content-script-safe helper (calls the
+// atwebpilot.getTabId side-channel through chrome.runtime, not chrome.tabs).
+vi.mock("@/content/widget/tab-info", () => ({
+  getWidgetTabInfo: vi.fn().mockResolvedValue({ tabId: 42, url: "https://example.com" }),
 }));
 
 describe("Panel", () => {
