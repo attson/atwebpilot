@@ -36,7 +36,7 @@ import {
 } from "@/sidepanel/chat/persistence/sessions-storage";
 import { flushAllPending, clearPersistStateFor } from "@/sidepanel/chat/persistence/auto-persist";
 import { handleTabEvent } from "@/sidepanel/chat/cross-tab-events";
-import { useSettings } from "@/sidepanel/chat/settings-store";
+import { useSettings, installSettingsSyncListener } from "@/sidepanel/chat/settings-store";
 import { useUi } from "@/sidepanel/chat/ui-store";
 import { RpcToolRunner } from "@/sidepanel/chat/tool-runner";
 import { TOOL_DEFS } from "@/sidepanel/llm/tool-schema";
@@ -135,6 +135,12 @@ export function AppShell() {
   // getGlobalApprover / getApproverForTab can unblock the awaiting promise.
   useEffect(() => {
     return installApprovalListener();
+  }, []);
+
+  // Auto-refresh LlmSettings when widget (or another sidepanel instance)
+  // updates chrome.storage.local — keeps every context in lock-step.
+  useEffect(() => {
+    return installSettingsSyncListener();
   }, []);
 
   // Pending approval focus: when sidepanel opens after dangerous-tool handoff,
