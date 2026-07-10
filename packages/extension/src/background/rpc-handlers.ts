@@ -162,6 +162,13 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
       }
       return null;
     }
+    case "widget.openSidepanelWithSave": {
+      await chrome.sidePanel.open({ tabId: req.tabId });
+      await chrome.storage.session.set({
+        "caiji.pendingSave": { tabId: req.tabId, ts: Date.now() }
+      });
+      return null;
+    }
     case "widget.markHostHidden": {
       const KEY = "caiji.widget.hiddenHosts";
       const raw = (await chrome.storage.local.get([KEY]))[KEY];
