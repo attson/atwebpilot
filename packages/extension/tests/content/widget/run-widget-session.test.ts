@@ -7,7 +7,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
   },
 };
 
-// Mock settings store — apiKey empty triggers early return
+// Mock settings store — apiKey empty triggers early return.
+// `loaded: true` bypasses runFromInput's defensive re-load path (see impl).
+const mockLoad = vi.fn(() => Promise.resolve());
 vi.mock("@/sidepanel/chat/settings-store", () => ({
   useSettings: {
     getState: () => ({
@@ -19,6 +21,8 @@ vi.mock("@/sidepanel/chat/settings-store", () => ({
       defaultPermissionMode: "default",
       trustedDangerTools: [],
       selfHealEnabled: false,
+      loaded: true,
+      load: mockLoad,
     }),
   },
 }));

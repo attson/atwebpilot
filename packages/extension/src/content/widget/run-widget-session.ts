@@ -73,6 +73,11 @@ class WidgetApprover extends Approver {
 }
 
 export async function runFromInput(tabId: number, text: string): Promise<void> {
+  // Defensive: if bootstrap's load() is still in-flight (widget mounted then
+  // user hit Enter within the same frame), await it here.
+  if (!useSettings.getState().loaded) {
+    await useSettings.getState().load();
+  }
   const settings = useSettings.getState();
   if (!settings.apiKey) {
     setError(tabId, "未配置 API Key。请在扩展面板设置。");
