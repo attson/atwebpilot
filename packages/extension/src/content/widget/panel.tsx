@@ -22,8 +22,9 @@ import {
 } from "@/sidepanel/chat/approval";
 import { rpc } from "@/sidepanel/rpc";
 import { useSettings } from "@/sidepanel/chat/settings-store";
-import { getPanelSize } from "./per-site";
+import { getPanelSize, setPanelSize } from "./per-site";
 import { getWidgetTabInfo } from "./tab-info";
+import { ResizeHandle } from "./resize-handle";
 
 type Props = {
   onClose: () => void;
@@ -135,7 +136,7 @@ export function Panel({ onClose, onMinimize }: Props) {
         height: size.h,
         zIndex: 2147483645,
       }}
-      className="bg-zinc-900 text-zinc-100 rounded-lg border border-zinc-700 shadow-2xl flex flex-col overflow-hidden"
+      className="relative bg-zinc-900 text-zinc-100 rounded-lg border border-zinc-700 shadow-2xl flex flex-col overflow-hidden"
     >
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 text-xs shrink-0">
@@ -217,6 +218,11 @@ export function Panel({ onClose, onMinimize }: Props) {
           isBusy={isBusy}
         />
       )}
+      <ResizeHandle
+        size={size}
+        onResize={(w, h) => setSize({ w, h })}
+        onCommit={(w, h) => { void setPanelSize({ w, h }); }}
+      />
     </div>
   );
 }
