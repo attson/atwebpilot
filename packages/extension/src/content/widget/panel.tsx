@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
+import { Crosshair, X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
+import { useElementCapture } from "./element-capture-hook";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptyState } from "./empty-state";
 import { InputRow } from "./input-row";
@@ -120,6 +121,10 @@ export function Panel({ onClose, onMinimize }: Props) {
     [tabId]
   );
 
+  const { startCapture } = useElementCapture((selector) => {
+    setInput((prev) => (prev ? `${prev}\n\n针对元素 ${selector}:` : `针对元素 ${selector}:`));
+  });
+
   return (
     <div
       style={{
@@ -135,6 +140,13 @@ export function Panel({ onClose, onMinimize }: Props) {
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 text-xs shrink-0">
         <b className="flex-1 select-none">⚡ AtWebPilot</b>
+        <button
+          className="p-1 hover:bg-zinc-800 rounded"
+          title="圈选页面元素"
+          onClick={startCapture}
+        >
+          <Crosshair size={14} />
+        </button>
         <button
           className="p-1 hover:bg-zinc-800 rounded"
           title="新建对话"
