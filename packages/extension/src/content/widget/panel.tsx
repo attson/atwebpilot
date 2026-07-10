@@ -3,6 +3,9 @@ import { X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptySuggestions } from "@/sidepanel/chat/empty-suggestions";
 import { InputBox } from "@/sidepanel/input/input-box";
+import { StatusBar } from "./status-bar";
+import { ErrorBanner } from "./error-banner";
+import { SaveEntry } from "./save-entry";
 import {
   useSession,
   appendUserMessage,
@@ -147,6 +150,12 @@ export function Panel({ onClose, onMinimize }: Props) {
         </button>
       </header>
 
+      {/* Error banner (only when session.errorMessage exists) */}
+      <ErrorBanner session={session} tabId={tabId ?? -1} />
+
+      {/* Sticky status bar (only when session non-idle) */}
+      <StatusBar session={session} />
+
       {/* Body */}
       <div className="flex-1 overflow-auto min-h-0">
         {session.messages.length === 0 && !isBusy ? (
@@ -161,6 +170,7 @@ export function Panel({ onClose, onMinimize }: Props) {
         ) : (
           <ChatView onApprove={handleApprove} />
         )}
+        {tabId != null && <SaveEntry session={session} tabId={tabId} />}
       </div>
 
       {/* Footer: token usage */}
