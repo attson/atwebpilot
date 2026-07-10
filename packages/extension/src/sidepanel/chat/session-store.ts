@@ -43,6 +43,8 @@ export type StepCardState = {
   output?: Json;
   error?: string;
   ms?: number;
+  /** Widget round 2:tool 进入 running 时的时间戳 (Date.now())。widget 状态条计时器用。 */
+  _runningStartAt?: number;
 };
 
 export type LogEntry = {
@@ -280,15 +282,22 @@ export function upsertCard(
 export function setCardStatus(
   tabId: number,
   toolUseId: string,
-  patch: Partial<Pick<StepCardState, "status" | "output" | "error" | "ms" | "input" | "inputReady">>
+  patch: Partial<Omit<StepCardState, "toolUseId">>
 ): void {
-  mutateSession(tabId, (s) => {
-    const idx = s.cards.findIndex((c) => c.toolUseId === toolUseId);
-    if (idx === -1) return s;
-    const cards = s.cards.slice();
-    cards[idx] = { ...cards[idx], ...patch };
-    return { ...s, cards };
-  });
+  mutateSession(tabId, (s) => ({
+    ...s,
+    cards: s.cards.map((c) =>
+      c.toolUseId === toolUseId
+        ? {
+            ...c,
+            ...patch,
+            ...(patch.status === "running" && c.status !== "running"
+              ? { _runningStartAt: Date.now() }
+              : {}),
+          }
+        : c
+    ),
+  }));
 }
 
 export function appendToolResults(

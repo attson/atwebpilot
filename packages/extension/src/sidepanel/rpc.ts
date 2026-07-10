@@ -96,6 +96,8 @@ export const rpc = {
   // widget RPCs
   widgetOpenSidepanel: (input: { tabId: number; pendingApprovalId?: string }) =>
     call<null>({ type: "widget.openSidepanel", ...input }),
+  widgetOpenSidepanelWithSave: (input: { tabId: number }) =>
+    call<null>({ type: "widget.openSidepanelWithSave", tabId: input.tabId }),
   widgetMarkHostHidden: (host: string) =>
     call<null>({ type: "widget.markHostHidden", host }),
 

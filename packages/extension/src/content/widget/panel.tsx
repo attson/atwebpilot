@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
+import { Crosshair, X, Minus, ExternalLink, MessageSquarePlus, ArrowLeft, Clock } from "lucide-react";
+import { HistoryMode } from "./history-mode";
+import { useElementCapture } from "./element-capture-hook";
 import { ChatView } from "@/sidepanel/components/chat-view";
-import { EmptySuggestions } from "@/sidepanel/chat/empty-suggestions";
-import { InputBox } from "@/sidepanel/input/input-box";
+import { EmptyState } from "./empty-state";
+import { InputRow } from "./input-row";
+import { StatusBar } from "./status-bar";
+import { ErrorBanner } from "./error-banner";
+import { SaveEntry } from "./save-entry";
 import {
   useSession,
   appendUserMessage,
+  appendUserMessageWithImages,
   ensureSession,
   setCurrentTab,
 } from "@/sidepanel/chat/session-store";
+import type { ImagePart } from "@atwebpilot/shared/types";
 import {
   getApproverForTab,
   broadcastApprovalDecision,
@@ -16,8 +23,9 @@ import {
 } from "@/sidepanel/chat/approval";
 import { rpc } from "@/sidepanel/rpc";
 import { useSettings } from "@/sidepanel/chat/settings-store";
-import { getPanelSize } from "./per-site";
+import { getPanelSize, setPanelSize } from "./per-site";
 import { getWidgetTabInfo } from "./tab-info";
+import { ResizeHandle } from "./resize-handle";
 
 type Props = {
   onClose: () => void;
@@ -28,6 +36,8 @@ export function Panel({ onClose, onMinimize }: Props) {
   const [size, setSize] = useState({ w: 320, h: 480 });
   const [tabId, setTabId] = useState<number | null>(null);
   const [input, setInput] = useState("");
+  const [stagedImages, setStagedImages] = useState<ImagePart[]>([]);
+  const [mode, setMode] = useState<"chat" | "history">("chat");
 
   const session = useSession();
   const maxRounds = useSettings((s) => s.maxRounds);
@@ -51,16 +61,28 @@ export function Panel({ onClose, onMinimize }: Props) {
     session.status === "awaiting" ||
     session.status === "running";
 
+  function handleStop() {
+    if (!tabId) return;
+    session.abortController?.abort();
+  }
+
   async function handleSubmit() {
-    if (!tabId || !input.trim() || isBusy) return;
+    if (!tabId) return;
     const text = input.trim();
-    appendUserMessage(tabId, text);
+    if (!text && stagedImages.length === 0) return;
+    if (isBusy) return;
+    if (stagedImages.length > 0) {
+      appendUserMessageWithImages(tabId, text, stagedImages);
+    } else {
+      appendUserMessage(tabId, text);
+    }
+    setStagedImages([]);
     setInput("");
     try {
       const { runFromInput } = await import("./run-widget-session");
       await runFromInput(tabId, text);
-    } catch {
-      // Task 12 will implement the full run loop
+    } catch (e) {
+      console.warn("[atwebpilot-widget] runFromInput failed:", e);
     }
   }
 
@@ -102,6 +124,10 @@ export function Panel({ onClose, onMinimize }: Props) {
     [tabId]
   );
 
+  const { startCapture } = useElementCapture((selector) => {
+    setInput((prev) => (prev ? `${prev}\n\n针对元素 ${selector}:` : `针对元素 ${selector}:`));
+  });
+
   return (
     <div
       style={{
@@ -112,11 +138,27 @@ export function Panel({ onClose, onMinimize }: Props) {
         height: size.h,
         zIndex: 2147483645,
       }}
-      className="bg-zinc-900 text-zinc-100 rounded-lg border border-zinc-700 shadow-2xl flex flex-col overflow-hidden"
+      className="relative bg-zinc-900 text-zinc-100 rounded-lg border border-zinc-700 shadow-2xl flex flex-col overflow-hidden"
     >
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 text-xs shrink-0">
+        {mode === "history" && (
+          <button
+            className="p-1 hover:bg-zinc-800 rounded"
+            title="返回对话"
+            onClick={() => setMode("chat")}
+          >
+            <ArrowLeft size={14} />
+          </button>
+        )}
         <b className="flex-1 select-none">⚡ AtWebPilot</b>
+        <button
+          className="p-1 hover:bg-zinc-800 rounded"
+          title="圈选页面元素"
+          onClick={startCapture}
+        >
+          <Crosshair size={14} />
+        </button>
         <button
           className="p-1 hover:bg-zinc-800 rounded"
           title="新建对话"
@@ -147,24 +189,38 @@ export function Panel({ onClose, onMinimize }: Props) {
         </button>
       </header>
 
+      {/* Error banner (only when session.errorMessage exists) */}
+      <ErrorBanner session={session} tabId={tabId ?? -1} />
+
+      {/* Sticky status bar (only when session non-idle) */}
+      <StatusBar session={session} />
+
       {/* Body */}
       <div className="flex-1 overflow-auto min-h-0">
-        {session.messages.length === 0 && !isBusy ? (
-          <div className="p-3 text-xs text-zinc-400">
-            <EmptySuggestions
-              matchedTools={[]}
-              onRun={() => {}}
-              onDetail={() => {}}
-              presets={[]}
-            />
-          </div>
+        {mode === "history" ? (
+          <HistoryMode
+            url={session.url}
+            tabId={tabId ?? -1}
+            onBack={() => setMode("chat")}
+          />
+        ) : session.messages.length === 0 && !isBusy ? (
+          <EmptyState session={session} onFillInput={setInput} />
         ) : (
           <ChatView onApprove={handleApprove} />
         )}
+        {tabId != null && <SaveEntry session={session} tabId={tabId} />}
       </div>
 
-      {/* Footer: token usage */}
-      <footer className="px-2 py-1 text-[10px] text-zinc-500 border-t border-zinc-800 flex justify-between shrink-0">
+      {/* Footer: token usage + history toggle */}
+      <footer className="px-2 py-1 text-[10px] text-zinc-500 border-t border-zinc-800 flex justify-between shrink-0 items-center">
+        <button
+          className="flex items-center gap-1 hover:text-zinc-300"
+          onClick={() => setMode(mode === "history" ? "chat" : "history")}
+          title="历史对话"
+        >
+          <Clock size={11} />
+          <span>历史</span>
+        </button>
         <span>
           {session.tokenUsage.input}in / {session.tokenUsage.output}out
         </span>
@@ -173,16 +229,25 @@ export function Panel({ onClose, onMinimize }: Props) {
         </span>
       </footer>
 
-      {/* Input */}
-      <div className="border-t border-zinc-800 p-2 shrink-0">
-        <InputBox
-          value={input}
-          onChange={setInput}
+      {tabId != null && (
+        <InputRow
+          session={session}
+          tabId={tabId}
+          input={input}
+          onInputChange={setInput}
           onSubmit={handleSubmit}
+          onStop={handleStop}
+          stagedImages={stagedImages}
+          onSetStagedImages={setStagedImages}
           disabled={isBusy}
-          placeholder="告诉 AI 你要做什么…"
+          isBusy={isBusy}
         />
-      </div>
+      )}
+      <ResizeHandle
+        size={size}
+        onResize={(w, h) => setSize({ w, h })}
+        onCommit={(w, h) => { void setPanelSize({ w, h }); }}
+      />
     </div>
   );
 }

@@ -224,6 +224,10 @@ export const RpcRequest = z.discriminatedUnion("type", [
     pendingApprovalId: z.string().optional()
   }),
   z.object({
+    type: z.literal("widget.openSidepanelWithSave"),
+    tabId: z.number().int()
+  }),
+  z.object({
     type: z.literal("widget.markHostHidden"),
     host: z.string().min(1)
   })

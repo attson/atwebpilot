@@ -23,6 +23,7 @@ import {
   setPermissionMode,
   setChatMode,
   setDebugBadge,
+  showSave,
   useCurrentTabId,
   useSession,
   useStore,
@@ -157,6 +158,22 @@ export function AppShell() {
         () => (el as HTMLElement | null)?.classList?.remove("ring-2", "ring-amber-400"),
         2000
       );
+    });
+  }, []);
+
+  // Widget 通过 widget.openSidepanelWithSave 唤起本面板时,BG 会在 chrome.storage.session
+  // 存 caiji.pendingSave;这里读到就调 showSave(tabId) 弹保存对话框。
+  useEffect(() => {
+    const KEY = "caiji.pendingSave";
+    void chrome.storage.session.get([KEY]).then(async (res) => {
+      const p = (res as any)[KEY] as { tabId: number; ts: number } | undefined;
+      if (!p) return;
+      if (Date.now() - p.ts > 30_000) {
+        await chrome.storage.session.remove([KEY]);
+        return;
+      }
+      showSave(p.tabId);
+      await chrome.storage.session.remove([KEY]);
     });
   }, []);
 
