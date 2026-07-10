@@ -89,7 +89,9 @@ describe("handleTabEvent", () => {
 
   it("tabs.spawned auto-attaches to session whose attached tab is opener", () => {
     ensureSession(100, "https://main");
-    setStatus(100, "streaming");
+    // "running" stamps _lastToolRunningAt (recent tool activity),
+    // which is what actually gates AI-attribution now.
+    setStatus(100, "running");
     attachTab(100, {
       tabId: 150, windowId: 1, source: "mention", lastSeenUrl: "u", lastSeenTitle: "t"
     });
@@ -103,6 +105,39 @@ describe("handleTabEvent", () => {
     });
     const a = getSessionFor(100).attachedTabs;
     expect(a.find((x) => x.tabId === 200)).toMatchObject({ source: "ai-open" });
+  });
+
+  it("tabs.spawned during streaming (but no recent tool activity) is NOT attributed to AI", () => {
+    // Regression test for the widget-era misattribution: user Ctrl+click on a
+    // link during AI text-streaming (between tool runs) used to attach the
+    // new tab as `ai-open`. Now attribution requires a tool_running event
+    // within the last 1500ms.
+    ensureSession(100, "https://main");
+    setCurrentTab(100);
+    // Simulate: AI ran a tool a while ago, now just streaming text.
+    useStore.setState((state) => ({
+      ...state,
+      sessionsByTab: {
+        ...state.sessionsByTab,
+        100: {
+          ...state.sessionsByTab[100],
+          status: "streaming",
+          _lastToolRunningAt: Date.now() - 5000, // 5 s ago — stale
+          messages: [{ role: "user", content: "hi" }]
+        }
+      }
+    }));
+    handleTabEvent({
+      type: "tabs.spawned",
+      tabId: 200,
+      openerTabId: 100,
+      windowId: 1,
+      url: "https://child",
+      title: "Child"
+    });
+    expect(getSessionFor(100).attachedTabs).toEqual([]);
+    const last = getSessionFor(100).messages.at(-1);
+    expect(JSON.stringify(last)).not.toMatch(/AI 在 #200/);
   });
 
   it("tabs.urlChanged on an attached tab sets urlChanged", () => {

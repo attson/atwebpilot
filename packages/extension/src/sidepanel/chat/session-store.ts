@@ -97,6 +97,12 @@ export type SessionData = {
   chatMode: "compact" | "full";
   /** 广播冲突仲裁字段；每次 mutation 后自增（Task 7）。初始 0。 */
   _rev: number;
+  /**
+   * 最近一次 tool_running 事件的时间戳（Date.now()）。cross-tab-events
+   * 用来判定新 spawn 的 tab 是否 AI 打开的:只有窗口 <1500ms 内有过
+   * tool_running 才归 AI,否则一律视为用户 Ctrl+click。
+   */
+  _lastToolRunningAt?: number;
 };
 
 export function makeEmptySession(tabId: number, url = ""): SessionData {
@@ -339,7 +345,14 @@ export function addLlmExchange(tabId: number, ex: LlmExchange): void {
 }
 
 export function setStatus(tabId: number, status: SessionStatus): void {
-  mutateSession(tabId, (s) => ({ ...s, status }));
+  mutateSession(tabId, (s) => ({
+    ...s,
+    status,
+    // Stamp AI-activity time when a tool starts running. cross-tab-events
+    // uses this to distinguish AI-opened tabs from user Ctrl+click (both
+    // arrive with `openerTabId` set;only recent AI activity attributes AI).
+    ...(status === "running" ? { _lastToolRunningAt: Date.now() } : {}),
+  }));
 }
 
 export function setError(tabId: number, errorMessage: string | null): void {

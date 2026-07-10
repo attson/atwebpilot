@@ -23,18 +23,11 @@ import {
   setPermissionMode,
   setChatMode,
   setDebugBadge,
-  startNewSession,
   useCurrentTabId,
   useSession,
   useStore,
 } from "@/sidepanel/chat/session-store";
-import {
-  archiveActive,
-  cascadeDeleteRuns,
-  getActiveByTabId,
-  pruneOverLimit,
-} from "@/sidepanel/chat/persistence/sessions-storage";
-import { flushAllPending, clearPersistStateFor } from "@/sidepanel/chat/persistence/auto-persist";
+import { getActiveByTabId } from "@/sidepanel/chat/persistence/sessions-storage";
 import { handleTabEvent } from "@/sidepanel/chat/cross-tab-events";
 import { useSettings, installSettingsSyncListener } from "@/sidepanel/chat/settings-store";
 import { useUi } from "@/sidepanel/chat/ui-store";
@@ -645,15 +638,8 @@ export function AppShell() {
   async function onNewChat() {
     const tabId = useStore.getState().currentTabId;
     if (tabId == null) return;
-    await flushAllPending();
-    const cur = await getActiveByTabId(tabId);
-    if (cur) {
-      await archiveActive(cur.id);
-      const evicted = await pruneOverLimit(cur.url);
-      if (evicted.length) await cascadeDeleteRuns(evicted);
-    }
-    startNewSession(tabId);
-    clearPersistStateFor(tabId);
+    const { newChatForTab } = await import("@/sidepanel/chat/new-chat");
+    await newChatForTab(tabId);
     setInput("");
   }
 
