@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Crosshair, X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
+import { Crosshair, X, Minus, ExternalLink, MessageSquarePlus, ArrowLeft, Clock } from "lucide-react";
+import { HistoryMode } from "./history-mode";
 import { useElementCapture } from "./element-capture-hook";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptyState } from "./empty-state";
@@ -36,6 +37,7 @@ export function Panel({ onClose, onMinimize }: Props) {
   const [tabId, setTabId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [stagedImages, setStagedImages] = useState<ImagePart[]>([]);
+  const [mode, setMode] = useState<"chat" | "history">("chat");
 
   const session = useSession();
   const maxRounds = useSettings((s) => s.maxRounds);
@@ -140,6 +142,15 @@ export function Panel({ onClose, onMinimize }: Props) {
     >
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 text-xs shrink-0">
+        {mode === "history" && (
+          <button
+            className="p-1 hover:bg-zinc-800 rounded"
+            title="返回对话"
+            onClick={() => setMode("chat")}
+          >
+            <ArrowLeft size={14} />
+          </button>
+        )}
         <b className="flex-1 select-none">⚡ AtWebPilot</b>
         <button
           className="p-1 hover:bg-zinc-800 rounded"
@@ -186,7 +197,13 @@ export function Panel({ onClose, onMinimize }: Props) {
 
       {/* Body */}
       <div className="flex-1 overflow-auto min-h-0">
-        {session.messages.length === 0 && !isBusy ? (
+        {mode === "history" ? (
+          <HistoryMode
+            url={session.url}
+            tabId={tabId ?? -1}
+            onBack={() => setMode("chat")}
+          />
+        ) : session.messages.length === 0 && !isBusy ? (
           <EmptyState session={session} onFillInput={setInput} />
         ) : (
           <ChatView onApprove={handleApprove} />
@@ -194,8 +211,16 @@ export function Panel({ onClose, onMinimize }: Props) {
         {tabId != null && <SaveEntry session={session} tabId={tabId} />}
       </div>
 
-      {/* Footer: token usage */}
-      <footer className="px-2 py-1 text-[10px] text-zinc-500 border-t border-zinc-800 flex justify-between shrink-0">
+      {/* Footer: token usage + history toggle */}
+      <footer className="px-2 py-1 text-[10px] text-zinc-500 border-t border-zinc-800 flex justify-between shrink-0 items-center">
+        <button
+          className="flex items-center gap-1 hover:text-zinc-300"
+          onClick={() => setMode(mode === "history" ? "chat" : "history")}
+          title="历史对话"
+        >
+          <Clock size={11} />
+          <span>历史</span>
+        </button>
         <span>
           {session.tokenUsage.input}in / {session.tokenUsage.output}out
         </span>
