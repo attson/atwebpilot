@@ -2,16 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptyState } from "./empty-state";
-import { InputBox } from "@/sidepanel/input/input-box";
+import { InputRow } from "./input-row";
 import { StatusBar } from "./status-bar";
 import { ErrorBanner } from "./error-banner";
 import { SaveEntry } from "./save-entry";
 import {
   useSession,
   appendUserMessage,
+  appendUserMessageWithImages,
   ensureSession,
   setCurrentTab,
 } from "@/sidepanel/chat/session-store";
+import type { ImagePart } from "@atwebpilot/shared/types";
 import {
   getApproverForTab,
   broadcastApprovalDecision,
@@ -31,6 +33,7 @@ export function Panel({ onClose, onMinimize }: Props) {
   const [size, setSize] = useState({ w: 320, h: 480 });
   const [tabId, setTabId] = useState<number | null>(null);
   const [input, setInput] = useState("");
+  const [stagedImages, setStagedImages] = useState<ImagePart[]>([]);
 
   const session = useSession();
   const maxRounds = useSettings((s) => s.maxRounds);
@@ -54,16 +57,28 @@ export function Panel({ onClose, onMinimize }: Props) {
     session.status === "awaiting" ||
     session.status === "running";
 
+  function handleStop() {
+    if (!tabId) return;
+    session.abortController?.abort();
+  }
+
   async function handleSubmit() {
-    if (!tabId || !input.trim() || isBusy) return;
+    if (!tabId) return;
     const text = input.trim();
-    appendUserMessage(tabId, text);
+    if (!text && stagedImages.length === 0) return;
+    if (isBusy) return;
+    if (stagedImages.length > 0) {
+      appendUserMessageWithImages(tabId, text, stagedImages);
+    } else {
+      appendUserMessage(tabId, text);
+    }
+    setStagedImages([]);
     setInput("");
     try {
       const { runFromInput } = await import("./run-widget-session");
       await runFromInput(tabId, text);
-    } catch {
-      // Task 12 will implement the full run loop
+    } catch (e) {
+      console.warn("[atwebpilot-widget] runFromInput failed:", e);
     }
   }
 
@@ -176,16 +191,20 @@ export function Panel({ onClose, onMinimize }: Props) {
         </span>
       </footer>
 
-      {/* Input */}
-      <div className="border-t border-zinc-800 p-2 shrink-0">
-        <InputBox
-          value={input}
-          onChange={setInput}
+      {tabId != null && (
+        <InputRow
+          session={session}
+          tabId={tabId}
+          input={input}
+          onInputChange={setInput}
           onSubmit={handleSubmit}
+          onStop={handleStop}
+          stagedImages={stagedImages}
+          onSetStagedImages={setStagedImages}
           disabled={isBusy}
-          placeholder="告诉 AI 你要做什么…"
+          isBusy={isBusy}
         />
-      </div>
+      )}
     </div>
   );
 }
