@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, Minus, ExternalLink } from "lucide-react";
+import { X, Minus, ExternalLink, MessageSquarePlus } from "lucide-react";
 import { ChatView } from "@/sidepanel/components/chat-view";
 import { EmptySuggestions } from "@/sidepanel/chat/empty-suggestions";
 import { InputBox } from "@/sidepanel/input/input-box";
@@ -69,6 +69,20 @@ export function Panel({ onClose, onMinimize }: Props) {
     await rpc.widgetOpenSidepanel({ tabId }).catch(() => {});
   }
 
+  async function handleNewChat() {
+    if (!tabId) return;
+    const hasContent =
+      session.messages.length > 0 || session.streamingAssistantText.length > 0;
+    if (hasContent && !window.confirm("新建对话会归档当前会话,确定?")) return;
+    try {
+      const { newChatForTab } = await import("@/sidepanel/chat/new-chat");
+      await newChatForTab(tabId);
+      setInput("");
+    } catch (e) {
+      console.warn("[atwebpilot-widget] newChat failed:", e);
+    }
+  }
+
   const handleApprove = useCallback(
     (
       id: string,
@@ -103,6 +117,13 @@ export function Panel({ onClose, onMinimize }: Props) {
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 text-xs shrink-0">
         <b className="flex-1 select-none">⚡ AtWebPilot</b>
+        <button
+          className="p-1 hover:bg-zinc-800 rounded"
+          title="新建对话"
+          onClick={handleNewChat}
+        >
+          <MessageSquarePlus size={14} />
+        </button>
         <button
           className="p-1 hover:bg-zinc-800 rounded"
           title="打开扩展面板"
