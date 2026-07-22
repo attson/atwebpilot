@@ -44,6 +44,17 @@ describe("InputBox", () => {
     cleanup();
   });
 
+  it("Enter submits empty text when canSubmit is true", () => {
+    const onSubmit = vi.fn();
+    const { c, cleanup } = mount(
+      <InputBox value="   " onChange={() => {}} onSubmit={onSubmit} canSubmit />
+    );
+    const ta = c.querySelector('[data-testid="input-box"]') as HTMLTextAreaElement;
+    fireKey(ta, "Enter");
+    expect(onSubmit).toHaveBeenCalled();
+    cleanup();
+  });
+
   it("Shift+Enter does NOT submit", () => {
     const onSubmit = vi.fn();
     const { c, cleanup } = mount(

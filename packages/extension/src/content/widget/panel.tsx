@@ -71,8 +71,10 @@ export function Panel({ onClose, onMinimize }: Props) {
     const text = input.trim();
     if (!text && stagedImages.length === 0) return;
     if (isBusy) return;
-    if (stagedImages.length > 0) {
-      appendUserMessageWithImages(tabId, text, stagedImages);
+    const historyMessages = session.messages;
+    const imagesToSend = stagedImages;
+    if (imagesToSend.length > 0) {
+      appendUserMessageWithImages(tabId, text, imagesToSend);
     } else {
       appendUserMessage(tabId, text);
     }
@@ -80,7 +82,7 @@ export function Panel({ onClose, onMinimize }: Props) {
     setInput("");
     try {
       const { runFromInput } = await import("./run-widget-session");
-      await runFromInput(tabId, text);
+      await runFromInput(tabId, text, { images: imagesToSend, historyMessages });
     } catch (e) {
       console.warn("[atwebpilot-widget] runFromInput failed:", e);
     }

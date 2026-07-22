@@ -57,6 +57,10 @@ import { matchesAny } from "@atwebpilot/shared/url-pattern";
 import { loadBookmarks } from "@/sidepanel/lib/bookmarks";
 import { fileToImagePart, MAX_IMAGES_PER_TURN } from "@/sidepanel/lib/image-utils";
 import { buildMetaTools } from "@/sidepanel/lib/meta-tools";
+import {
+  buildCurrentUserContent,
+  buildInitialMessagesForNextTurn,
+} from "@/sidepanel/chat/context-manager";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
 import { ToolsDrawer } from "@/sidepanel/drawers/tools-drawer";
@@ -400,7 +404,7 @@ export function AppShell() {
 
   const send = useCallback(
     async (prompt: string) => {
-      if (!prompt.trim()) return;
+      if (!prompt.trim() && stagedImages.length === 0) return;
       if (!settings.apiKey) {
         session.setError("请先在设置 → LLM 填入 API Key");
         return;
@@ -408,6 +412,7 @@ export function AppShell() {
       const { tabId, url } = await currentTabInfo();
       const session0 = getSessionFor(tabId);
       const attachedTabs = session0.attachedTabs;
+      const context = buildInitialMessagesForNextTurn(session0.messages);
       const getAttachedTabIds = () =>
         useStore.getState().sessionsByTab[tabId]?.attachedTabs.map((a) => a.tabId) ?? [];
       session.setIdentity({ tabId, url, runRecordId: "" });
@@ -417,6 +422,7 @@ export function AppShell() {
       const imgsToSend = stagedImages;
       const selectorsToSend = stagedSelectors;
       const promptForLlm = buildPromptWithSelectedElements(prompt, selectorsToSend);
+      const userContentForLlm = buildCurrentUserContent(promptForLlm, imgsToSend);
       if (imgsToSend.length > 0) {
         appendUserMessageWithImages(tabId, prompt, imgsToSend);
         setStagedImages([]);
@@ -424,6 +430,13 @@ export function AppShell() {
         session.appendUserMessage(prompt);
       }
       if (selectorsToSend.length > 0) setStagedSelectors([]);
+      if (context.compressed) {
+        session.appendLog(
+          "info",
+          "[上下文] 已压缩早期对话",
+          `compressedMessages=${context.compressedMessageCount} estimatedChars=${context.estimatedChars}`
+        );
+      }
       session.appendLog(
         "info",
         "提交 prompt",
@@ -554,7 +567,8 @@ export function AppShell() {
             appendStepLog: (runId, entry) => rpc.appendStepLog(runId, entry),
             finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output),
           },
-          input: { userPrompt: promptForLlm, tabId, url },
+          initialMessages: context.initialMessages,
+          input: { userPrompt: promptForLlm, userContent: userContentForLlm, tabId, url },
           settings: { ...settings, trustedDangerTools: settings.trustedDangerTools ?? [] },
           systemPrompt: buildSystemPrompt({
             url,

@@ -34,6 +34,7 @@
 | 28 | 页内浮窗对话入口 | [`2026-07-08-inpage-chat-widget-design.md`](./2026-07-08-inpage-chat-widget-design.md) | Shadow DOM FAB + mini chat panel；widget 与 sidepanel 共享 `sessionsByTab`；dangerous 操作交接到 sidepanel；每站隐藏与全局开关；不替代 sidepanel 的工具库/设置/诊断 |
 | 29 | Widget Round 2（v0.0.52） | [`2026-07-10-widget-r2-11-feats-design.md`](./2026-07-10-widget-r2-11-feats-design.md) | 页内浮窗补齐 stop、sticky status、error banner、preset/quick-actions 空态、图片附件、权限 pill、保存入口、历史、resize、元素圈选；保持 runChatSession / Approver / 自愈协议不变 |
 | 30 | 通用页面上下文索引（v0.0.53） | [`2026-07-23-page-context-index-design.md`](./2026-07-23-page-context-index-design.md) | 新增 `createPageIndex` / `searchPageIndex` / `readPageBlock` / `extractPageFields` 通用工具；content script 本地构建页面块索引，LLM 只取小证据片段；避免 `extractText(body)` 和大 DOM 进入上下文；同版补充 targeted screenshot 视觉证据、`.xlsx` 导出、图片消息渲染修复 |
+| 31 | 会话上下文滚动压缩 | [`2026-07-23-session-context-compaction-design.md`](./2026-07-23-session-context-compaction-design.md) | 跨用户发送传递 prior `initialMessages`；超预算时旧消息压成 `[上下文记忆]`，近期消息原样保留；旧图片/base64/截图只留占位符和引用；当前 staged 图片通过 `userContent` 真正发给模型；sidepanel 压缩时写 `[上下文]` 日志 |
 
 ## 不在 spec 里的细节修复
 

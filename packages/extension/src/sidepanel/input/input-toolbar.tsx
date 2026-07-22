@@ -77,6 +77,9 @@ export function InputToolbar(props: Props) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const tokenTotal = props.tokensIn + props.tokensOut;
   const fileRef = useRef<HTMLInputElement>(null);
+  const canSubmit =
+    !!props.value.trim() ||
+    props.stagedImages.length > 0;
 
   type OptState =
     | { kind: "closed" }
@@ -172,6 +175,7 @@ export function InputToolbar(props: Props) {
           value={props.value}
           onChange={props.onChange}
           onSubmit={() => props.onSubmit(props.value)}
+          canSubmit={canSubmit}
           onAtTrigger={() => setMentionOpen(true)}
           onImageFiles={props.onImageFiles}
           disabled={props.status === "streaming"}
@@ -281,7 +285,7 @@ export function InputToolbar(props: Props) {
               <button
                 type="button"
                 aria-label="发送"
-                disabled={!props.value.trim()}
+                disabled={!canSubmit}
                 onClick={() => props.onSubmit(props.value)}
                 className="px-3 py-1 rounded-md bg-blue-700 text-white text-[12px] hover:bg-blue-600 disabled:bg-zinc-800 disabled:text-zinc-500"
               >

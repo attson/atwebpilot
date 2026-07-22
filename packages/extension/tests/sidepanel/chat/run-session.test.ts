@@ -3,7 +3,7 @@ import { runChatSession, type SessionEvent } from "@/sidepanel/chat/run-session"
 import { Approver } from "@/sidepanel/chat/approval";
 import type { LlmClient, LlmStreamEvent } from "@/sidepanel/llm/types";
 import type { ToolRunner } from "@/sidepanel/chat/tool-runner";
-import type { Json, Step } from "@atwebpilot/shared/types";
+import type { ChatMessage, ImagePart, Json, Step } from "@atwebpilot/shared/types";
 
 function streamFrom(events: LlmStreamEvent[]): AsyncIterable<LlmStreamEvent> {
   return (async function* () {
@@ -37,6 +37,46 @@ function makeRunner(handler: (step: Step) => Promise<Json>): ToolRunner {
 }
 
 describe("runChatSession", () => {
+  it("sends initial history plus the current multimodal user content to the LLM", async () => {
+    const streamCalls: Array<{ messages: ChatMessage[] }> = [];
+    const image: ImagePart = {
+      type: "image",
+      media_type: "image/png",
+      data: "abc123",
+    };
+    const client = makeCapturingClient(
+      [[{ type: "text_delta", text: "ok" }, { type: "message_end" }]],
+      streamCalls
+    );
+
+    await runChatSession({
+      client,
+      runner: makeRunner(async () => null),
+      approver: new Approver(),
+      rpc: {
+        startSession: vi.fn().mockResolvedValue({ id: "r" }),
+        appendStepLog: vi.fn(),
+        finalizeSession: vi.fn().mockResolvedValue(null),
+      },
+      input: {
+        userPrompt: "describe image",
+        userContent: [image, { type: "text", text: "describe image" }],
+        tabId: 1,
+        url: "u",
+      },
+      initialMessages: [{ role: "user", content: "previous goal" }],
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      systemPrompt: "sys",
+      tools: [],
+      permissionMode: "default",
+    });
+
+    expect(streamCalls[0].messages).toEqual([
+      { role: "user", content: "previous goal" },
+      { role: "user", content: [image, { type: "text", text: "describe image" }] },
+    ]);
+  });
+
   it("auto-approves safe tool, retrieves output, terminates after assistant final text", async () => {
     const client = makeClient([
       [

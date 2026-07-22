@@ -34,7 +34,11 @@ import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
 import { classifyTool } from "@/sidepanel/chat/severity";
 import { handOffToSidepanel } from "./handoff";
 import type { Decision } from "@/sidepanel/chat/approval";
-import type { Json, Step, ReplayableTool } from "@atwebpilot/shared/types";
+import type { ChatMessage, ImagePart, Json, Step, ReplayableTool } from "@atwebpilot/shared/types";
+import {
+  buildCurrentUserContent,
+  buildInitialMessagesForNextTurn,
+} from "@/sidepanel/chat/context-manager";
 
 /**
  * Widget-specific approver: intercepts dangerous tools and hands off to
@@ -72,7 +76,11 @@ class WidgetApprover extends Approver {
   }
 }
 
-export async function runFromInput(tabId: number, text: string): Promise<void> {
+export async function runFromInput(
+  tabId: number,
+  text: string,
+  inputContext: { images?: ImagePart[]; historyMessages?: ChatMessage[] } = {}
+): Promise<void> {
   // Defensive: if bootstrap's load() is still in-flight (widget mounted then
   // user hit Enter within the same frame), await it here.
   if (!useSettings.getState().loaded) {
@@ -89,6 +97,8 @@ export async function runFromInput(tabId: number, text: string): Promise<void> {
 
   const url = sessionState.url;
   const permissionMode = sessionState.permissionMode ?? "default";
+  const context = buildInitialMessagesForNextTurn(inputContext.historyMessages ?? sessionState.messages);
+  const userContent = buildCurrentUserContent(text, inputContext.images ?? []);
 
   const client = createRecordingClient(
     pickClient(settings.provider),
@@ -207,7 +217,8 @@ export async function runFromInput(tabId: number, text: string): Promise<void> {
       appendStepLog: (runId, entry) => rpc.appendStepLog(runId, entry),
       finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output),
     },
-    input: { userPrompt: text, tabId, url },
+    initialMessages: context.initialMessages,
+    input: { userPrompt: text, userContent, tabId, url },
     settings: { ...settings, trustedDangerTools: settings.trustedDangerTools ?? [] },
     systemPrompt,
     tools: TOOL_DEFS,

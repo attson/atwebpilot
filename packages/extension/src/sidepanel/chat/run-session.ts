@@ -13,6 +13,7 @@ import { truncateContent } from "@/sidepanel/llm/truncate";
 import type { ToolRunner } from "./tool-runner";
 import { Approver, type Decision } from "./approval";
 import { classifyTool, evaluateAutoApproval, type PermissionMode } from "./severity";
+import type { UserMessageContent } from "./context-manager";
 
 export type SessionRpc = {
   startSession: (input: { url: string }) => Promise<{ id: string }>;
@@ -42,6 +43,7 @@ export type CrossTabRpc = {
 
 export type RunSessionInput = {
   userPrompt: string;
+  userContent?: UserMessageContent;
   tabId: number;
   url: string;
 };
@@ -229,7 +231,7 @@ export const CONTINUATION_NUDGE_PROMPT = [
 export async function runChatSession(args: RunSessionArgs): Promise<RunSessionResult> {
   const messages: ChatMessage[] = [
     ...(args.initialMessages ?? []),
-    { role: "user", content: args.input.userPrompt }
+    { role: "user", content: args.input.userContent ?? args.input.userPrompt }
   ];
   const executedSteps: Step[] = [];
   let lastOutput: Json = null;

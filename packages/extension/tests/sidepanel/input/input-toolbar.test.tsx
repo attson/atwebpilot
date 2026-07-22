@@ -106,6 +106,24 @@ describe("InputToolbar", () => {
     cleanup();
   });
 
+  it("send button is enabled with staged images even when text is empty", () => {
+    const onSubmit = vi.fn();
+    const { c, cleanup } = mount(
+      <InputToolbar
+        {...defaultProps({
+          value: "  ",
+          stagedImages: [{ type: "image", media_type: "image/png", data: "abc" }],
+          onSubmit,
+        })}
+      />
+    );
+    const send = c.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
+    expect(send.disabled).toBe(false);
+    act(() => send.click());
+    expect(onSubmit).toHaveBeenCalledWith("  ");
+    cleanup();
+  });
+
   it("renders selected element as a removable reference chip", () => {
     const onRemoveSelector = vi.fn();
     const { c, cleanup } = mount(

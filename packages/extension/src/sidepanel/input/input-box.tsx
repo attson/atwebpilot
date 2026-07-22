@@ -8,6 +8,7 @@ type Props = {
   /** Called when the user pastes, drops or picks image files. Caller is
    *  responsible for size/type validation + staging. */
   onImageFiles?: (files: File[]) => void;
+  canSubmit?: boolean;
   disabled?: boolean;
   placeholder?: string;
   /** 右下角浮动动作槽位（如「优化提示词」按钮）。有值时 textarea 自动 padding 让位。 */
@@ -28,6 +29,7 @@ export function InputBox({
   onSubmit,
   onAtTrigger,
   onImageFiles,
+  canSubmit,
   disabled,
   placeholder,
   rightAction,
@@ -76,7 +78,7 @@ export function InputBox({
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && !disabled) {
             e.preventDefault();
-            if (value.trim()) onSubmit();
+            if (canSubmit ?? !!value.trim()) onSubmit();
           }
         }}
         onPaste={(e) => {
