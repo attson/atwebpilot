@@ -213,6 +213,79 @@ Each block stores:
 Large blocks are capped internally per block, but the full source element can be
 re-read through `readPageBlock` with pagination when needed.
 
+## Truncation and References
+
+The page-index tools must not expose truncation as broken prose. A response like
+`abc...[truncated 100000 chars]...xyz` gives the model partial content and
+encourages blind follow-up reads. Truncation is represented as structured
+metadata instead.
+
+When any indexed block, search match, or field evidence exceeds the response
+budget, the tool returns a bounded preview plus a stable reference:
+
+```json
+{
+  "blockId": "b42",
+  "preview": "First relevant snippet...",
+  "complete": false,
+  "availableChars": 1354006,
+  "read": {
+    "tool": "readPageBlock",
+    "args": { "blockId": "b42", "offset": 0, "maxChars": 4000 }
+  },
+  "recommendedNext": [
+    { "tool": "searchPageIndex", "args": { "query": "Date First Available", "limit": 5 } },
+    { "tool": "readPageBlock", "args": { "blockId": "b42", "offset": 4000, "maxChars": 4000 } }
+  ]
+}
+```
+
+Rules:
+
+- The model should see `complete: false`, `availableChars`, and a concrete
+  follow-up read path, not a fake complete text.
+- Search and field extraction should prefer returning several small evidence
+  snippets over one large truncated block.
+- `readPageBlock` is the only tool that pages through large content by
+  `offset`. Other tools return previews and references.
+- When a field candidate comes from a large block, `evidence` is capped and
+  accompanied by `blockId` so the model can inspect the source only if needed.
+- Existing broad-context truncation in `runChatSession` remains a last-resort
+  safety valve. New page-index tools should avoid producing large LLM-facing
+  strings in the first place.
+
+Every intentional truncation also emits machine-readable diagnostics in the
+tool output:
+
+```json
+{
+  "truncation": {
+    "kind": "preview",
+    "originalChars": 1354006,
+    "returnedChars": 4000,
+    "reason": "block_budget",
+    "ref": "b42"
+  }
+}
+```
+
+`truncation.kind` values:
+
+- `none` — no truncation happened.
+- `preview` — a long block was represented by a bounded preview and a `blockId`.
+- `page` — `readPageBlock` returned one page of a larger block and `hasMore`
+  is true.
+- `index_budget` — the index skipped lower-signal blocks after reaching
+  `maxBlocks`.
+- `evidence_budget` — field/search evidence was shortened but remains linked to
+  `blockId`.
+
+Diagnostics are duplicated into step logs through the normal tool output path,
+so the logs view and exported diagnostic bundle can show why content was
+bounded. UI can later render a small "已裁剪，可继续读取" marker from the same
+metadata, but the first implementation only needs to preserve the structured
+fields in tool output and exports.
+
 ## Matching Rules
 
 First version matching is deterministic:
