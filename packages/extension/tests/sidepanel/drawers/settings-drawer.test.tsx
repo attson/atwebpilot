@@ -59,4 +59,21 @@ describe("SettingsDrawer tabs", () => {
     expect(container.textContent).toContain("上下文策略");
     expect(container.textContent).not.toContain("Provider");
   });
+
+  it("switches to MCP setup instructions", async () => {
+    await act(async () => {
+      root.render(<SettingsDrawer />);
+    });
+
+    const mcpTab = container.querySelector('button[aria-label="设置分类: MCP"]') as HTMLButtonElement;
+    expect(mcpTab).toBeTruthy();
+
+    await act(async () => {
+      mcpTab.click();
+    });
+
+    expect(container.textContent).toContain("MCP 配置");
+    expect(container.textContent).toContain("@attson/atwebpilot-mcp");
+    expect(container.textContent).not.toContain("Provider");
+  });
 });

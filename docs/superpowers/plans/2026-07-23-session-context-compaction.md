@@ -330,7 +330,7 @@ buildInitialMessagesForNextTurn(messages, resolveContextBuildOptions(settings))
 Create `SectionContext` and convert `SettingsDrawer` to left-tab navigation:
 
 ```txt
-LLM / 上下文 / 权限 / 外观 / 浮窗 / Coordinator / 高级
+LLM / 上下文 / MCP / 权限 / 外观 / 浮窗 / Coordinator / 高级
 ```
 
 - [x] **Step 6: Verify focused tests**

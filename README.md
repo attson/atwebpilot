@@ -60,7 +60,7 @@ git push origin v0.0.1
 
 ## 第一次配置
 
-打开「设置」页。设置页左侧按分类切换（LLM / 上下文 / 权限 / 外观 / 浮窗 / Coordinator / 高级）：
+打开「设置」页。设置页左侧按分类切换（LLM / 上下文 / MCP / 权限 / 外观 / 浮窗 / Coordinator / 高级）：
 
 | 字段 | 说明 |
 |---|---|
@@ -230,7 +230,7 @@ URL 模式   [https://*.pinduoduo.com/**]
 
 ```bash
 pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension / mcp-server
-pnpm test           # 全量测试 ~850（653 extension + 124 shared + 45 coordinator + 28 mcp-server）
+pnpm test           # 全量测试 ~853（656 extension + 124 shared + 45 coordinator + 28 mcp-server）
 pnpm test:watch
 pnpm build          # 产出 packages/extension/dist/
 ```

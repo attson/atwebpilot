@@ -5,16 +5,18 @@ import { Drawer } from "@/sidepanel/shell/drawer";
 import { SectionAppearance } from "./settings/section-appearance";
 import { SectionContext } from "./settings/section-context";
 import { SectionLlm } from "./settings/section-llm";
+import { SectionMcp } from "./settings/section-mcp";
 import { SectionPermissions } from "./settings/section-permissions";
 import { SectionMounting } from "./settings/section-mounting";
 import { SectionCoordinator } from "./settings/section-coordinator";
 import { SectionAdvanced } from "./settings/section-advanced";
 
-type SettingsTab = "llm" | "context" | "permissions" | "appearance" | "mounting" | "coordinator" | "advanced";
+type SettingsTab = "llm" | "context" | "mcp" | "permissions" | "appearance" | "mounting" | "coordinator" | "advanced";
 
 const TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "llm", label: "LLM" },
   { id: "context", label: "上下文" },
+  { id: "mcp", label: "MCP" },
   { id: "permissions", label: "权限" },
   { id: "appearance", label: "外观" },
   { id: "mounting", label: "浮窗 / 多 tab" },
@@ -57,6 +59,7 @@ export function SettingsDrawer() {
         <div className="flex-1 min-w-0 overflow-y-auto p-3">
           {activeTab === "llm" ? <SectionLlm /> : null}
           {activeTab === "context" ? <SectionContext /> : null}
+          {activeTab === "mcp" ? <SectionMcp /> : null}
           {activeTab === "permissions" ? <SectionPermissions /> : null}
           {activeTab === "appearance" ? <SectionAppearance /> : null}
           {activeTab === "mounting" ? <SectionMounting /> : null}
