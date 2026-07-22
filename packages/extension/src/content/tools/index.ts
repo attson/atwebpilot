@@ -26,6 +26,7 @@ import { navigate } from "./navigate";
 import { getPageInfo } from "./get-page-info";
 import { pressKey } from "./press-key";
 import { writeStorage } from "./write-storage";
+import { createPageIndex, extractPageFields, readPageBlock, searchPageIndex } from "./page-index";
 
 export type ToolFn = (args: Json) => Promise<Json>;
 
@@ -60,7 +61,12 @@ export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
   navigate,
   getPageInfo,
   pressKey,
-  writeStorage
+  writeStorage,
+  // Page Context Index
+  createPageIndex,
+  searchPageIndex,
+  readPageBlock,
+  extractPageFields
 };
 
 export async function callTool(name: BuiltinTool, args: Json): Promise<Json> {

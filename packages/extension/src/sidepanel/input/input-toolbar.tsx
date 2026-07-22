@@ -5,6 +5,7 @@ import type { LlmSettings } from "@atwebpilot/shared/types";
 import type { PermissionMode } from "../chat/severity";
 import { optimizePrompt } from "@/sidepanel/lib/optimize-prompt";
 import { StagedImages } from "../components/staged-images";
+import { StagedSelectors } from "../components/staged-selectors";
 import { AboveInputTabs } from "./above-input-tabs";
 import { InputBox } from "./input-box";
 import {
@@ -46,8 +47,10 @@ type Props = {
 
   // images
   stagedImages: ImagePart[];
+  stagedSelectors: string[];
   onImageFiles: (files: File[]) => void;
   onRemoveImage: (idx: number) => void;
+  onRemoveSelector: (idx: number) => void;
 
   /** "选元素" 按钮回调（向 content script 发 startCapture） */
   onStartCapture: () => void;
@@ -140,6 +143,7 @@ export function InputToolbar(props: Props) {
         onAddTab={props.onOpenTabPicker}
       />
       <StagedImages images={props.stagedImages} onRemove={props.onRemoveImage} />
+      <StagedSelectors selectors={props.stagedSelectors} onRemove={props.onRemoveSelector} />
 
       <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-2 space-y-2 relative">
         {opt.kind !== "closed" && (
@@ -171,6 +175,11 @@ export function InputToolbar(props: Props) {
           onAtTrigger={() => setMentionOpen(true)}
           onImageFiles={props.onImageFiles}
           disabled={props.status === "streaming"}
+          placeholder={
+            props.stagedSelectors.length > 0
+              ? "针对已选元素输入指令..."
+              : undefined
+          }
           rightAction={
             <PromptOptimizeButton
               status={optimizeStatus}
@@ -207,7 +216,7 @@ export function InputToolbar(props: Props) {
             <button
               type="button"
               aria-label="选元素"
-              title="点页面任意元素，selector 自动回填"
+              title="点页面任意元素，作为引用添加"
               className="px-2 py-1 rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 text-[11px]"
               onClick={props.onStartCapture}
             >

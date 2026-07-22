@@ -1,10 +1,61 @@
+import { useState } from "react";
+import { Loader2, TestTube } from "lucide-react";
 import type { LlmProvider } from "@atwebpilot/shared/types";
 import { ANTHROPIC_MODELS, OPENAI_MODELS, useSettings } from "@/sidepanel/chat/settings-store";
+import { pickClient } from "@/sidepanel/llm/client";
+
+type TestStatus =
+  | { state: "idle" }
+  | { state: "testing" }
+  | { state: "ok"; text: string }
+  | { state: "error"; text: string };
 
 export function SectionLlm() {
   const settings = useSettings();
+  const [testStatus, setTestStatus] = useState<TestStatus>({ state: "idle" });
   const models = settings.provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
   const datalistId = `models-${settings.provider}`;
+
+  async function testConnection() {
+    if (!settings.apiKey.trim()) {
+      setTestStatus({ state: "error", text: "请先填写 API Key" });
+      return;
+    }
+    if (!settings.model.trim()) {
+      setTestStatus({ state: "error", text: "请先填写 Model" });
+      return;
+    }
+    setTestStatus({ state: "testing" });
+    try {
+      const client = pickClient(settings.provider);
+      let sawResponse = false;
+      for await (const event of client.stream({
+        apiKey: settings.apiKey,
+        model: settings.model,
+        endpoint: settings.endpoint,
+        maxTokens: 16,
+        system: "You are testing whether this LLM configuration can answer.",
+        messages: [{ role: "user", content: "Reply with OK." }],
+        tools: []
+      })) {
+        if (event.type === "error") {
+          setTestStatus({ state: "error", text: event.error });
+          return;
+        }
+        if (event.type === "text_delta" || event.type === "message_end") {
+          sawResponse = true;
+          break;
+        }
+      }
+      setTestStatus(
+        sawResponse
+          ? { state: "ok", text: "连接正常" }
+          : { state: "error", text: "没有收到响应" }
+      );
+    } catch (e) {
+      setTestStatus({ state: "error", text: e instanceof Error ? e.message : String(e) });
+    }
+  }
 
   return (
     <section className="bg-zinc-900 rounded p-3 space-y-2 text-xs">
@@ -65,16 +116,47 @@ export function SectionLlm() {
       </div>
       <div className="flex items-start gap-2">
         <span className="w-20 text-zinc-400 mt-1">Endpoint</span>
-        <input
-          value={settings.endpoint ?? ""}
-          onChange={(e) => void settings.save({ endpoint: e.target.value })}
-          placeholder={
-            settings.provider === "anthropic"
-              ? "留空 = https://api.anthropic.com"
-              : "留空 = https://api.openai.com/v1"
-          }
-          className="bg-zinc-800 px-2 py-1 rounded font-mono flex-1"
-        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <input
+              value={settings.endpoint ?? ""}
+              onChange={(e) => void settings.save({ endpoint: e.target.value })}
+              placeholder={
+                settings.provider === "anthropic"
+                  ? "留空 = https://api.anthropic.com"
+                  : "留空 = https://api.openai.com/v1"
+              }
+              className="bg-zinc-800 px-2 py-1 rounded font-mono flex-1 min-w-0"
+            />
+            <button
+              type="button"
+              onClick={() => void testConnection()}
+              disabled={testStatus.state === "testing"}
+              title="测试当前 LLM 配置"
+              className="shrink-0 inline-flex items-center gap-1 rounded bg-zinc-800 px-2 py-1 text-zinc-200 hover:bg-zinc-700 disabled:opacity-60"
+            >
+              {testStatus.state === "testing" ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <TestTube size={14} aria-hidden="true" />
+              )}
+              <span>测试</span>
+            </button>
+          </div>
+          {testStatus.state !== "idle" ? (
+            <div
+              className={
+                testStatus.state === "ok"
+                  ? "mt-1 text-emerald-400"
+                  : testStatus.state === "error"
+                    ? "mt-1 text-rose-400 break-words"
+                    : "mt-1 text-zinc-400"
+              }
+            >
+              {testStatus.state === "testing" ? "测试中..." : testStatus.text}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <span className="w-20 text-zinc-400">max_tokens</span>

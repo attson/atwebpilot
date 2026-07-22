@@ -37,6 +37,7 @@ import { TOOL_DEFS } from "@/sidepanel/llm/tool-schema";
 import { pickClient } from "@/sidepanel/llm/client";
 import { createRecordingClient } from "@/sidepanel/llm/recording-client";
 import { buildSystemPrompt } from "@/sidepanel/llm/system-prompt";
+import { captureVisualEvidence } from "@/sidepanel/llm/visual-evidence";
 
 import { Header } from "./header";
 import { TabIdentityBar } from "./tab-identity-bar";
@@ -78,6 +79,7 @@ import { useExternalReplay } from "@/sidepanel/hooks/use-external-replay";
 import { ExternalReplayModal } from "@/sidepanel/components/external-replay-modal";
 import { useHeartbeat } from "@/sidepanel/chat/heartbeat";
 import { installSelfHealHost } from "@/sidepanel/self-heal-host";
+import { buildPromptWithSelectedElements } from "@/sidepanel/input/selected-elements";
 
 function toSuggested(tools: Tool[]): SuggestedTool[] {
   return tools.map((t) => ({
@@ -106,6 +108,7 @@ export function AppShell() {
   const [allTools, setAllTools] = useState<Tool[]>([]);
   const [bookmarks, setBookmarks] = useState<MentionBookmarkOption[]>([]);
   const [stagedImages, setStagedImages] = useState<ImagePart[]>([]);
+  const [stagedSelectors, setStagedSelectors] = useState<string[]>([]);
   const [recoverableUrl, setRecoverableUrl] = useState<string | null>(null);
   const approver = getGlobalApprover();
 
@@ -213,12 +216,10 @@ export function AppShell() {
       if (!msg || typeof msg !== "object") return;
       const m = msg as { type?: string; selector?: string };
       if (m.type === "atwebpilot.captureResult" && typeof m.selector === "string") {
-        const insertion = `[${m.selector}] `;
-        setInput((cur) => {
-          const next = cur + insertion;
-          session.setInputDraft(next);
-          return next;
-        });
+        const selector = m.selector;
+        setStagedSelectors((prev) =>
+          prev.includes(selector) ? prev : [...prev, selector]
+        );
       }
     }
     chrome.runtime.onMessage.addListener(onMsg);
@@ -414,16 +415,19 @@ export function AppShell() {
       session.setDebugBadge(null);
       session.setStatus("streaming");
       const imgsToSend = stagedImages;
+      const selectorsToSend = stagedSelectors;
+      const promptForLlm = buildPromptWithSelectedElements(prompt, selectorsToSend);
       if (imgsToSend.length > 0) {
         appendUserMessageWithImages(tabId, prompt, imgsToSend);
         setStagedImages([]);
       } else {
         session.appendUserMessage(prompt);
       }
+      if (selectorsToSend.length > 0) setStagedSelectors([]);
       session.appendLog(
         "info",
         "提交 prompt",
-        `provider=${settings.provider} model=${settings.model} endpoint=${settings.endpoint || "(默认)"} maxRounds=${settings.maxRounds}\n---\n${prompt}`
+        `provider=${settings.provider} model=${settings.model} endpoint=${settings.endpoint || "(默认)"} maxRounds=${settings.maxRounds}\n---\n${promptForLlm}`
       );
       session.setInputDraft("");
       setInput("");
@@ -550,7 +554,7 @@ export function AppShell() {
             appendStepLog: (runId, entry) => rpc.appendStepLog(runId, entry),
             finalizeSession: (runId, status, output) => rpc.finalizeSession(runId, status, output),
           },
-          input: { userPrompt: prompt, tabId, url },
+          input: { userPrompt: promptForLlm, tabId, url },
           settings: { ...settings, trustedDangerTools: settings.trustedDangerTools ?? [] },
           systemPrompt: buildSystemPrompt({
             url,
@@ -579,17 +583,13 @@ export function AppShell() {
             mainTabId: tabId,
           }),
           screenshot: async (raw) => {
-            const inp = (raw as { tabId?: number }) ?? {};
-            const targetTab = await chrome.tabs.get(inp.tabId ?? tabId);
-            const dataUrl = await chrome.tabs.captureVisibleTab(targetTab.windowId, {
-              format: "png",
+            return captureVisualEvidence({
+              raw,
+              defaultTabId: tabId,
+              getTab: (targetTabId) => chrome.tabs.get(targetTabId),
+              captureVisibleTab: (windowId) => chrome.tabs.captureVisibleTab(windowId, { format: "png" }),
+              runStep: rpc.runOneStep,
             });
-            const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
-            return {
-              media_type: "image/png",
-              data: base64,
-              byteLen: Math.floor((base64.length * 3) / 4),
-            };
           },
           abortSignal: ac.signal,
           onEvent,
@@ -630,7 +630,7 @@ export function AppShell() {
         session.setAbortController(null);
       }
     },
-    [session, settings, recommendations, approver, stagedImages]
+    [session, settings, recommendations, approver, stagedImages, stagedSelectors]
   );
 
   async function onImageFiles(files: File[]) {
@@ -650,6 +650,10 @@ export function AppShell() {
 
   function onRemoveImage(idx: number) {
     setStagedImages((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function onRemoveSelector(idx: number) {
+    setStagedSelectors((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function onNewChat() {
@@ -804,12 +808,14 @@ export function AppShell() {
         tokensIn={session.tokenUsage.input}
         tokensOut={session.tokenUsage.output}
         stagedImages={stagedImages}
+        stagedSelectors={stagedSelectors}
         onImageFiles={onImageFiles}
         onRemoveImage={onRemoveImage}
+        onRemoveSelector={onRemoveSelector}
         onStartCapture={async () => {
           if (currentTabId == null) return;
           try {
-            await chrome.tabs.sendMessage(currentTabId, { type: "atwebpilot.startCapture" });
+            await rpc.startElementCapture(currentTabId);
           } catch (e) {
             session.setError(`无法在当前 tab 启动元素选择：${e instanceof Error ? e.message : String(e)}`);
           }

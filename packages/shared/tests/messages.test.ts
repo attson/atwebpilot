@@ -111,4 +111,26 @@ describe("multi-tab RPC variants", () => {
     });
     expect(ok2.success).toBe(true);
   });
+
+  it("runs.runOneStep accepts page context index tool steps", () => {
+    for (const tool of [
+      "createPageIndex",
+      "searchPageIndex",
+      "readPageBlock",
+      "extractPageFields"
+    ]) {
+      expect(
+        RpcRequest.safeParse({
+          type: "runs.runOneStep",
+          step: { kind: "tool", tool, args: {} },
+          tabId: 1
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it("elementCapture.start requires a tabId", () => {
+    expect(RpcRequest.safeParse({ type: "elementCapture.start", tabId: 1 }).success).toBe(true);
+    expect(RpcRequest.safeParse({ type: "elementCapture.start" }).success).toBe(false);
+  });
 });

@@ -37,6 +37,7 @@ export type BuiltinTool =
   | "searchBookmarks"
   | "searchHistory"
   | "downloadImage"
+  | "downloadSpreadsheet"
   // Round 5 Tier 4 — UID-based + visual + batch
   | "takeSnapshot"
   | "clickByUid"
@@ -48,13 +49,18 @@ export type BuiltinTool =
   | "navigate"
   | "getPageInfo"
   | "pressKey"
-  | "writeStorage";
+  | "writeStorage"
+  | "createPageIndex"
+  | "searchPageIndex"
+  | "readPageBlock"
+  | "extractPageFields";
 
 /** BuiltinTool minus tools that can't be replayed offline:
  *  - askUser / screenshot — sidepanel-only
  *  - takeSnapshot / clickByUid / fillByUid — depend on live snapshot UIDs
  *  - highlightElement / highlightText — purely visual feedback
- *  - searchBookmarks / searchHistory — query-time meta lookups */
+ *  - searchBookmarks / searchHistory — query-time meta lookups
+ *  - downloadSpreadsheet — sidepanel-only generated download */
 export type ReplayableTool = Exclude<
   BuiltinTool,
   | "askUser"
@@ -66,6 +72,7 @@ export type ReplayableTool = Exclude<
   | "highlightText"
   | "searchBookmarks"
   | "searchHistory"
+  | "downloadSpreadsheet"
 >;
 
 export type Step =

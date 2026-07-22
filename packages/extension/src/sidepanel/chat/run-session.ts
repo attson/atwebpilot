@@ -9,6 +9,7 @@ import type {
   ToolUsePart
 } from "@atwebpilot/shared/types";
 import type { LlmClient, LlmTool } from "@/sidepanel/llm/types";
+import { truncateContent } from "@/sidepanel/llm/truncate";
 import type { ToolRunner } from "./tool-runner";
 import { Approver, type Decision } from "./approval";
 import { classifyTool, evaluateAutoApproval, type PermissionMode } from "./severity";
@@ -76,7 +77,12 @@ export type RunSessionArgs = {
   tools: LlmTool[];
   permissionMode: PermissionMode;
   askUser?: (input: unknown) => Promise<unknown>;
-  screenshot?: (input: unknown) => Promise<{ media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp"; data: string; byteLen: number }>;
+  screenshot?: (input: unknown) => Promise<{
+    media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+    data: string;
+    byteLen: number;
+    target?: Json;
+  }>;
   /** Sidepanel-side handlers for meta-plane tools (closeTab / switchToTab /
    *  searchBookmarks / searchHistory / downloadImage). Keyed by tool name. */
   metaTools?: Record<string, (input: unknown) => Promise<unknown>>;
@@ -105,6 +111,109 @@ export type RunSessionResult = {
 const MAX_PARSE_RETRIES = 3;
 
 const DEFAULT_MAX_CONTINUATION_NUDGES = 1;
+const TOOL_RESULT_CONTEXT_CHAR_CAP = 12_000;
+const OLD_TOOL_RESULT_CONTEXT_CHAR_CAP = 2_000;
+const AGGRESSIVE_OLD_TOOL_RESULT_CONTEXT_CHAR_CAP = 600;
+const LLM_MESSAGES_CONTEXT_CHAR_BUDGET = 28_000;
+const SUBSTANTIAL_FINAL_TEXT_CHAR_THRESHOLD = 800;
+
+function toolResultContent(value: Json): string {
+  return truncateContent(JSON.stringify(value), TOOL_RESULT_CONTEXT_CHAR_CAP);
+}
+
+function toolResultPartSize(part: ToolResultPart): number {
+  return typeof part.content === "string" ? part.content.length : JSON.stringify(part.content).length;
+}
+
+function compactToolResultPart(
+  part: ToolResultPart,
+  cap: number
+): ToolResultPart {
+  if (typeof part.content === "string") {
+    return { ...part, content: truncateContent(part.content, cap) };
+  }
+
+  let remaining = cap;
+  const content = part.content.map((block): TextPart => {
+    if (block.type === "image") {
+      return {
+        type: "text",
+        text: `[earlier screenshot omitted: ${block.media_type}, ${block.data.length} base64 chars]`
+      };
+    }
+    const text = truncateContent(block.text, Math.max(0, remaining));
+    remaining = Math.max(0, remaining - text.length);
+    return { ...block, text };
+  });
+  return { ...part, content };
+}
+
+function compactMessagesForLlmWithCaps(
+  messages: ChatMessage[],
+  oldToolResultCap: number,
+  latestToolResultCap: number
+): ChatMessage[] {
+  const toolResultParts = messages.flatMap((m) =>
+    Array.isArray(m.content) ? m.content.filter((part): part is ToolResultPart => part.type === "tool_result") : []
+  );
+  const latestToolResult = toolResultParts.at(-1);
+
+  return messages.map((m): ChatMessage => {
+    if (m.role === "assistant") return m;
+    if (typeof m.content === "string") return m;
+
+    return {
+      role: "user",
+      content: m.content.map((part) => {
+        if (part.type !== "tool_result") return part;
+        const cap = part === latestToolResult ? latestToolResultCap : oldToolResultCap;
+        return toolResultPartSize(part) > cap ? compactToolResultPart(part, cap) : part;
+      })
+    };
+  });
+}
+
+function compactMessagesForLlm(messages: ChatMessage[]): ChatMessage[] {
+  let compacted = compactMessagesForLlmWithCaps(
+    messages,
+    OLD_TOOL_RESULT_CONTEXT_CHAR_CAP,
+    TOOL_RESULT_CONTEXT_CHAR_CAP
+  );
+  if (JSON.stringify(compacted).length <= LLM_MESSAGES_CONTEXT_CHAR_BUDGET) return compacted;
+
+  compacted = compactMessagesForLlmWithCaps(
+    messages,
+    AGGRESSIVE_OLD_TOOL_RESULT_CONTEXT_CHAR_CAP,
+    Math.floor(TOOL_RESULT_CONTEXT_CHAR_CAP / 2)
+  );
+  if (JSON.stringify(compacted).length <= LLM_MESSAGES_CONTEXT_CHAR_BUDGET) return compacted;
+
+  return compactMessagesForLlmWithCaps(messages, 240, 2_000);
+}
+
+function hasToolResultHistory(messages: ChatMessage[]): boolean {
+  return messages.some(
+    (m) =>
+      Array.isArray(m.content) &&
+      m.content.some((part) => part.type === "tool_result")
+  );
+}
+
+function shouldNudgeTextOnlyTurn(
+  text: string,
+  messages: ChatMessage[],
+  totalNudges: number,
+  maxNudges: number
+): boolean {
+  if (totalNudges >= maxNudges) return false;
+  if (
+    hasToolResultHistory(messages) &&
+    text.trim().length >= SUBSTANTIAL_FINAL_TEXT_CHAR_THRESHOLD
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Sent as a user turn when the model stops calling tools but the task may not
@@ -134,11 +243,12 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
   for (let round = 0; round < args.settings.maxRounds; round++) {
     args.onEvent?.({ type: "round_start", round });
 
+    const messagesForLlm = compactMessagesForLlm(messages);
     const stream = args.client.stream({
       apiKey: args.settings.apiKey,
       model: args.settings.model,
       system: args.systemPrompt,
-      messages,
+      messages: messagesForLlm,
       tools: args.tools,
       endpoint: args.settings.endpoint,
       maxTokens: args.settings.maxTokens,
@@ -238,7 +348,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
 
     if (completedToolUses.length === 0) {
       if (textBuf) lastOutput = textBuf;
-      if (totalNudges < maxNudges) {
+      if (shouldNudgeTextOnlyTurn(textBuf, messages, totalNudges, maxNudges)) {
         totalNudges++;
         args.onEvent?.({ type: "continuation_nudge", round, attempt: totalNudges });
         messages.push({ role: "user", content: CONTINUATION_NUDGE_PROMPT });
@@ -268,7 +378,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
         results.push({
           type: "tool_result",
           tool_use_id: tu.id,
-          content: JSON.stringify({ skipped: true })
+          content: toolResultContent({ skipped: true })
         });
         args.onEvent?.({ type: "tool_skipped", id: tu.id });
         continue;
@@ -284,15 +394,16 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
           // Encode the result as a Anthropic-style tool_result with a text + image block
           // pair. Sidepanel's anthropic client passes it through; OpenAI client will
           // collapse the image block to a text note (degraded mode).
+          const targetText = shot.target ? ` target=${JSON.stringify(shot.target)}` : "";
           const resultContent = [
-            { type: "text" as const, text: `screenshot:ok bytes=${shot.byteLen}` },
+            { type: "text" as const, text: `screenshot:ok bytes=${shot.byteLen}${targetText}` },
             { type: "image" as const, media_type: shot.media_type, data: shot.data }
           ];
           const ms = Date.now() - start;
           await args.rpc.appendStepLog(runRecordId, {
             stepIndex: stepIndexGlobal++,
             input: tu.input,
-            output: { byteLen: shot.byteLen, media_type: shot.media_type },
+            output: { byteLen: shot.byteLen, media_type: shot.media_type, ...(shot.target ? { target: shot.target } : {}) },
             ms
           });
           results.push({
@@ -300,11 +411,11 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
             tool_use_id: tu.id,
             content: resultContent
           });
-          lastOutput = { byteLen: shot.byteLen };
+          lastOutput = { byteLen: shot.byteLen, ...(shot.target ? { target: shot.target } : {}) };
           args.onEvent?.({
             type: "tool_done",
             id: tu.id,
-            output: { byteLen: shot.byteLen },
+            output: { byteLen: shot.byteLen, ...(shot.target ? { target: shot.target } : {}) },
             ms
           });
         } catch (e) {
@@ -319,7 +430,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
           results.push({
             type: "tool_result",
             tool_use_id: tu.id,
-            content: JSON.stringify({ error: errMsg }),
+            content: toolResultContent({ error: errMsg }),
             is_error: true
           });
           args.onEvent?.({ type: "tool_error", id: tu.id, error: errMsg, ms: Date.now() - start });
@@ -339,7 +450,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
             output: out,
             ms
           });
-          results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: toolResultContent(out) });
           lastOutput = out;
           args.onEvent?.({ type: "tool_done", id: tu.id, output: out, ms });
         } catch (e) {
@@ -354,7 +465,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
           results.push({
             type: "tool_result",
             tool_use_id: tu.id,
-            content: JSON.stringify({ error: errMsg }),
+            content: toolResultContent({ error: errMsg }),
             is_error: true
           });
           args.onEvent?.({ type: "tool_error", id: tu.id, error: errMsg, ms: Date.now() - start });
@@ -374,7 +485,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
             output: out,
             ms
           });
-          results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: toolResultContent(out) });
           lastOutput = out;
           args.onEvent?.({ type: "tool_done", id: tu.id, output: out, ms });
         } catch (e) {
@@ -389,7 +500,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
           results.push({
             type: "tool_result",
             tool_use_id: tu.id,
-            content: JSON.stringify({ error: errMsg }),
+            content: toolResultContent({ error: errMsg }),
             is_error: true
           });
           args.onEvent?.({ type: "tool_error", id: tu.id, error: errMsg, ms: Date.now() - start });
@@ -453,7 +564,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
           results.push({
             type: "tool_result",
             tool_use_id: tu.id,
-            content: JSON.stringify(out)
+            content: toolResultContent(out)
           });
           lastOutput = out;
           args.onEvent?.({ type: "tool_done", id: tu.id, output: out, ms });
@@ -470,7 +581,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
           results.push({
             type: "tool_result",
             tool_use_id: tu.id,
-            content: JSON.stringify({ error: errStr }),
+            content: toolResultContent({ error: errStr }),
             is_error: true
           });
           args.onEvent?.({ type: "tool_error", id: tu.id, error: errStr, ms });
@@ -496,7 +607,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
         results.push({
           type: "tool_result",
           tool_use_id: tu.id,
-          content: JSON.stringify(out)
+          content: toolResultContent(out)
         });
         executedSteps.push(step);
         lastOutput = out;
@@ -514,7 +625,7 @@ export async function runChatSession(args: RunSessionArgs): Promise<RunSessionRe
         results.push({
           type: "tool_result",
           tool_use_id: tu.id,
-          content: JSON.stringify({ error: errStr }),
+          content: toolResultContent({ error: errStr }),
           is_error: true
         });
         args.onEvent?.({ type: "tool_error", id: tu.id, error: errStr, ms });

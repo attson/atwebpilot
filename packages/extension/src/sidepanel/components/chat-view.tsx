@@ -99,7 +99,10 @@ export function ChatView({ onApprove, onRegenerate }: Props) {
   function renderMessage(m: ChatMessage, i: number) {
     if (m.role === "user") {
       // 跳过 tool_result 注入（只在 chat history 内部有意义，UI 不展示）
-      if (typeof m.content !== "string") return null;
+      if (typeof m.content !== "string") {
+        const hasVisibleContent = m.content.some((part) => part.type === "text" || part.type === "image");
+        return hasVisibleContent ? <MessageBubble key={i} message={m} /> : null;
+      }
       if (isSystemNote(m.content)) {
         return (
           <div key={i} className="text-[11px] text-zinc-500 italic px-2 py-1">

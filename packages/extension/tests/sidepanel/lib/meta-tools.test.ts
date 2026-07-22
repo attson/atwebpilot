@@ -10,10 +10,10 @@ function setChrome(stub: unknown) {
 }
 
 describe("buildMetaTools", () => {
-  it("exposes the 5 expected tools", () => {
+  it("exposes the expected tools", () => {
     const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
     expect(Object.keys(m).sort()).toEqual(
-      ["closeTab", "downloadImage", "searchBookmarks", "searchHistory", "switchToTab"].sort()
+      ["closeTab", "downloadImage", "downloadSpreadsheet", "searchBookmarks", "searchHistory", "switchToTab"].sort()
     );
   });
 
@@ -71,6 +71,25 @@ describe("buildMetaTools", () => {
     const out = await m.downloadImage({ url: "https://x/y.png", filename: "y.png" });
     expect(download).toHaveBeenCalledWith({ url: "https://x/y.png", filename: "y.png", saveAs: false });
     expect(out).toEqual({ downloadId: 42, filename: "y.png" });
+  });
+
+  it("downloadSpreadsheet writes xlsx through chrome.downloads and revokes object url", async () => {
+    const download = vi.fn().mockResolvedValue(99);
+    const createObjectURL = vi.fn().mockReturnValue("blob:sheet");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    setChrome({ downloads: { download } });
+    const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
+
+    const out = await m.downloadSpreadsheet({
+      filename: "reports/products",
+      sheets: [{ name: "Products", rows: [["Title", "Price"], ["A", 12]] }]
+    });
+
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(download).toHaveBeenCalledWith({ url: "blob:sheet", filename: "reports_products.xlsx", saveAs: false });
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:sheet");
+    expect(out).toMatchObject({ downloadId: 99, filename: "reports_products.xlsx", sheets: 1, rows: 2 });
   });
 
   it("searchHistory passes daysBack into startTime", async () => {

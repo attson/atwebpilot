@@ -10,6 +10,12 @@ describe("capabilityForTool", () => {
     expect(capabilityForTool("getValue")).toBe("read:dom");
     expect(capabilityForTool("extractFormState")).toBe("read:dom");
   });
+  it("read:dom for page-index inspectors", () => {
+    expect(capabilityForTool("createPageIndex")).toBe("read:dom");
+    expect(capabilityForTool("searchPageIndex")).toBe("read:dom");
+    expect(capabilityForTool("readPageBlock")).toBe("read:dom");
+    expect(capabilityForTool("extractPageFields")).toBe("read:dom");
+  });
   it("read:image for extractImages", () => {
     expect(capabilityForTool("extractImages")).toBe("read:image");
   });
@@ -29,6 +35,10 @@ describe("capabilityForTool", () => {
   });
   it("submit:form for submitForm", () => {
     expect(capabilityForTool("submitForm")).toBe("submit:form");
+  });
+  it("submit:form for local downloads", () => {
+    expect(capabilityForTool("downloadImage")).toBe("submit:form");
+    expect(capabilityForTool("downloadSpreadsheet")).toBe("submit:form");
   });
   it("upload:file for uploadFile", () => {
     expect(capabilityForTool("uploadFile")).toBe("upload:file");

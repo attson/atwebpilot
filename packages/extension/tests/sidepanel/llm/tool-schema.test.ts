@@ -42,6 +42,37 @@ describe("TOOL_DEFS", () => {
     }
   });
 
+  it("declares page-index tools with bounded-context guidance", () => {
+    for (const name of ["createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields"]) {
+      const def = TOOL_DEFS.find((tool) => tool.name === name);
+      expect(def, `missing ${name}`).toBeDefined();
+      expect(def?.description).toContain("[PAGE-INDEX]");
+      const props = (def!.input_schema as { properties?: Record<string, unknown> }).properties ?? {};
+      expect(props.tabId, `${name} missing tabId`).toBeDefined();
+      expect((props.tabId as { type: string }).type).toBe("integer");
+    }
+
+    const read = TOOL_DEFS.find((tool) => tool.name === "readPageBlock")!;
+    expect((read.input_schema as { required?: string[] }).required).toEqual(["blockId"]);
+    const screenshot = TOOL_DEFS.find((tool) => tool.name === "screenshot")!;
+    const screenshotProps = (screenshot.input_schema as { properties?: Record<string, unknown> }).properties ?? {};
+    expect(screenshot.description).toContain("blockId");
+    expect(screenshotProps.blockId).toBeDefined();
+    expect(screenshotProps.indexId).toBeDefined();
+    const extractText = TOOL_DEFS.find((tool) => tool.name === "extractText")!;
+    expect(extractText.description).toContain("不要用 extractText({selector:'body'})");
+  });
+
+  it("declares downloadSpreadsheet as an xlsx export tool", () => {
+    const def = TOOL_DEFS.find((tool) => tool.name === "downloadSpreadsheet");
+    expect(def).toBeDefined();
+    expect(def?.description).toContain(".xlsx");
+    const schema = def!.input_schema as { properties?: Record<string, unknown>; required?: string[] };
+    expect(schema.properties?.filename).toBeDefined();
+    expect(schema.properties?.sheets).toBeDefined();
+    expect(schema.required).toEqual(["sheets"]);
+  });
+
   it("openTab requires url; attachTab/detachTab require tabId", () => {
     const openTab = TOOL_DEFS.find((d) => d.name === "openTab")!;
     expect((openTab.input_schema as { required: string[] }).required).toEqual(["url"]);

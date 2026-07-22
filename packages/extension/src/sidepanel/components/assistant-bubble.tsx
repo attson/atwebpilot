@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { Copy } from "lucide-react";
 import type { ToolUsePart } from "@atwebpilot/shared/types";
 import { useSession, type StepCardState } from "../chat/session-store";
 import { StepCard } from "./step-card";
 import { StepRow } from "./step-row";
+import { MarkdownText } from "./markdown-text";
 
 type Props = {
   text: string;
@@ -58,18 +60,19 @@ export function AssistantBubble({
     !isLive && (text || allCards.length > 0) ? (
       <div
         data-testid="message-actions"
-        className="self-end flex gap-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity"
+        className="self-end flex gap-1"
       >
         {text && (
           <button
             type="button"
-            aria-label="复制"
-            className="px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-700"
+            aria-label="复制消息"
+            title="复制消息"
+            className="rounded p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700"
             onClick={() => {
               navigator.clipboard?.writeText(text).catch(() => undefined);
             }}
           >
-            复制
+            <Copy size={13} aria-hidden="true" />
           </button>
         )}
         {isLastIdle && onRegenerate && (
@@ -136,7 +139,7 @@ export function AssistantBubble({
             )}
           </>
         )}
-        {text && <div className="whitespace-pre-wrap">{text}</div>}
+        {text && <MarkdownText text={text} />}
         {actions}
       </div>
     );
@@ -184,7 +187,7 @@ export function AssistantBubble({
           )}
         </div>
       )}
-      {text && <div className="whitespace-pre-wrap">{text}</div>}
+      {text && <MarkdownText text={text} />}
       {actions}
     </div>
   );

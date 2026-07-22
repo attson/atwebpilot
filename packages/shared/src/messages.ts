@@ -39,7 +39,11 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "navigate",
       "getPageInfo",
       "pressKey",
-      "writeStorage"
+      "writeStorage",
+      "createPageIndex",
+      "searchPageIndex",
+      "readPageBlock",
+      "extractPageFields"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),
@@ -211,6 +215,11 @@ export const RpcRequest = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("http.fetchBinary"),
     url: z.string().url()
+  }),
+
+  z.object({
+    type: z.literal("elementCapture.start"),
+    tabId: z.number().int()
   }),
 
   // presets

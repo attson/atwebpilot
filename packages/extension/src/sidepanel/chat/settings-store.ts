@@ -3,6 +3,8 @@ import type { LlmSettings } from "@atwebpilot/shared/types";
 
 const KEY = "caiji.llm";
 const MIGRATION_KEY = "caiji.llm._migrated_v1";
+const MIN_MAX_TOKENS = 256;
+const MAX_MAX_TOKENS = 200_000;
 
 const DEFAULTS: LlmSettings = {
   provider: "anthropic",
@@ -30,6 +32,22 @@ type StoreShape = LlmSettings & {
 // The old key was `autoApproveDangerous`; new key is `trustedDangerTools`.
 type LegacyLlmSettings = Partial<LlmSettings> & { autoApproveDangerous?: string[] };
 
+function clampMaxTokens(value: unknown): number | undefined {
+  if (value == null) return undefined;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.min(MAX_MAX_TOKENS, Math.max(MIN_MAX_TOKENS, Math.trunc(n)));
+}
+
+function normalizeSettings<T extends Partial<LlmSettings>>(settings: T): T {
+  const maxTokens = clampMaxTokens(settings.maxTokens);
+  if (maxTokens === undefined) {
+    const { maxTokens: _maxTokens, ...rest } = settings;
+    return rest as T;
+  }
+  return { ...settings, maxTokens };
+}
+
 export const useSettings = create<StoreShape>((set, get) => ({
   ...DEFAULTS,
   loaded: false,
@@ -52,7 +70,7 @@ export const useSettings = create<StoreShape>((set, get) => ({
     }
     delete incoming.autoApproveDangerous;
 
-    const merged = { ...DEFAULTS, ...incoming } as LlmSettings;
+    const merged = normalizeSettings({ ...DEFAULTS, ...incoming }) as LlmSettings;
     if (merged.apiKeyMode === "session" && fromSession) {
       merged.apiKey = fromSession.apiKey ?? "";
     }
@@ -70,7 +88,7 @@ export const useSettings = create<StoreShape>((set, get) => ({
     }
   },
   save: async (patch) => {
-    const next = { ...get(), ...patch };
+    const next = normalizeSettings({ ...get(), ...patch });
     set(next);
     const { apiKey, apiKeyMode, ...rest } = next;
     if (apiKeyMode === "session") {

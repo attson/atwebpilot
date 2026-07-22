@@ -142,6 +142,10 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
     case "http.fetchBinary": {
       return (await fetchAsBase64(req.url)) as unknown as Json;
     }
+    case "elementCapture.start": {
+      await startElementCapture(req.tabId);
+      return null;
+    }
     case "presets.list": {
       const { PRESETS } = await import("@atwebpilot/shared/presets");
       return PRESETS as unknown as Json;
@@ -250,6 +254,39 @@ async function injectContentScript(tabId: number): Promise<boolean> {
     console.warn("[atwebpilot] content script inject failed", e);
     return false;
   }
+}
+
+async function startElementCapture(tabId: number): Promise<void> {
+  const msg = { type: "atwebpilot.startCapture" };
+  try {
+    await chrome.tabs.sendMessage(tabId, msg);
+    return;
+  } catch (e) {
+    const text = e instanceof Error ? e.message : String(e);
+    if (!isReceiverMissing(text)) throw e;
+  }
+
+  const injected = await injectContentScript(tabId);
+  if (!injected) {
+    throw new Error("Content script 无法注入到此页面（可能是 chrome:// 或受限页面）。请在普通网页上重试。");
+  }
+
+  const start = Date.now();
+  let lastErr: unknown;
+  while (Date.now() - start < 2000) {
+    try {
+      await chrome.tabs.sendMessage(tabId, msg);
+      return;
+    } catch (e) {
+      lastErr = e;
+      const text = e instanceof Error ? e.message : String(e);
+      if (!isReceiverMissing(text)) throw e;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+
+  const tail = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new Error(`Content script 注入后 2000ms 内仍无法启动元素选择。请刷新页面再试。底层错误: ${tail}`);
 }
 
 async function retryUntilReady(

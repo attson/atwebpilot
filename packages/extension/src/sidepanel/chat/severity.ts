@@ -29,7 +29,12 @@ const SAFE = new Set([
   "highlightElement",
   "highlightText",
   // Round 6
-  "getPageInfo"
+  "getPageInfo",
+  // Page Context Index — local read-only helpers
+  "createPageIndex",
+  "searchPageIndex",
+  "readPageBlock",
+  "extractPageFields"
 ]);
 
 const CAUTION = new Set([
@@ -45,6 +50,7 @@ const CAUTION = new Set([
   "fillByUid",
   "fillForm",
   "downloadImage",
+  "downloadSpreadsheet",
   // Round 6
   "pressKey"
 ]);

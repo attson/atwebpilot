@@ -19,6 +19,10 @@ export function capabilityForTool(
     case "extractText":
     case "extractFormState":
     case "getValue":
+    case "createPageIndex":
+    case "searchPageIndex":
+    case "readPageBlock":
+    case "extractPageFields":
       return "read:dom";
     case "extractImages":
       return "read:image";
@@ -55,6 +59,7 @@ export function capabilityForTool(
     case "searchHistory":
       return "read:dom";
     case "downloadImage":
+    case "downloadSpreadsheet":
       return "submit:form"; // writes to user's disk — treat as side-effect
     case "takeSnapshot":
       return "read:dom";

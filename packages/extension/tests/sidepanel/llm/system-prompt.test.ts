@@ -41,6 +41,19 @@ describe("buildSystemPrompt — required sections", () => {
     const p = buildSystemPrompt({ url: "https://x" });
     expect(p).toMatch(/示例 1|Example 1/);
   });
+
+  it("guides page read and extraction tasks through the page index first", () => {
+    const p = buildSystemPrompt({ url: "https://x", lastUserText: "提取这个商品的价格和排名" });
+    expect(p).toContain("createPageIndex");
+    expect(p).toContain("extractPageFields");
+    expect(p).toContain("searchPageIndex");
+    expect(p).toContain("readPageBlock");
+    expect(p).toContain("screenshot({blockId,indexId})");
+    expect(p).toContain("不要盲目读取 body");
+    expect(p).not.toContain("每次任务起手：takeSnapshot");
+    expect(p).not.toContain("extractText 当前 tab 价格");
+    expect(p).toContain("点击/填表/视觉定位任务起手");
+  });
 });
 
 describe("buildSystemPrompt — context", () => {

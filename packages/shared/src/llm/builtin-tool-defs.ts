@@ -69,7 +69,8 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "extractText",
     description:
-      "[FAST] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。\n\n" +
+      "[FAST·TARGETED] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。\n" +
+      "只用于明确的小范围 selector；普通网页理解/字段提取不要用 extractText({selector:'body'})，先用 createPageIndex + extractPageFields/searchPageIndex。\n\n" +
       "示例：\n" +
       "- 提取标题：{ selector: 'h1', single: true }\n" +
       "- 提取所有段落：{ selector: 'article p' }",
@@ -82,6 +83,74 @@ export const TOOL_DEFS: LlmTool[] = [
         tabId: TAB_ID_FIELD,
       },
       required: ["selector"],
+    },
+  },
+  // ─── Page Context Index · bounded read / extraction ─────────
+  {
+    name: "createPageIndex",
+    description:
+      "[PAGE-INDEX][FIRST·READ] 在内容脚本本地构建/刷新页面索引，返回小型页面地图、blockId、kinds、truncation 元数据。\n" +
+      "用于普通网页理解、商品/文章/表格字段提取、采集前定位。不要先读取 body；先建索引，再用 extractPageFields/searchPageIndex。",
+    input_schema: {
+      type: "object",
+      properties: {
+        maxBlocks: { type: "integer", default: 600, description: "最多索引多少个页面块；超出返回 index_budget truncation" },
+        refresh: { type: "boolean", default: false, description: "true=忽略缓存重新扫描当前页面" },
+        summaryLimit: { type: "integer", default: 40, description: "返回给模型的页面地图条数" },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "searchPageIndex",
+    description:
+      "[PAGE-INDEX] 在本地页面索引中搜索关键词/字段，返回小证据片段、blockId、complete/availableChars、truncation 元数据。\n" +
+      "适合定位排名、价格、评论数、日期等证据；不要用 extractText({selector:'body'}) 来搜索大页面。",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "要搜索的关键词/短语" },
+        fields: { type: "array", items: { type: "string" }, description: "也可给字段名数组辅助匹配" },
+        limit: { type: "integer", default: 20 },
+        maxBlocks: { type: "integer", default: 600 },
+        refresh: { type: "boolean", default: false },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "readPageBlock",
+    description:
+      "[PAGE-INDEX] 按 blockId 读取局部内容；长内容按 offset/maxChars 分页，返回 hasMore、nextOffset、recommendedNext 和 truncation 日志。\n" +
+      "只在 searchPageIndex/extractPageFields 证据不足或需要核对邻近上下文时使用。",
+    input_schema: {
+      type: "object",
+      properties: {
+        blockId: { type: "string", description: "createPageIndex/searchPageIndex/extractPageFields 返回的稳定 blockId" },
+        indexId: { type: "string", description: "可选：绑定到产生该 blockId 的索引，避免 refresh 后误读同名 blockId" },
+        offset: { type: "integer", default: 0 },
+        maxChars: { type: "integer", default: 4000 },
+        includeNeighbors: { type: "boolean", default: false },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["blockId"],
+    },
+  },
+  {
+    name: "extractPageFields",
+    description:
+      "[PAGE-INDEX][FIELD-FIRST] 通用字段候选提取：输入字段名数组，返回 value candidates、confidence、evidence、blockId、truncation。\n" +
+      "适合商品信息、文章元信息、表格详情、表单字段等结构化提取；证据不足再用 readPageBlock 定向读取。",
+    input_schema: {
+      type: "object",
+      properties: {
+        fields: { type: "array", items: { type: "string" }, description: "用户要提取的字段名，例如 价格、排名、ASIN、作者、发布日期" },
+        maxCandidatesPerField: { type: "integer", default: 4 },
+        maxBlocks: { type: "integer", default: 600 },
+        refresh: { type: "boolean", default: false },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["fields"],
     },
   },
   {
@@ -393,11 +462,15 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "screenshot",
     description:
-      "[VISION] 截当前 tab 可见区域为 PNG（自动作为 image block 注入下轮）。用于视觉调试 selector / 看图回答 / 留证据。返回 {ok: true, byteLen}。",
+      "[VISION] 截当前 tab 可见区域为 PNG（自动作为 image block 注入下轮）。用于视觉调试、看图回答、核对 page-index 证据。\n" +
+      "如果已有 searchPageIndex/extractPageFields 返回的 blockId/indexId，优先传 {blockId,indexId}；工具会滚动并高亮该局部区域后截图。也可传 selector。",
     input_schema: {
       type: "object",
       properties: {
-        selector: { type: "string", description: "可选：CSS selector。基础版无视，始终截 viewport。" },
+        selector: { type: "string", description: "可选：CSS selector；截图前会滚动并高亮目标" },
+        blockId: { type: "string", description: "可选：page-index 返回的 blockId，用于局部视觉证据" },
+        indexId: { type: "string", description: "可选：产生 blockId 的 indexId，避免 refresh 后误读" },
+        highlightMs: { type: "integer", default: 1500, description: "截图前目标高亮持续时间，250-5000ms" },
         tabId: TAB_ID_FIELD,
       },
     },
@@ -469,6 +542,54 @@ export const TOOL_DEFS: LlmTool[] = [
         filename: { type: "string", description: "可选：建议的文件名（含后缀）" },
       },
       required: ["url"],
+    },
+  },
+  {
+    name: "downloadSpreadsheet",
+    description:
+      "[ACT] 生成并下载真正的 .xlsx Excel 文件（Chrome Downloads）。适合把采集/抽取结果导出为表格。" +
+      "支持多个 sheet；rows 可以是二维数组，也可以是对象数组。对象数组可配 columns 控制列顺序和表头。" +
+      "返回 {downloadId, filename, sheets, rows, bytes}。caution 级。",
+    input_schema: {
+      type: "object",
+      properties: {
+        filename: { type: "string", description: "建议文件名；可不带 .xlsx 后缀" },
+        sheets: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "sheet 名，最长 31 字符；非法字符会被替换" },
+              columns: {
+                type: "array",
+                description: "对象行的列顺序和表头；二维数组行可省略",
+                items: {
+                  type: "object",
+                  properties: {
+                    key: { type: "string" },
+                    header: { type: "string" },
+                  },
+                  required: ["key"],
+                },
+              },
+              rows: {
+                type: "array",
+                description:
+                  "二维数组，如 [[\"标题\",\"价格\"],[\"A\",12]]；或对象数组，如 [{title:\"A\",price:12}]",
+                items: {
+                  oneOf: [
+                    { type: "array", items: {} },
+                    { type: "object" },
+                  ],
+                },
+              },
+            },
+            required: ["rows"],
+          },
+        },
+      },
+      required: ["sheets"],
     },
   },
   // ─── Tier 4 · UID-based interaction + visual + batch ────────

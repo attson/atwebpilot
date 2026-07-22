@@ -28,8 +28,10 @@ function defaultProps(over: Partial<React.ComponentProps<typeof InputToolbar>> =
     onMentionTool: vi.fn(),
     onMentionBookmark: vi.fn(),
     stagedImages: [],
+    stagedSelectors: [],
     onImageFiles: vi.fn(),
     onRemoveImage: vi.fn(),
+    onRemoveSelector: vi.fn(),
     onStartCapture: vi.fn(),
     onDetachTab: vi.fn(),
     onOpenTabPicker: vi.fn(),
@@ -101,6 +103,28 @@ describe("InputToolbar", () => {
     const { c, cleanup } = mount(<InputToolbar {...defaultProps({ value: "  " })} />);
     const send = c.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
     expect(send.disabled).toBe(true);
+    cleanup();
+  });
+
+  it("renders selected element as a removable reference chip", () => {
+    const onRemoveSelector = vi.fn();
+    const { c, cleanup } = mount(
+      <InputToolbar
+        {...defaultProps({
+          stagedSelectors: ["body > main > button:nth-of-type(1)"],
+          onRemoveSelector
+        })}
+      />
+    );
+
+    expect(c.querySelector('[data-testid="staged-selectors"]')?.textContent).toContain("已选元素");
+    const input = c.querySelector('[data-testid="input-box"]') as HTMLTextAreaElement;
+    expect(input.value).toBe("");
+    expect(input.placeholder).toContain("针对已选元素");
+
+    const remove = c.querySelector('button[aria-label="移除已选元素 1"]') as HTMLButtonElement;
+    act(() => remove.click());
+    expect(onRemoveSelector).toHaveBeenCalledWith(0);
     cleanup();
   });
 });

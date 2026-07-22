@@ -11,6 +11,10 @@ export const TOOL_LABELS: Record<string, string> = {
   querySelectorAll: "找匹配元素",
   extractText: "提取文本",
   extractImages: "提取图片",
+  createPageIndex: "建立页面索引",
+  searchPageIndex: "搜索页面索引",
+  readPageBlock: "读取页面块",
+  extractPageFields: "提取页面字段",
   getPageInfo: "获取页面信息",
   getValue: "读取输入值",
   extractFormState: "读表单状态",
@@ -54,6 +58,7 @@ export const TOOL_LABELS: Record<string, string> = {
   searchBookmarks: "搜书签",
   searchHistory: "搜历史",
   downloadImage: "下载图片",
+  downloadSpreadsheet: "导出 Excel",
 
   // Visual
   highlightElement: "高亮元素",

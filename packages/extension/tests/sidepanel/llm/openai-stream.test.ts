@@ -110,4 +110,61 @@ describe("openaiClient", () => {
     expect(error).toContain("truncated");
     expect(error.length).toBeLessThan(700);
   });
+
+  it("parses non-streaming JSON responses from OpenAI-compatible endpoints", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              choices: [{ message: { role: "assistant", content: "pong" }, finish_reason: "stop" }],
+              usage: { prompt_tokens: 3, completion_tokens: 1 }
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+      )
+    );
+
+    const events = await collect(
+      openaiClient.stream({
+        apiKey: "sk-test",
+        model: "gpt-test",
+        system: "system",
+        messages: [{ role: "user", content: "ping" }],
+        tools: []
+      })
+    );
+
+    expect(events).toEqual([
+      { type: "text_delta", text: "pong" },
+      { type: "message_end", usage: { input_tokens: 3, output_tokens: 1 }, stop_reason: "stop" }
+    ]);
+  });
+
+  it("reports an error when a 200 response is neither SSE nor JSON chat completion", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("upstream rejected max_tokens", { status: 200 }))
+    );
+
+    const events = await collect(
+      openaiClient.stream({
+        apiKey: "sk-test",
+        model: "gpt-test",
+        system: "system",
+        messages: [{ role: "user", content: "ping" }],
+        tools: []
+      })
+    );
+
+    expect(events[0]).toMatchObject({
+      type: "error",
+      error: expect.stringContaining("did not contain any SSE data")
+    });
+    expect(events[0]).toMatchObject({
+      type: "error",
+      error: expect.stringContaining("upstream rejected max_tokens")
+    });
+  });
 });

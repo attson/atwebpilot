@@ -3,6 +3,8 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useElementCapture } from "@/content/widget/element-capture-hook";
 
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 const listeners: Array<(msg: unknown) => void> = [];
 (globalThis as any).chrome = {
   runtime: {

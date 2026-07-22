@@ -78,4 +78,25 @@ describe("settings-store migration", () => {
     expect(useSettings.getState().defaultPermissionMode).toBe("default");
     expect(useSettings.getState().trustedDangerTools).toEqual([]);
   });
+
+  it("clamps persisted maxTokens into the supported UI range on load", async () => {
+    const { local } = makeStorage();
+    local[KEY] = { maxTokens: 40_961_000_000 };
+    local[MIGRATION_KEY] = true;
+    const { useSettings } = await import("@/sidepanel/chat/settings-store");
+    await useSettings.getState().load();
+
+    expect(useSettings.getState().maxTokens).toBe(200_000);
+  });
+
+  it("clamps maxTokens before saving", async () => {
+    const { local } = makeStorage();
+    local[MIGRATION_KEY] = true;
+    const { useSettings } = await import("@/sidepanel/chat/settings-store");
+    await useSettings.getState().load();
+    await useSettings.getState().save({ maxTokens: 40_961_000_000 });
+
+    expect(useSettings.getState().maxTokens).toBe(200_000);
+    expect((local[KEY] as { maxTokens?: number }).maxTokens).toBe(200_000);
+  });
 });

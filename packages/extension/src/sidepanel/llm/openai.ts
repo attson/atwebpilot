@@ -2,6 +2,8 @@ import type { ChatMessage, Json, ToolUsePart } from "@atwebpilot/shared/types";
 import { formatLlmHttpError } from "./http-error";
 import type { LlmClient, LlmStreamEvent } from "./types";
 
+const MAX_RESPONSE_PREVIEW_CHARS = 800;
+
 export async function* parseOpenAiStream(
   stream: ReadableStream<Uint8Array>
 ): AsyncIterable<LlmStreamEvent> {
@@ -11,8 +13,10 @@ export async function* parseOpenAiStream(
   let usageOut = 0;
   let finishReason: string | null = null;
   let messageEnded = false;
+  let sawDataLine = false;
 
   for await (const data of readDataLines(stream)) {
+    sawDataLine = true;
     if (data === "[DONE]") {
       if (!messageEnded) {
         for (const tc of tcs.values()) {
@@ -86,6 +90,14 @@ export async function* parseOpenAiStream(
     }
   }
 
+  if (!sawDataLine) {
+    yield {
+      type: "error",
+      error: "OpenAI: response did not contain any SSE data lines"
+    };
+    return;
+  }
+
   if (!messageEnded) {
     if (finishReason === "tool_calls") {
       for (const tc of tcs.values()) {
@@ -110,6 +122,77 @@ export async function* parseOpenAiStream(
       ...(finishReason ? { stop_reason: finishReason } : {})
     };
   }
+}
+
+function* parseOpenAiJsonResponse(payload: unknown): Iterable<LlmStreamEvent> {
+  const root = payload as {
+    choices?: Array<{
+      message?: {
+        content?: unknown;
+        tool_calls?: Array<{
+          id?: string;
+          function?: { name?: string; arguments?: string };
+        }>;
+      };
+      finish_reason?: string | null;
+    }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const choice = root.choices?.[0];
+  const message = choice?.message;
+  if (!choice || !message) {
+    yield { type: "error", error: "OpenAI: invalid JSON response (missing choices[0].message)" };
+    return;
+  }
+
+  const text = textFromOpenAiContent(message.content);
+  if (text) yield { type: "text_delta", text };
+
+  for (const tc of message.tool_calls ?? []) {
+    if (!tc.id || !tc.function?.name) continue;
+    yield { type: "tool_use_start", id: tc.id, name: tc.function.name };
+    const args = tc.function.arguments ?? "";
+    if (args) yield { type: "tool_use_input_delta", id: tc.id, partial_json: args };
+    try {
+      yield { type: "tool_use_end", id: tc.id, input: args ? (JSON.parse(args) as Json) : {} };
+    } catch (e) {
+      yield {
+        type: "error",
+        error: `tool_use ${tc.id} arguments JSON parse failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      };
+    }
+  }
+
+  yield {
+    type: "message_end",
+    usage: {
+      input_tokens: root.usage?.prompt_tokens ?? 0,
+      output_tokens: root.usage?.completion_tokens ?? 0
+    },
+    ...(choice.finish_reason ? { stop_reason: choice.finish_reason } : {})
+  };
+}
+
+function textFromOpenAiContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (!part || typeof part !== "object") return "";
+      const maybeText = (part as { text?: unknown }).text;
+      return typeof maybeText === "string" ? maybeText : "";
+    })
+    .join("");
+}
+
+function previewText(text: string): string {
+  const compact = (text.trim() || "<empty body>").replace(/\s+/g, " ");
+  if (compact.length <= MAX_RESPONSE_PREVIEW_CHARS) return compact;
+  return `${compact.slice(0, MAX_RESPONSE_PREVIEW_CHARS)}... (truncated ${
+    compact.length - MAX_RESPONSE_PREVIEW_CHARS
+  } chars)`;
 }
 
 async function* readDataLines(stream: ReadableStream<Uint8Array>): AsyncIterable<string> {
@@ -175,6 +258,29 @@ export const openaiClient: LlmClient = {
     }
     if (!res.body) {
       yield { type: "error", error: "OpenAI: empty body" };
+      return;
+    }
+    const contentType = res.headers.get("content-type") ?? "";
+    const normalizedContentType = contentType.toLowerCase();
+    if (normalizedContentType.includes("application/json")) {
+      try {
+        yield* parseOpenAiJsonResponse(await res.json());
+      } catch (e) {
+        yield {
+          type: "error",
+          error: `OpenAI: invalid JSON response (${e instanceof Error ? e.message : String(e)})`
+        };
+      }
+      return;
+    }
+    if (normalizedContentType && !normalizedContentType.includes("text/event-stream")) {
+      const bodyText = await res.text().catch(() => "<body read failed>");
+      yield {
+        type: "error",
+        error: `OpenAI: response did not contain any SSE data lines. content-type: ${
+          contentType || "<none>"
+        }. body: ${previewText(bodyText)}`
+      };
       return;
     }
     yield* parseOpenAiStream(res.body);

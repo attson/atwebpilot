@@ -1,12 +1,14 @@
 /**
  * Sidepanel-side handlers for the round-5 meta tools (closeTab / switchToTab /
- * searchBookmarks / searchHistory / downloadImage). They live in the sidepanel
+ * searchBookmarks / searchHistory / downloadImage / downloadSpreadsheet). They live in the sidepanel
  * because they only need chrome.* APIs that are available there, not in the
  * content script.
  *
  * All handlers reject if the underlying chrome.* API isn't available so that
  * the LLM gets a clear error rather than a silent no-op.
  */
+
+import { buildXlsxFile } from "./xlsx";
 
 export type MetaHandler = (input: unknown) => Promise<unknown>;
 
@@ -89,6 +91,36 @@ async function downloadImage(raw: unknown): Promise<unknown> {
   return { downloadId: id, filename: filename || null };
 }
 
+async function downloadSpreadsheet(raw: unknown): Promise<unknown> {
+  const input = asObj(raw) as { filename?: string; sheets?: unknown[] };
+  if (!Array.isArray(input.sheets) || input.sheets.length === 0) {
+    throw new Error("downloadSpreadsheet: sheets required");
+  }
+  if (!chrome.downloads?.download) throw new Error("downloadSpreadsheet: downloads API unavailable");
+  if (!URL.createObjectURL) throw new Error("downloadSpreadsheet: object URL unavailable");
+
+  const filename = normalizeXlsxFilename(input.filename);
+  const blob = buildXlsxFile({ sheets: input.sheets as never });
+  const url = URL.createObjectURL(blob);
+  try {
+    const id = await chrome.downloads.download({ url, filename, saveAs: false });
+    let rows = 0;
+    for (const sheet of input.sheets) {
+      const sheetRows = asObj(sheet).rows;
+      if (Array.isArray(sheetRows)) rows += sheetRows.length;
+    }
+    return { downloadId: id, filename, sheets: input.sheets.length, rows, bytes: blob.size };
+  } finally {
+    URL.revokeObjectURL?.(url);
+  }
+}
+
+function normalizeXlsxFilename(filename: unknown): string {
+  const raw = typeof filename === "string" && filename.trim() ? filename.trim() : "export.xlsx";
+  const safe = raw.replace(/[<>:"|?*\x00-\x1f/\\]/g, "_");
+  return /\.xlsx$/i.test(safe) ? safe : `${safe}.xlsx`;
+}
+
 export function buildMetaTools(opts: {
   attachedTabIds: () => number[];
   mainTabId: number;
@@ -100,5 +132,6 @@ export function buildMetaTools(opts: {
     searchBookmarks,
     searchHistory,
     downloadImage,
+    downloadSpreadsheet,
   };
 }

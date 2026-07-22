@@ -49,8 +49,18 @@ describe("classifyTool", () => {
     expect(classifyTool("getPageInfo", {})).toBe("safe");
   });
 
+  it("classifies page-index tools as safe", () => {
+    for (const name of ["createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields"]) {
+      expect(classifyTool(name, {}), name).toBe("safe");
+    }
+  });
+
   it("classifies pressKey as caution", () => {
     expect(classifyTool("pressKey", { key: "Enter" })).toBe("caution");
+  });
+
+  it("classifies downloadSpreadsheet as caution", () => {
+    expect(classifyTool("downloadSpreadsheet", { sheets: [] })).toBe("caution");
   });
 
   it("classifies writeStorage as dangerous", () => {

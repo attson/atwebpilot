@@ -101,6 +101,10 @@ export const rpc = {
   widgetMarkHostHidden: (host: string) =>
     call<null>({ type: "widget.markHostHidden", host }),
 
+  // element capture
+  startElementCapture: (tabId: number) =>
+    call<null>({ type: "elementCapture.start", tabId }),
+
   // chat session
   startSession: (input: { url: string }) =>
     call<RunRecord>({ type: "chat.session.start", url: input.url }),

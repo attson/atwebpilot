@@ -21,6 +21,17 @@ function makeClient(rounds: LlmStreamEvent[][]): LlmClient {
   };
 }
 
+function makeCapturingClient(rounds: LlmStreamEvent[][], calls: unknown[]): LlmClient {
+  let i = 0;
+  return {
+    stream(input) {
+      calls.push(input);
+      const events = rounds[i++] ?? [{ type: "message_end", usage: { input_tokens: 0, output_tokens: 0 } }];
+      return streamFrom(events);
+    }
+  };
+}
+
 function makeRunner(handler: (step: Step) => Promise<Json>): ToolRunner {
   return { async runStep(step) { return handler(step); } };
 }
@@ -138,6 +149,116 @@ describe("runChatSession", () => {
     });
 
     expect(result.status).toBe("done");
+  });
+
+  it("truncates large tool results before feeding them back to the LLM", async () => {
+    const streamCalls: unknown[] = [];
+    const hugeDom = {
+      text: "Amazon\n".repeat(20_000),
+      attrs: Array.from({ length: 2000 }, (_, i) => ({ id: `node-${i}`, class: "nav nav-link" }))
+    };
+    const client = makeCapturingClient(
+      [
+        [
+          { type: "tool_use_start", id: "t1", name: "snapshotDOM" },
+          { type: "tool_use_input_delta", id: "t1", partial_json: "{}" },
+          { type: "tool_use_end", id: "t1", input: {} },
+          { type: "message_end" }
+        ],
+        [
+          { type: "text_delta", text: "ok" },
+          { type: "message_end" }
+        ]
+      ],
+      streamCalls
+    );
+    const runner = makeRunner(async () => hugeDom as unknown as Json);
+    const approver = new Approver();
+    const rpc = {
+      startSession: vi.fn().mockResolvedValue({ id: "r" }),
+      appendStepLog: vi.fn().mockResolvedValue(null),
+      finalizeSession: vi.fn().mockResolvedValue(null)
+    };
+
+    const result = await runChatSession({
+      client,
+      runner,
+      approver,
+      rpc,
+      input: { userPrompt: "read", tabId: 1, url: "u" },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      systemPrompt: "sys",
+      tools: [],
+      permissionMode: "default"
+    });
+
+    expect(result.status).toBe("done");
+    expect(rpc.appendStepLog).toHaveBeenCalledWith(
+      "r",
+      expect.objectContaining({ output: hugeDom })
+    );
+    const secondCall = streamCalls[1] as { messages: Array<{ role: string; content: unknown }> };
+    const toolResultMsg = secondCall.messages.find(
+      (m) => Array.isArray(m.content) && m.content.some((p) => p.type === "tool_result")
+    );
+    const toolResult = (toolResultMsg?.content as Array<{ type: string; content: string }>).find(
+      (p) => p.type === "tool_result"
+    );
+    expect(toolResult?.content.length).toBeLessThan(20_000);
+    expect(toolResult?.content).toContain("[截断");
+  });
+
+  it("keeps cumulative LLM context bounded across repeated tool results", async () => {
+    const streamCalls: unknown[] = [];
+    const toolRounds = Array.from({ length: 4 }, (_, i): LlmStreamEvent[] => [
+      { type: "tool_use_start", id: `t${i}`, name: "extractText" },
+      { type: "tool_use_input_delta", id: `t${i}`, partial_json: "{\"selector\":\"body\"}" },
+      { type: "tool_use_end", id: `t${i}`, input: { selector: "body" } },
+      { type: "message_end" }
+    ]);
+    const client = makeCapturingClient(
+      [
+        ...toolRounds,
+        [
+          { type: "text_delta", text: "ok" },
+          { type: "message_end" }
+        ]
+      ],
+      streamCalls
+    );
+    let runCount = 0;
+    const runner = makeRunner(async () => {
+      runCount++;
+      return { text: `tool-${runCount}\n${"Amazon page data\n".repeat(900)}` } as unknown as Json;
+    });
+    const approver = new Approver();
+
+    const result = await runChatSession({
+      client,
+      runner,
+      approver,
+      rpc: {
+        startSession: vi.fn().mockResolvedValue({ id: "r" }),
+        appendStepLog: vi.fn().mockResolvedValue(null),
+        finalizeSession: vi.fn().mockResolvedValue(null)
+      },
+      input: { userPrompt: "collect", tabId: 1, url: "u" },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 6, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      systemPrompt: "sys",
+      tools: [],
+      permissionMode: "default"
+    });
+
+    expect(result.status).toBe("done");
+    const finalCall = streamCalls[4] as { messages: Array<{ role: string; content: unknown }> };
+    const sentBytes = JSON.stringify(finalCall.messages).length;
+    const toolResults = finalCall.messages.flatMap((m) =>
+      Array.isArray(m.content) ? m.content.filter((p) => p.type === "tool_result") : []
+    ) as Array<{ content: string }>;
+    expect(sentBytes).toBeLessThan(30_000);
+    expect(toolResults).toHaveLength(4);
+    expect(toolResults.slice(0, -1).every((p) => p.content.length <= 2500)).toBe(true);
+    expect(toolResults.at(-1)?.content).toContain("tool-4");
   });
 
   it("dangerous tool with allowlist auto-approves", async () => {
@@ -482,6 +603,153 @@ describe("runChatSession", () => {
       expect(result.status).toBe("done");
       expect(events.filter((e) => e.type === "continuation_nudge").length).toBe(1);
     });
+
+    it("does not nudge after tools when the model returns a substantial final answer", async () => {
+      const finalAnswer = [
+        "以下是最终整理结果：",
+        "",
+        "| 字段 | 结果 |",
+        "|---|---|",
+        "| Asin | B09877P9CF |",
+        "| 品牌 | Hotcinfin |",
+        "| 价格 | $20.99 |",
+        "",
+        "### 配置总结",
+        "已根据页面可见信息完成提取，并标明无法确认项。",
+        "x".repeat(900)
+      ].join("\n");
+      const client = makeClient([
+        [
+          { type: "tool_use_start", id: "t1", name: "extractText" },
+          { type: "tool_use_input_delta", id: "t1", partial_json: "{\"selector\":\"#productTitle\"}" },
+          { type: "tool_use_end", id: "t1", input: { selector: "#productTitle" } },
+          { type: "message_end" }
+        ],
+        [{ type: "text_delta", text: finalAnswer }, { type: "message_end" }],
+        [
+          { type: "tool_use_start", id: "unexpected", name: "extractText" },
+          { type: "tool_use_input_delta", id: "unexpected", partial_json: "{\"selector\":\"body\"}" },
+          { type: "tool_use_end", id: "unexpected", input: { selector: "body" } },
+          { type: "message_end" }
+        ]
+      ]);
+      let runnerCalls = 0;
+      const runner = makeRunner(async () => {
+        runnerCalls++;
+        return "title";
+      });
+      const events: SessionEvent[] = [];
+
+      const result = await runChatSession({
+        client,
+        runner,
+        approver: new Approver(),
+        rpc: {
+          startSession: vi.fn().mockResolvedValue({ id: "r" }),
+          appendStepLog: vi.fn().mockResolvedValue(null),
+          finalizeSession: vi.fn().mockResolvedValue(null)
+        },
+        input: { userPrompt: "提取亚马逊商品信息", tabId: 1, url: "u" },
+        settings: { ...baseSettings, maxContinuationNudges: 1 },
+        systemPrompt: "sys",
+        tools: [],
+        permissionMode: "default",
+        onEvent: (e) => events.push(e)
+      });
+
+      expect(result.status).toBe("done");
+      expect(runnerCalls).toBe(1);
+      expect(events.some((e) => e.type === "continuation_nudge")).toBe(false);
+    });
+  });
+
+  it("can complete a field extraction through page-index tools without extractText body", async () => {
+    const runnerSteps: Step[] = [];
+    const client = makeClient([
+      [
+        { type: "tool_use_start", id: "idx", name: "createPageIndex" },
+        { type: "tool_use_input_delta", id: "idx", partial_json: "{\"maxBlocks\":100}" },
+        { type: "tool_use_end", id: "idx", input: { maxBlocks: 100 } },
+        { type: "message_end" }
+      ],
+      [
+        { type: "tool_use_start", id: "fields", name: "extractPageFields" },
+        {
+          type: "tool_use_input_delta",
+          id: "fields",
+          partial_json: "{\"fields\":[\"Asin\",\"品牌\",\"价格\",\"排名\",\"30天销量\"]}"
+        },
+        {
+          type: "tool_use_end",
+          id: "fields",
+          input: { fields: ["Asin", "品牌", "价格", "排名", "30天销量"] }
+        },
+        { type: "message_end" }
+      ],
+      [
+        { type: "text_delta", text: "Asin: B09877P9CF；品牌: Hotcinfin；价格: $20.99；排名: #17,540；30天销量: 300+" },
+        { type: "message_end" }
+      ]
+    ]);
+    const runner = makeRunner(async (step) => {
+      runnerSteps.push(step);
+      if (step.kind === "tool" && step.tool === "createPageIndex") {
+        return { ok: true, indexId: "pi_1", blockCount: 5, truncated: false } as Json;
+      }
+      if (step.kind === "tool" && step.tool === "extractPageFields") {
+        return {
+          indexId: "pi_1",
+          fields: [
+            { field: "Asin", candidates: [{ value: "B09877P9CF", blockId: "b1", evidence: "ASIN B09877P9CF" }] },
+            { field: "品牌", candidates: [{ value: "Hotcinfin", blockId: "b2", evidence: "Brand Name Hotcinfin" }] },
+            { field: "价格", candidates: [{ value: "$20.99", blockId: "b3", evidence: "Price $20.99" }] },
+            { field: "排名", candidates: [{ value: "#17,540", blockId: "b4", evidence: "Best Sellers Rank #17,540" }] },
+            { field: "30天销量", candidates: [{ value: "300+", blockId: "b5", evidence: "300+ bought in past month" }] }
+          ],
+          missing: []
+        } as Json;
+      }
+      throw new Error(`unexpected tool ${(step as { tool?: string }).tool}`);
+    });
+
+    const result = await runChatSession({
+      client,
+      runner,
+      approver: new Approver(),
+      rpc: {
+        startSession: vi.fn().mockResolvedValue({ id: "r" }),
+        appendStepLog: vi.fn().mockResolvedValue(null),
+        finalizeSession: vi.fn().mockResolvedValue(null)
+      },
+      input: { userPrompt: "提取这个商品的 Asin、品牌、价格、排名和30天销量", tabId: 1, url: "u" },
+      settings: {
+        provider: "anthropic",
+        model: "m",
+        apiKey: "k",
+        apiKeyMode: "session",
+        maxRounds: 5,
+        trustedDangerTools: [],
+        defaultPermissionMode: "default",
+        theme: "dark",
+        selfHealEnabled: true,
+        maxSelfHealOutputTokens: 4096,
+        widgetEnabled: true
+      },
+      systemPrompt: "sys",
+      tools: [],
+      permissionMode: "default"
+    });
+
+    expect(result.status).toBe("done");
+    expect(runnerSteps.map((step) => (step.kind === "tool" ? step.tool : ""))).toEqual([
+      "createPageIndex",
+      "extractPageFields"
+    ]);
+    expect(runnerSteps.some((step) => {
+      if (step.kind !== "tool" || step.tool !== "extractText") return false;
+      const args = step.args;
+      return Boolean(args && typeof args === "object" && !Array.isArray(args) && args.selector === "body");
+    })).toBe(false);
   });
 
   it("stops at maxRounds", async () => {
