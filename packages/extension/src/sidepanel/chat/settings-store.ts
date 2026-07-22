@@ -5,6 +5,12 @@ const KEY = "caiji.llm";
 const MIGRATION_KEY = "caiji.llm._migrated_v1";
 const MIN_MAX_TOKENS = 256;
 const MAX_MAX_TOKENS = 200_000;
+const MIN_CONTEXT_SOFT_CHAR_BUDGET = 8_000;
+const MAX_CONTEXT_SOFT_CHAR_BUDGET = 900_000;
+const MIN_CONTEXT_RECENT_MESSAGE_LIMIT = 2;
+const MAX_CONTEXT_RECENT_MESSAGE_LIMIT = 80;
+const MIN_CONTEXT_MEMORY_CHAR_LIMIT = 1_000;
+const MAX_CONTEXT_MEMORY_CHAR_LIMIT = 80_000;
 
 const DEFAULTS: LlmSettings = {
   provider: "anthropic",
@@ -19,7 +25,8 @@ const DEFAULTS: LlmSettings = {
   defaultChatMode: "compact",
   selfHealEnabled: true,
   maxSelfHealOutputTokens: 4096,
-  widgetEnabled: true
+  widgetEnabled: true,
+  contextPolicy: "auto"
 };
 
 type StoreShape = LlmSettings & {
@@ -41,11 +48,48 @@ function clampMaxTokens(value: unknown): number | undefined {
 
 function normalizeSettings<T extends Partial<LlmSettings>>(settings: T): T {
   const maxTokens = clampMaxTokens(settings.maxTokens);
+  let normalized: Partial<LlmSettings> = { ...settings };
   if (maxTokens === undefined) {
     const { maxTokens: _maxTokens, ...rest } = settings;
-    return rest as T;
+    normalized = rest;
+  } else {
+    normalized.maxTokens = maxTokens;
   }
-  return { ...settings, maxTokens };
+
+  normalized.contextPolicy = normalizeContextPolicy(normalized.contextPolicy);
+  if (normalized.contextPolicy === "custom") {
+    normalized.contextSoftCharBudget = clampInt(
+      normalized.contextSoftCharBudget,
+      MIN_CONTEXT_SOFT_CHAR_BUDGET,
+      MAX_CONTEXT_SOFT_CHAR_BUDGET,
+      160_000
+    );
+    normalized.contextRecentMessageLimit = clampInt(
+      normalized.contextRecentMessageLimit,
+      MIN_CONTEXT_RECENT_MESSAGE_LIMIT,
+      MAX_CONTEXT_RECENT_MESSAGE_LIMIT,
+      16
+    );
+    normalized.contextMemoryCharLimit = clampInt(
+      normalized.contextMemoryCharLimit,
+      MIN_CONTEXT_MEMORY_CHAR_LIMIT,
+      MAX_CONTEXT_MEMORY_CHAR_LIMIT,
+      8_000
+    );
+  }
+  return normalized as T;
+}
+
+function normalizeContextPolicy(value: unknown): LlmSettings["contextPolicy"] {
+  return value === "conservative" || value === "large" || value === "huge" || value === "custom"
+    ? value
+    : "auto";
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
 export const useSettings = create<StoreShape>((set, get) => ({

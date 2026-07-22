@@ -227,6 +227,8 @@ export type ScanFinding = {
 
 export type LlmProvider = "anthropic" | "openai";
 
+export type ContextPolicy = "auto" | "conservative" | "large" | "huge" | "custom";
+
 export type LlmSettings = {
   provider: LlmProvider;
   model: string;
@@ -266,6 +268,14 @@ export type LlmSettings = {
   maxSelfHealOutputTokens: number;
   /** Plan 28: 页内浮窗总闸;默认 true */
   widgetEnabled: boolean;
+  /** 会话历史进入模型前的上下文压缩策略。默认 auto。 */
+  contextPolicy?: ContextPolicy;
+  /** contextPolicy=custom 时的压缩触发阈值，按序列化字符数估算。 */
+  contextSoftCharBudget?: number;
+  /** contextPolicy=custom 时保留最近多少条消息原文。 */
+  contextRecentMessageLimit?: number;
+  /** contextPolicy=custom 时 `[上下文记忆]` 的字符上限。 */
+  contextMemoryCharLimit?: number;
 };
 
 // === 原始 LLM 交互日志（see specs/2026-05-23-raw-llm-exchange-log-design.md）===

@@ -351,7 +351,7 @@ exclude them from `ReplayableTool`, and test the Chrome API wrapper separately.
 ```bash
 pnpm install
 pnpm typecheck      # pnpm -r typecheck across 4 packages; CI gate
-pnpm test           # pnpm -r test; ~839 tests total (642 extension + 124 shared + 45 coordinator + 28 mcp-server)
+pnpm test           # pnpm -r test; ~850 tests total (653 extension + 124 shared + 45 coordinator + 28 mcp-server)
 pnpm test:watch     # extension only (the largest, fastest-iterating slice)
 pnpm build          # vite build → packages/extension/dist/
 ```

@@ -30,7 +30,9 @@ inside one `runChatSession` call. It did not solve cross-send memory.
 - No LLM-powered durable memory summary in this pass. The first version uses a
   deterministic structured compactor. A later version can swap the same
   `context-manager` boundary to an extra one-shot LLM summary if needed.
-- No user-visible settings for thresholds yet. Defaults should be conservative.
+- The first release used conservative fixed defaults; current behavior exposes
+  `auto / conservative / large / huge / custom` settings because modern
+  128k/256k/1M models should not be forced through a 24k-char window.
 
 ## Design
 
@@ -57,6 +59,18 @@ Behavior:
   truncation is used.
 - Current-turn staged images are sent through `RunSessionInput.userContent`.
 
+Context policy:
+
+- `auto` is the default. It infers budget by model name:
+  - 1M-like models: ~500k chars.
+  - Claude / 200k / 256k-like models: ~180k chars.
+  - 128k / GPT-4o-like models: ~120k chars.
+  - Unknown models: conservative fallback.
+- `conservative`: 48k chars, 8 recent messages, 4k memory chars.
+- `large`: 160k chars, 16 recent messages, 8k memory chars.
+- `huge`: 500k chars, 24 recent messages, 16k memory chars.
+- `custom`: user-specified threshold, recent-message window, and memory size.
+
 ## Integration
 
 Sidepanel:
@@ -66,6 +80,7 @@ Sidepanel:
   images.
 - Pass `initialMessages` and `input.userContent` to `runChatSession`.
 - Log `[上下文] 已压缩早期对话` when compression happens.
+- The log includes policy and resolved `softCharBudget`.
 
 Widget:
 
@@ -91,6 +106,10 @@ Widget:
   - Sends `initialMessages` plus current multimodal user content to the LLM.
 - `input-box.test.tsx` / `input-toolbar.test.tsx`
   - Allows image-only sends while keeping empty text-only sends disabled.
+- `section-context.test.tsx`
+  - Saves context policy and shows custom numeric inputs only for custom mode.
+- `settings-drawer.test.tsx`
+  - Settings drawer shows one left-tabbed section at a time.
 
 ## Follow-Up
 

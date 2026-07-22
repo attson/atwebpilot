@@ -38,6 +38,7 @@ import type { ChatMessage, ImagePart, Json, Step, ReplayableTool } from "@atwebp
 import {
   buildCurrentUserContent,
   buildInitialMessagesForNextTurn,
+  resolveContextBuildOptions,
 } from "@/sidepanel/chat/context-manager";
 
 /**
@@ -97,7 +98,10 @@ export async function runFromInput(
 
   const url = sessionState.url;
   const permissionMode = sessionState.permissionMode ?? "default";
-  const context = buildInitialMessagesForNextTurn(inputContext.historyMessages ?? sessionState.messages);
+  const context = buildInitialMessagesForNextTurn(
+    inputContext.historyMessages ?? sessionState.messages,
+    resolveContextBuildOptions(settings)
+  );
   const userContent = buildCurrentUserContent(text, inputContext.images ?? []);
 
   const client = createRecordingClient(

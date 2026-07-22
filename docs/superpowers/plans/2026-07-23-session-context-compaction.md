@@ -272,3 +272,74 @@ pnpm typecheck
 ```
 
 Expected: all workspace tests and typechecks pass.
+
+### Task 5: Configurable Context Policy + Settings Tabs
+
+**Files:**
+- Modify: `packages/shared/src/types.ts`
+- Modify: `packages/extension/src/sidepanel/chat/context-manager.ts`
+- Modify: `packages/extension/src/sidepanel/chat/settings-store.ts`
+- Modify: `packages/extension/src/sidepanel/shell/app-shell.tsx`
+- Modify: `packages/extension/src/content/widget/run-widget-session.ts`
+- Modify: `packages/extension/src/sidepanel/drawers/settings-drawer.tsx`
+- Create: `packages/extension/src/sidepanel/drawers/settings/section-context.tsx`
+- Test: `packages/extension/tests/sidepanel/chat/context-manager.test.ts`
+- Test: `packages/extension/tests/sidepanel/drawers/settings/section-context.test.tsx`
+- Test: `packages/extension/tests/sidepanel/drawers/settings-drawer.test.tsx`
+
+- [x] **Step 1: Write failing context policy tests**
+
+Add tests for:
+
+```ts
+resolveContextBuildOptions({ contextPolicy: "auto", model: "gpt-4o" })
+resolveContextBuildOptions({ contextPolicy: "auto", model: "claude-sonnet-4-6" })
+resolveContextBuildOptions({ contextPolicy: "auto", model: "gemini-2.5-pro-1m" })
+```
+
+Expected: budgets are materially larger than the old 24k window.
+
+- [x] **Step 2: Write failing settings UI tests**
+
+Add tests for:
+
+- `SectionContext` saves `contextPolicy`.
+- Custom mode shows numeric inputs.
+- Settings drawer mounts one left-tabbed section at a time.
+
+- [x] **Step 3: Implement policy resolver**
+
+Add `ContextPolicy` to shared types and implement:
+
+```ts
+resolveContextBuildOptions(settings)
+```
+
+with `auto / conservative / large / huge / custom` behavior.
+
+- [x] **Step 4: Wire policy into chat paths**
+
+Sidepanel and widget call:
+
+```ts
+buildInitialMessagesForNextTurn(messages, resolveContextBuildOptions(settings))
+```
+
+- [x] **Step 5: Add settings UI**
+
+Create `SectionContext` and convert `SettingsDrawer` to left-tab navigation:
+
+```txt
+LLM / 上下文 / 权限 / 外观 / 浮窗 / Coordinator / 高级
+```
+
+- [x] **Step 6: Verify focused tests**
+
+Run:
+
+```bash
+pnpm --filter @atwebpilot/extension test -- tests/sidepanel/chat/context-manager.test.ts tests/sidepanel/drawers/settings/section-context.test.tsx tests/sidepanel/drawers/settings-drawer.test.tsx tests/sidepanel/drawers/settings/section-llm.test.tsx
+pnpm --filter @atwebpilot/extension typecheck
+```
+
+Expected: passes.

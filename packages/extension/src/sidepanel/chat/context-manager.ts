@@ -1,7 +1,9 @@
 import type {
   ChatMessage,
+  ContextPolicy,
   ImagePart,
   Json,
+  LlmSettings,
   TextPart,
   ToolResultPart,
   ToolUsePart,
@@ -23,12 +25,40 @@ export type ContextBuildResult = {
   estimatedChars: number;
 };
 
-const DEFAULT_RECENT_MESSAGE_LIMIT = 8;
-const DEFAULT_SOFT_CHAR_BUDGET = 24_000;
-const DEFAULT_MEMORY_CHAR_LIMIT = 4_000;
+const POLICY_OPTIONS: Record<Exclude<ContextPolicy, "auto" | "custom">, Required<ContextBuildOptions>> = {
+  conservative: { softCharBudget: 48_000, recentMessageLimit: 8, memoryCharLimit: 4_000 },
+  large: { softCharBudget: 160_000, recentMessageLimit: 16, memoryCharLimit: 8_000 },
+  huge: { softCharBudget: 500_000, recentMessageLimit: 24, memoryCharLimit: 16_000 },
+};
+
+const DEFAULT_RESOLVED_OPTIONS = POLICY_OPTIONS.conservative;
+const MIN_SOFT_CHAR_BUDGET = 8_000;
+const MAX_SOFT_CHAR_BUDGET = 900_000;
+const MIN_RECENT_MESSAGE_LIMIT = 2;
+const MAX_RECENT_MESSAGE_LIMIT = 80;
+const MIN_MEMORY_CHAR_LIMIT = 1_000;
+const MAX_MEMORY_CHAR_LIMIT = 80_000;
 const PART_TEXT_CAP = 700;
 const TOOL_RESULT_TEXT_CAP = 900;
 const ASSISTANT_TOOL_INPUT_CAP = 500;
+
+export function resolveContextBuildOptions(
+  settings: Pick<
+    Partial<LlmSettings>,
+    "contextPolicy" | "contextSoftCharBudget" | "contextRecentMessageLimit" | "contextMemoryCharLimit" | "model"
+  >
+): Required<ContextBuildOptions> {
+  const policy = settings.contextPolicy ?? "auto";
+  if (policy === "custom") {
+    return {
+      softCharBudget: clampInt(settings.contextSoftCharBudget, MIN_SOFT_CHAR_BUDGET, MAX_SOFT_CHAR_BUDGET, DEFAULT_RESOLVED_OPTIONS.softCharBudget),
+      recentMessageLimit: clampInt(settings.contextRecentMessageLimit, MIN_RECENT_MESSAGE_LIMIT, MAX_RECENT_MESSAGE_LIMIT, DEFAULT_RESOLVED_OPTIONS.recentMessageLimit),
+      memoryCharLimit: clampInt(settings.contextMemoryCharLimit, MIN_MEMORY_CHAR_LIMIT, MAX_MEMORY_CHAR_LIMIT, DEFAULT_RESOLVED_OPTIONS.memoryCharLimit),
+    };
+  }
+  if (policy === "auto") return inferContextOptionsFromModel(settings.model);
+  return POLICY_OPTIONS[policy] ?? DEFAULT_RESOLVED_OPTIONS;
+}
 
 export function buildCurrentUserContent(
   text: string,
@@ -44,9 +74,9 @@ export function buildInitialMessagesForNextTurn(
   history: ChatMessage[],
   options: ContextBuildOptions = {}
 ): ContextBuildResult {
-  const recentMessageLimit = options.recentMessageLimit ?? DEFAULT_RECENT_MESSAGE_LIMIT;
-  const softCharBudget = options.softCharBudget ?? DEFAULT_SOFT_CHAR_BUDGET;
-  const memoryCharLimit = options.memoryCharLimit ?? DEFAULT_MEMORY_CHAR_LIMIT;
+  const recentMessageLimit = options.recentMessageLimit ?? DEFAULT_RESOLVED_OPTIONS.recentMessageLimit;
+  const softCharBudget = options.softCharBudget ?? DEFAULT_RESOLVED_OPTIONS.softCharBudget;
+  const memoryCharLimit = options.memoryCharLimit ?? DEFAULT_RESOLVED_OPTIONS.memoryCharLimit;
 
   if (history.length === 0) {
     return { initialMessages: [], compressed: false, compressedMessageCount: 0, estimatedChars: 0 };
@@ -75,6 +105,28 @@ export function buildInitialMessagesForNextTurn(
     compressedMessageCount: old.length,
     estimatedChars: JSON.stringify(initialMessages).length,
   };
+}
+
+function inferContextOptionsFromModel(model: string | undefined): Required<ContextBuildOptions> {
+  const m = (model ?? "").toLowerCase();
+  if (/(^|[-_])1m($|[-_])|1000k|million|gemini.*2\.5/.test(m)) return POLICY_OPTIONS.huge;
+  if (/256k|gpt-5|200k|claude|sonnet|opus/.test(m)) return {
+    softCharBudget: 180_000,
+    recentMessageLimit: 18,
+    memoryCharLimit: 10_000,
+  };
+  if (/128k|gpt-4o|o3|o4/.test(m)) return {
+    softCharBudget: 120_000,
+    recentMessageLimit: 14,
+    memoryCharLimit: 8_000,
+  };
+  return DEFAULT_RESOLVED_OPTIONS;
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
 function sanitizeMessageForHistory(message: ChatMessage): ChatMessage {

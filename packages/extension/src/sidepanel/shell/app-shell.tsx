@@ -60,6 +60,7 @@ import { buildMetaTools } from "@/sidepanel/lib/meta-tools";
 import {
   buildCurrentUserContent,
   buildInitialMessagesForNextTurn,
+  resolveContextBuildOptions,
 } from "@/sidepanel/chat/context-manager";
 
 import { HistoryDrawer } from "@/sidepanel/drawers/history-drawer";
@@ -412,7 +413,8 @@ export function AppShell() {
       const { tabId, url } = await currentTabInfo();
       const session0 = getSessionFor(tabId);
       const attachedTabs = session0.attachedTabs;
-      const context = buildInitialMessagesForNextTurn(session0.messages);
+      const contextOptions = resolveContextBuildOptions(settings);
+      const context = buildInitialMessagesForNextTurn(session0.messages, contextOptions);
       const getAttachedTabIds = () =>
         useStore.getState().sessionsByTab[tabId]?.attachedTabs.map((a) => a.tabId) ?? [];
       session.setIdentity({ tabId, url, runRecordId: "" });
@@ -434,7 +436,7 @@ export function AppShell() {
         session.appendLog(
           "info",
           "[上下文] 已压缩早期对话",
-          `compressedMessages=${context.compressedMessageCount} estimatedChars=${context.estimatedChars}`
+          `policy=${settings.contextPolicy ?? "auto"} compressedMessages=${context.compressedMessageCount} estimatedChars=${context.estimatedChars} softCharBudget=${contextOptions.softCharBudget}`
         );
       }
       session.appendLog(

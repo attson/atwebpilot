@@ -37,6 +37,7 @@ describe("SectionLlm", () => {
       selfHealEnabled: true,
       maxSelfHealOutputTokens: 4096,
       widgetEnabled: true,
+      contextPolicy: "auto",
       loaded: true,
       save: vi.fn(async (patch) => {
         useSettings.setState(patch);
@@ -80,4 +81,5 @@ describe("SectionLlm", () => {
     );
     expect(container.textContent).toContain("连接正常");
   });
+
 });

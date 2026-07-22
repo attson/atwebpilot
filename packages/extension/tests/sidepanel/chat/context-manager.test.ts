@@ -3,6 +3,7 @@ import type { ChatMessage, ImagePart } from "@atwebpilot/shared/types";
 import {
   buildCurrentUserContent,
   buildInitialMessagesForNextTurn,
+  resolveContextBuildOptions,
 } from "@/sidepanel/chat/context-manager";
 
 const image: ImagePart = {
@@ -73,5 +74,30 @@ describe("context-manager", () => {
 
     const content = buildCurrentUserContent("看这张图", [image]);
     expect(content).toEqual([image, { type: "text", text: "看这张图" }]);
+  });
+
+  it("resolves automatic long-context budgets from model names", () => {
+    expect(resolveContextBuildOptions({ contextPolicy: "auto", model: "gpt-4o" }).softCharBudget)
+      .toBeGreaterThan(80_000);
+    expect(resolveContextBuildOptions({ contextPolicy: "auto", model: "claude-sonnet-4-6" }).softCharBudget)
+      .toBeGreaterThan(120_000);
+    expect(resolveContextBuildOptions({ contextPolicy: "auto", model: "gemini-2.5-pro-1m" }).softCharBudget)
+      .toBeGreaterThan(350_000);
+  });
+
+  it("honors custom context budgets when policy is custom", () => {
+    const options = resolveContextBuildOptions({
+      contextPolicy: "custom",
+      contextSoftCharBudget: 88_888,
+      contextRecentMessageLimit: 12,
+      contextMemoryCharLimit: 9_999,
+      model: "unknown-model",
+    });
+
+    expect(options).toEqual({
+      softCharBudget: 88_888,
+      recentMessageLimit: 12,
+      memoryCharLimit: 9_999,
+    });
   });
 });

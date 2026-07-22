@@ -60,7 +60,7 @@ git push origin v0.0.1
 
 ## 第一次配置
 
-打开「设置」页：
+打开「设置」页。设置页左侧按分类切换（LLM / 上下文 / 权限 / 外观 / 浮窗 / Coordinator / 高级）：
 
 | 字段 | 说明 |
 |---|---|
@@ -71,6 +71,7 @@ git push origin v0.0.1
 | max_tokens | 单次 LLM 响应上限（默认 4096，长任务可调 8192/16k） |
 | 最大轮数 | 一次会话最多 LLM round 数，默认 20 |
 | 续作 nudge 次数 | 模型说完没调工具时再问一遍是否真完成；默认 1，session-total 上限 |
+| 上下文策略 | 默认 auto：按模型名推断 128k / 200k / 1M 档位；也可选 conservative / large / huge / custom |
 | 自愈开关 | 默认 on。Tool 重放失败时自动跑一次 LLM 补丁；关闭后行为回到 v0.0.44 及之前 |
 | 自愈 tokens 上限 | 每次自愈 LLM 输出 tokens 上限（默认 4096，可调 1024–8192） |
 | 权限模式 | read（全 auto safe）/ default（caution 按勾选）/ trust（含 caution 免审）/ yolo（全部自动含 dangerous）；顶部 pill 可当次切换 |
@@ -229,7 +230,7 @@ URL 模式   [https://*.pinduoduo.com/**]
 
 ```bash
 pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension / mcp-server
-pnpm test           # 全量测试 ~839（642 extension + 124 shared + 45 coordinator + 28 mcp-server）
+pnpm test           # 全量测试 ~850（653 extension + 124 shared + 45 coordinator + 28 mcp-server）
 pnpm test:watch
 pnpm build          # 产出 packages/extension/dist/
 ```
