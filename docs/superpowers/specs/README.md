@@ -31,6 +31,7 @@
 | 25 | Prompt Optimize Button | [`2026-07-02-prompt-optimize-button-design.md`](./2026-07-02-prompt-optimize-button-design.md) | 输入框内一键 LLM 改写草稿：把用户口语转成结构化 prompt；非流式一次性 call；预览页可 accept/discard |
 | 26 | GitHub Pages 展示站 | [`2026-07-06-github-pages-site-design.md`](./2026-07-06-github-pages-site-design.md) | 新目录 `docs-site/`：VitePress + 中英双语（zh-CN 主，en 覆盖 overview）；首页 / Guide / 工具参考 / 高阶 章节；`deploy-docs.yml` 自动发到 `gh-pages`；41 个工具从 `TOOL_DEFS` 生成参考页 |
 | 27 | 场景 Preset 库 + Tool 运行时自愈（v0.0.45） | [`2026-07-07-scenario-presets-and-self-heal-design.md`](./2026-07-07-scenario-presets-and-self-heal-design.md) | 12 个内置 preset（7 内容站 prompt-form + 5 电商 tool-form）；tab-watcher 合并 preset 匹配 + 场景库 drawer + quick-actions URL 命中优先；`Tool.origin`（可选溯源）+ `RunRecord.healed`；`background/self-heal.ts`（DI，纯函数）+ sidepanel LLM 借用 RPC（BG 不持 key）；`rpc-handlers.runTool` catch-and-heal → static-scan 拒 dangerous 补丁 → `appendVersion` v(N+1) → `[自愈]` 系统气泡；单次运行最多 1 次自愈；coordinator EXEC 路径明确关闭自愈 |
+| 28 | 通用页面上下文索引 | [`2026-07-23-page-context-index-design.md`](./2026-07-23-page-context-index-design.md) | 新增 `createPageIndex` / `searchPageIndex` / `readPageBlock` / `extractPageFields` 通用工具；content script 本地构建页面块索引，LLM 只取小证据片段；避免 `extractText(body)` 和大 DOM 进入上下文；不做 Amazon 专用解析 |
 
 ## 不在 spec 里的细节修复
 

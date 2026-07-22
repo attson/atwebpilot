@@ -1,0 +1,309 @@
+# Page Context Index Design
+
+## Problem
+
+AtWebPilot currently lets the model inspect pages through generic tools such as
+`extractText`, `querySelectorAll`, and `snapshotDOM`. On large dynamic pages this
+leads to two bad patterns:
+
+- The model asks for broad selectors such as `body`, producing megabyte-scale
+  tool outputs that are expensive to store, display, and feed back.
+- After context truncation, the model loses stable evidence and compensates with
+  many repeated selector probes.
+
+The July 23 Amazon diagnostic run is the reference failure: a product extraction
+task finished without a context-window error, but still ran 25 LLM rounds, 77
+tool cards, and 72 executed steps. This is a tooling problem, not a prompt-size
+problem. The page should be treated as a local searchable data source, and the
+model should receive only small evidence slices.
+
+## Goals
+
+- Add a generic page-index layer that works for ecommerce pages, articles,
+  tables, forms, dashboards, and other normal webpages.
+- Keep full page text and DOM-derived data inside the content script; do not
+  send full `body` text or full DOM to the model by default.
+- Let the model discover page structure, search for fields, and read local
+  blocks by stable ids.
+- Make multi-field extraction tasks complete in a small number of tool calls
+  when the information is present in visible DOM.
+- Preserve existing tools for compatibility, but make the new tools the
+  preferred path in LLM tool descriptions and system prompt guidance.
+
+## Non-Goals
+
+- No Amazon-specific parser, selector list, or marketplace-specific rule set.
+- No external search, remote embedding service, or new dependency.
+- No persistent IndexedDB index. The index is per-tab, in-memory, and rebuilt
+  after navigation or reload.
+- No semantic vector search in the first version. Matching is deterministic
+  keyword, label, table, list, and neighborhood scoring.
+
+## Tool Surface
+
+Four new `BuiltinTool` values are added:
+
+### `createPageIndex`
+
+Builds or refreshes an in-memory index for the target tab.
+
+Input:
+
+```json
+{
+  "tabId": 123,
+  "maxBlocks": 600
+}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "indexId": "pi_...",
+  "url": "https://example.com/item",
+  "title": "Example",
+  "blockCount": 148,
+  "kinds": { "heading": 8, "kv": 34, "table": 11, "list": 42, "form": 6, "text": 47 },
+  "summary": [
+    { "blockId": "b1", "kind": "heading", "label": "Product information", "text": "Product information" },
+    { "blockId": "b2", "kind": "kv", "label": "Price", "text": "$20.99" }
+  ],
+  "truncated": false
+}
+```
+
+`summary` is intentionally small. It gives the model a map, not the page.
+
+### `searchPageIndex`
+
+Searches the local index and returns small matching evidence snippets.
+
+Input:
+
+```json
+{
+  "query": "price rating best sellers rank bought in past month",
+  "fields": ["价格", "评分", "排名", "30天销量"],
+  "limit": 20,
+  "tabId": 123
+}
+```
+
+Output:
+
+```json
+{
+  "indexId": "pi_...",
+  "matches": [
+    {
+      "blockId": "b14",
+      "kind": "kv",
+      "score": 14,
+      "label": "Best Sellers Rank",
+      "text": "#17,540 in Office Products #76 in Personal Organizers",
+      "selectorHint": "#productDetails_expanderSectionTables tr:nth-of-type(5)"
+    }
+  ]
+}
+```
+
+### `readPageBlock`
+
+Reads one indexed block, with local pagination for long blocks.
+
+Input:
+
+```json
+{
+  "blockId": "b14",
+  "offset": 0,
+  "maxChars": 4000,
+  "includeNeighbors": true,
+  "tabId": 123
+}
+```
+
+Output:
+
+```json
+{
+  "blockId": "b14",
+  "kind": "kv",
+  "label": "Best Sellers Rank",
+  "text": "#17,540 in Office Products #76 in Personal Organizers",
+  "offset": 0,
+  "hasMore": false,
+  "neighbors": [
+    { "blockId": "b13", "label": "UPC", "text": "682601598478" },
+    { "blockId": "b15", "label": "ASIN", "text": "B09877P9CF" }
+  ]
+}
+```
+
+### `extractPageFields`
+
+Runs deterministic field-candidate extraction over the local index. The model
+provides desired fields; the tool returns candidates and evidence.
+
+Input:
+
+```json
+{
+  "fields": ["Asin", "品牌", "价格", "上架时间", "Ratings", "30天销量"],
+  "maxCandidatesPerField": 4,
+  "tabId": 123
+}
+```
+
+Output:
+
+```json
+{
+  "indexId": "pi_...",
+  "fields": [
+    {
+      "field": "价格",
+      "candidates": [
+        {
+          "value": "$20.99",
+          "confidence": 0.86,
+          "source": "label-neighbor",
+          "blockId": "b2",
+          "label": "Price",
+          "evidence": "Price $20.99"
+        }
+      ]
+    }
+  ],
+  "missing": ["上架时间"]
+}
+```
+
+The tool does not claim final truth. It provides ranked candidates so the model
+can resolve conflicts, mark uncertainty, and format the answer.
+
+## Index Model
+
+The index is built from visible DOM plus selected structural metadata:
+
+- Headings: `h1`-`h6`, elements with heading-like role/classes, prominent title
+  nodes.
+- Key-value rows: table rows, definition lists, product overview rows, settings
+  rows, label/value pairs, `th/td`, `dt/dd`, and adjacent text nodes.
+- Lists: `li`, repeated cards, bullet sections.
+- Tables: row text plus cell-level label/value extraction.
+- Forms: labels, placeholders, names, selected values.
+- Text blocks: visible paragraphs and section containers after script/style/nav
+  noise removal.
+- Media hints: image alt/title/src basename only; no binary content.
+
+Each block stores:
+
+- `blockId`
+- `kind`
+- normalized `text`
+- optional `label` and `value`
+- selector hint
+- DOM path depth and visible order
+- nearby heading breadcrumbs
+- token-like keywords derived locally
+
+Large blocks are capped internally per block, but the full source element can be
+re-read through `readPageBlock` with pagination when needed.
+
+## Matching Rules
+
+First version matching is deterministic:
+
+- Normalize case, whitespace, punctuation, full-width/half-width variants, and
+  common Chinese/English field aliases.
+- Score exact label match highest.
+- Score label-neighbor matches above raw text matches.
+- Score table and key-value blocks above generic text blocks for field
+  extraction.
+- Penalize navigation, footer, hidden, script/style text, extension UI, and very
+  large generic containers.
+- Deduplicate near-identical snippets by normalized text.
+
+Alias groups are generic, not site-specific. Examples:
+
+- `price`, `价格`
+- `rating`, `ratings`, `评分`, `评论数量`, `reviews`
+- `rank`, `ranking`, `排名`
+- `date`, `available`, `上架时间`, `发布日期`
+- `stock`, `availability`, `库存`, `开售`
+- `brand`, `品牌`
+
+## LLM Guidance
+
+The tool descriptions and system prompt are updated so the model uses this
+order for page reading:
+
+1. `createPageIndex`
+2. `extractPageFields` or `searchPageIndex`
+3. `readPageBlock` for targeted evidence
+4. Existing `extractText` / `querySelectorAll` / `snapshotDOM` only when the
+   index cannot answer the task
+
+`extractText` remains available but its description will warn against broad
+selectors such as `body` for ordinary extraction tasks.
+
+## Error Handling
+
+- `searchPageIndex`, `readPageBlock`, and `extractPageFields` lazily create an
+  index if none exists for the current URL.
+- If the URL changes, the old index is invalidated and rebuilt.
+- Missing `blockId` returns a structured error with the current `indexId`.
+- If the page has too many blocks, `createPageIndex` returns `truncated: true`
+  and indexes the highest-signal blocks first.
+- If no field candidate is found, the field is listed in `missing`; the model
+  should not invent a value.
+
+## Data Flow
+
+1. User asks a page extraction question.
+2. `runChatSession` presents new tool definitions.
+3. Model calls `createPageIndex`.
+4. Content script scans DOM and stores index in module memory.
+5. Model calls `extractPageFields` for requested fields.
+6. Content script returns small ranked candidates with evidence snippets.
+7. Model optionally calls `readPageBlock` for ambiguous candidates.
+8. Model returns final answer with missing/uncertain fields marked.
+
+The LLM context receives only compact summaries and evidence. The large page
+state remains in the content script.
+
+## Testing
+
+Unit tests:
+
+- `createPageIndex` ignores script/style/nav noise and returns bounded summary.
+- `searchPageIndex` finds article headings, product-like key-value rows, and
+  table cells without returning entire `body`.
+- `readPageBlock` paginates long blocks and returns neighbors.
+- `extractPageFields` finds fields from table rows, definition lists,
+  label/value divs, bullet lists, and form labels.
+- Missing fields are reported as missing, not guessed.
+
+Integration tests:
+
+- Builtin tool union, `StepSchema`, tool registry, and LLM `TOOL_DEFS` stay in
+  sync.
+- `runChatSession` can complete a multi-field extraction by using page-index
+  tools rather than `extractText(body)` in a scripted LLM test.
+
+Regression target:
+
+- A product-like fixture with title, price, rating, BSR-like rank, stock,
+  social proof, variants, details, and bullets should be answerable with
+  `createPageIndex` + `extractPageFields` + at most one `readPageBlock`.
+
+## Rollout
+
+This is additive. Existing saved tools and coordinator EXEC continue to work.
+No migration is required.
+
+After implementation, broad-context truncation remains as a safety valve, not as
+the primary page-reading strategy.
