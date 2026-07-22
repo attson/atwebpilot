@@ -1,5 +1,12 @@
 # Page Context Index Design
 
+**Status:** implemented in v0.0.53. The core page-index tools shipped with two
+adjacent UX/runtime additions: targeted visual evidence
+(`screenshot({blockId,indexId})`) and generated `.xlsx` export
+(`downloadSpreadsheet`). Those additions are documented here because they are
+part of the same user-facing direction: keep bulky page/file data local, pass
+small references or generated artifacts across the model boundary.
+
 ## Problem
 
 AtWebPilot currently lets the model inspect pages through generic tools such as
@@ -29,6 +36,10 @@ model should receive only small evidence slices.
   when the information is present in visible DOM.
 - Preserve existing tools for compatibility, but make the new tools the
   preferred path in LLM tool descriptions and system prompt guidance.
+- Let low-confidence extraction use local visual evidence without asking the
+  model to inspect a full-page screenshot blindly.
+- Let structured collection tasks end in a downloadable `.xlsx` file instead
+  of pasting large tables into chat.
 
 ## Non-Goals
 
@@ -38,6 +49,8 @@ model should receive only small evidence slices.
   after navigation or reload.
 - No semantic vector search in the first version. Matching is deterministic
   keyword, label, table, list, and neighborhood scoring.
+- No spreadsheet dependency. The initial `.xlsx` writer is a minimal internal
+  ZIP/XML generator for generated collection outputs, not a full Excel engine.
 
 ## Tool Surface
 
@@ -183,6 +196,50 @@ Output:
 
 The tool does not claim final truth. It provides ranked candidates so the model
 can resolve conflicts, mark uncertainty, and format the answer.
+
+### `screenshot` targeted evidence extension
+
+`screenshot` keeps its existing no-argument viewport capture behavior, but also
+accepts page-index references:
+
+```json
+{
+  "blockId": "b14",
+  "indexId": "pi_...",
+  "highlightMs": 1500
+}
+```
+
+The sidepanel handler resolves the block through `readPageBlock`, scrolls the
+block's `selectorHint` into view, applies a temporary highlight, captures the
+visible tab, and returns image data plus target metadata. This is intended for
+cases where field candidates conflict or visual ownership matters.
+
+### `downloadSpreadsheet`
+
+Collection tasks can produce a real `.xlsx` via the sidepanel meta tool:
+
+```json
+{
+  "filename": "products.xlsx",
+  "sheets": [
+    {
+      "name": "Products",
+      "columns": [
+        { "key": "title", "header": "标题" },
+        { "key": "price", "header": "价格" }
+      ],
+      "rows": [
+        { "title": "A", "price": 12 }
+      ]
+    }
+  ]
+}
+```
+
+The implementation is intentionally sidepanel-only and excluded from
+replayable saved steps. It uses `chrome.downloads` and `sidepanel/lib/xlsx.ts`;
+moving it into replayable background tools requires a separate design.
 
 ## Index Model
 

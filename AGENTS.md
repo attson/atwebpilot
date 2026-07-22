@@ -51,7 +51,7 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │  ├─ coordinator/                    参考 WS 服务器（worker registry / session manager / dispatcher / catalog / clock）
 │  │  └─ src/                         （仅供测试与本地 smoke；生产部署不在这里）
 │  ├─ mcp-server/                     stdio MCP server + LoopbackWSHub（Plan 13；Claude 经 coordinator 驱动浏览器）
-│  └─ extension/                      AtWebPilot 浏览器扩展（36 工具 + sidepanel + LLM agent loop + WS worker）
+│  └─ extension/                      AtWebPilot 浏览器扩展（46 LLM tools + sidepanel + in-page widget + LLM agent loop + WS worker）
 │     ├─ src/
 │     │  ├─ manifest.ts               MV3 manifest (defineManifest)
 │     │  ├─ background/               Service worker
@@ -73,10 +73,13 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │  │  └─ storage/{db,tools,runs,export-import,sessions}.ts   IndexedDB (DB_NAME = "caiji" — do NOT rename)；`runs` 表 record 有 `source: "user" | "coordinator"` 与可选 `healed?: {fromVersion,toVersion,fixedStepIndex}`；`tools` 表带可选 `origin?: {kind:"preset", presetId, presetVersion}`；`materializePreset(id)` 幂等复制 preset 到 IDB；`exportTools()` 跳过未修改的 preset 副本；`importTools()` 剥掉未知 preset origin
 │     │  ├─ content/                  Content script (isolated world)
 │     │  │  ├─ index.ts               chrome.runtime.onMessage → callTool / injectMain
+│     │  │  ├─ element-capture.ts     页面元素圈选：hover 高亮 + click 产 selector，供 sidepanel/widget 作为附件式引用
 │     │  │  ├─ runner.ts + ctx.ts     Step Runner with ${var} bindings + timeout
 │     │  │  ├─ inject-main.ts         Bridge to BG.scripting.injectMain
-│     │  │  └─ tools/*.ts             One file per BuiltinTool
-│     │  └─ sidepanel/                React UI (the only user surface)
+│     │  │  ├─ tools/*.ts             One file per BuiltinTool
+│     │  │  ├─ tools/page-index/      v0.0.53：页面块索引 / 搜索 / 字段候选 / 分页读取
+│     │  │  └─ widget/                页内浮窗入口（Shadow DOM）：mini chat / history / resize / image paste / element capture
+│     │  └─ sidepanel/                Full React UI surface; widget is the lightweight in-page companion
 │     │     ├─ rpc.ts                 typed wrappers + onTabRecommendations（含 `presets` 字段） + onTabEvents + retry on SW wake；`rpc.listPresets/materializePreset` 走 BG
 │     │     ├─ self-heal-host.ts      Plan 27：接 BG selfheal 请求 → 用本地 LlmClient 一次性非流式跑 → 回补丁 steps；BG 侧不持 key
 │     │     ├─ chat/
@@ -100,7 +103,7 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │     │  ├─ http-error.ts       HTTP 错误规范化（含 retry-after 解析）
 │     │     │  ├─ truncate.ts         exchange log payload 截断
 │     │     │  ├─ client.ts           pickClient(provider)
-│     │     │  ├─ tool-schema.ts      36 BuiltinTool LlmTool defs + runJS + listTabs/openTab/attachTab/detachTab（Round 5+6 分 tier 加）
+│     │     │  ├─ tool-schema.ts      re-export TOOL_DEFS；46 个 LLM tools 从 @atwebpilot/shared/llm 来
 │     │     │  ├─ system-prompt.ts    buildSystemPrompt({url,title,savedTools,attachedTabs})；含 tier 选择提示
 │     │     │  ├─ summary-step.ts     One-shot 非流式生成 "summary runJS step"（Plan 5）
 │     │     │  ├─ self-heal-prompt.ts Plan 27：`buildSelfHealMessages(ctx, maxOutputTokens)` — 允许 step 白名单 + DOM 截断 + 已成功产物摘要
@@ -112,20 +115,21 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │     │  ├─ tool-detail-pane.tsx         替换旧 tool-detail-page；`[让 AI 修复]` 追加 `run.healed` 摘要
 │     │     │  ├─ tools-drawer.tsx / scenarios-drawer.tsx / logs-drawer.tsx / settings-drawer.tsx
 │     │     │  └─ settings/section-llm.tsx     LLM + `selfHealEnabled` + `maxSelfHealOutputTokens` 输入
-│     │     ├─ input/                          input-box / mention-picker / prompt-optimize-button（Plan 25）
+│     │     ├─ input/                          input-box / mention-picker / prompt-optimize-button / selected-elements（附件式 selector 引用）
+│     │     ├─ lib/xlsx.ts                     v0.0.53：无依赖最小 XLSX writer；`downloadSpreadsheet` meta tool 使用
 │     │     ├─ shell/
 │     │     │  └─ app-shell.tsx                路由 / 顶部 header / drawer 栈 / heal 事件 listener / tab-tracker mount / coordinator-state-bridge mount
 │     │     ├─ coordinator-state-bridge.ts   Plan 12 sidepanel 端：响应 ping.sidepanelState → 读 zustand 拼快照 → pong
-│     │     └─ components/            Stateless except where needed (chat-view, step-card, exchange-log, etc.)
+│     │     └─ components/            Stateless except where needed (chat-view, step-card, exchange-log, markdown-text, staged-selectors, etc.)
 │     ├─ tests/                       Unit + integration（含 background/coordinator-e2e.test.ts：起真 `ws` server 跑 HELLO/EXEC/START_CHAT_SESSION 端到端）
 │     ├─ vite.config.ts               Vite 配置含 @crxjs；build 产物在 packages/extension/dist/
 │     ├─ tsconfig.json
 │     └─ package.json
 ├─ docs/superpowers/
-│  ├─ specs/                          Design docs；见 specs/README.md（已涵盖 Plan 1-27）
+│  ├─ specs/                          Design docs；见 specs/README.md（已涵盖 Plan 1-30）
 │  ├─ plans/                          Implementation plans（每份对应一份 spec）
 │  └─ scripts/                        辅助脚本（如 mini-coordinator.mjs：Layer-5 手动 smoke）
-└─ docs-site/                         VitePress 中英双语展示站（Plan 26）；`deploy-docs.yml` push to gh-pages；36 工具从 `TOOL_DEFS` 生成参考页
+└─ docs-site/                         VitePress 中英双语展示站（Plan 26）；`deploy-docs.yml` push to gh-pages；工具参考从 `TOOL_DEFS` 生成
 ```
 
 ## monorepo 开发常用命令
@@ -252,6 +256,30 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
   `self_heal_started` etc.) key on `.type`. The `chat-event.ts` zod
   mirror is `z.discriminatedUnion("type", …)`. If a plan brief snippet
   writes `kind: "self_heal_started"`, that's a spec typo — use `type`.
+- **Broad page understanding goes through Page Context Index first.**
+  For product/article/table/form extraction, prefer
+  `createPageIndex` → `extractPageFields` / `searchPageIndex` →
+  targeted `readPageBlock`. Avoid `extractText({selector:"body"})`
+  and full-DOM reads unless there is a narrow reason.
+- **Page-index truncation is structured, not prose.** Use `hasMore`,
+  `nextOffset`, `recommendedNext`, and `truncation.ref`; do not encode
+  missing content as prefix/suffix strings and ask the model to infer it.
+- **Visual evidence is targeted.** `screenshot` can receive
+  `{blockId,indexId}` from page-index or `{selector}`. It scrolls and
+  highlights the target before `captureVisibleTab`. Keep no-arg
+  screenshot as viewport capture, but do not regress the targeted path.
+- **`downloadSpreadsheet` is a sidepanel-only generated download.** It
+  creates `.xlsx` via `sidepanel/lib/xlsx.ts` and uses `chrome.downloads`.
+  It is intentionally excluded from replayable saved tool steps until a
+  background-safe download path is designed.
+- **Image attachments are inline base64 multimodal parts.** Supported
+  user attachments are png/jpeg/gif/webp, max 5 MB each, max 5 per turn.
+  ChatView must render array user content with `text` / `image` parts,
+  while still hiding internal `tool_result` plumbing.
+- **Widget and sidepanel share session snapshots via `_rev`.** Session
+  mutations broadcast full snapshots. Receivers ignore stale revisions.
+  When adding session state, ensure both sidepanel and content-widget
+  entry points converge.
 
 ## Common tasks
 
@@ -261,10 +289,14 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 2. `packages/shared/src/messages.ts` — add to `StepSchema` enum
 3. `packages/extension/src/content/tools/<tool>.ts` — implement `(args: Json) => Promise<Json>`
 4. `packages/extension/src/content/tools/index.ts` — register in `TOOLS`
-5. `packages/extension/src/sidepanel/llm/tool-schema.ts` — add `LlmTool` def with JSON Schema
+5. `packages/shared/src/llm/builtin-tool-defs.ts` — add `LlmTool` def with JSON Schema (`sidepanel/llm/tool-schema.ts` only re-exports)
 6. `packages/extension/src/sidepanel/chat/severity.ts` — classify in safe / caution / dangerous
 7. `packages/extension/tests/content/tools/<tool>.test.ts` — happy-dom unit tests
 8. `packages/extension/tests/sidepanel/chat/severity.test.ts` — add a classification case
+
+Sidepanel-only meta tools such as `downloadSpreadsheet` do not get a content
+tool implementation. Add their handler under `packages/extension/src/sidepanel/lib/meta-tools.ts`,
+exclude them from `ReplayableTool`, and test the Chrome API wrapper separately.
 
 ### Add a new RPC
 
@@ -319,7 +351,7 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 ```bash
 pnpm install
 pnpm typecheck      # pnpm -r typecheck across 4 packages; CI gate
-pnpm test           # pnpm -r test; ~718 tests total (526 extension + 119 shared + 45 coordinator + 28 mcp-server)
+pnpm test           # pnpm -r test; ~839 tests total (642 extension + 124 shared + 45 coordinator + 28 mcp-server)
 pnpm test:watch     # extension only (the largest, fastest-iterating slice)
 pnpm build          # vite build → packages/extension/dist/
 ```
@@ -351,9 +383,9 @@ node docs/superpowers/scripts/mini-coordinator.mjs   # 起一个最小 WS server
 # 脚本会自动发 START_CHAT_SESSION（mock_llm 三轮）→ 应看到 1 个 continuation_nudge + 1 个 session_end(done)
 ```
 
-## What's been built (state as of v0.0.45)
+## What's been built (state as of v0.0.53)
 
-Read `docs/superpowers/specs/README.md` for the full spec index (Plan 1-27). At a glance:
+Read `docs/superpowers/specs/README.md` for the full spec index (Plan 1-30). At a glance:
 
 **Foundations (Plans 1-11)**
 - **Plan 1-3** — Executable skeleton, streaming Anthropic+OpenAI, 18 initial tools, per-tool dangerous allowlist, `AtWebPilot` rebrand
@@ -390,12 +422,19 @@ Read `docs/superpowers/specs/README.md` for the full spec index (Plan 1-27). At 
   - `rpc-handlers.runTool` catch-and-heal: single-shot, dangerous-scan-gated, `appendVersion` v(N+1), `[自愈]` system bubbles
   - Coordinator EXEC path opts out; sidepanel unavailable ⇒ `no_sidepanel` reason, no silent fallback
 
+**In-page surface + context efficiency (Plans 28-30)**
+- **Plan 28** — In-page Chat Widget: Shadow DOM FAB + mini panel, same `sessionsByTab` as sidepanel, dangerous handoff to sidepanel, per-site hide, settings-backed global toggle
+- **Plan 29** (v0.0.52) — Widget Round 2: stop button, sticky status, error banner, preset/quick-actions empty state, image paste/drop, permission pill, history, resize, element capture
+- **Plan 30** (v0.0.53) — Page Context Index: `createPageIndex` / `searchPageIndex` / `readPageBlock` / `extractPageFields`, structured truncation metadata, targeted visual evidence via `screenshot({blockId,indexId})`, `downloadSpreadsheet` `.xlsx` export, image-message rendering fixes
+
 ### Recent material bug fixes worth remembering
 
 - **v0.0.14** — `tabs.spawned` opener-match handler was attributing user Ctrl+clicks (idle session) to AI. Gated on `session.status ∈ {running, streaming}`. See `packages/extension/src/sidepanel/chat/cross-tab-events.ts`.
 - **v0.0.15** — Continuation guard `nudgesSinceProgress` reset on any tool call, allowing infinite "AI 确认完成" loops when the model alternated text-only with a verification tool. Renamed to session-total `totalNudges`; reset removed. See `packages/extension/src/sidepanel/chat/run-session.ts`.
 - **v0.0.37+** — Tag-based version injection covers BOTH root `package.json` AND extension `packages/extension/package.json`. Do NOT bump either in a PR commit; push the `v*` tag and CI overrides both. See `.github/workflows/build-extension.yml`.
 - **v0.0.45** — `SessionEvent` mirror in `chat-event.ts` uses `type` as discriminator (not `kind`); Plan 27 brief's `kind:` snippets were a spec typo. Also `broadcastSessionEvent({type:"session.event", event})` wraps events in a runtime envelope; the sidepanel listener in `app-shell.tsx` unwraps and forwards to `appendHealNote`.
+- **v0.0.52** — Widget became a practical daily entry point: images, history, stop, status/error surfaces, permission mode, resize, save handoff, and selector capture. Keep widget changes Shadow-DOM-safe.
+- **v0.0.53** — Large-page extraction moved to page-index first. The known bad pattern is repeated broad `extractText(body)` or giant DOM snapshots; update prompts/tool descriptions instead of raising token limits.
 
 ## Anti-patterns to avoid
 

@@ -26,12 +26,14 @@
 | 20 | 通用工具 Round 6 | [`2026-06-15-round6-common-tools-design.md`](./2026-06-15-round6-common-tools-design.md) | 补齐 4 个高频工具 `navigate` / `getPageInfo` / `pressKey` / `writeStorage`；`writeStorage` 归 dangerous、其余 caution |
 | 21 | 短中期 feats（batch） | [`2026-06-14-short-mid-feats-design.md`](./2026-06-14-short-mid-feats-design.md) | 一批 UX 补丁的集合 spec：诊断包导出、扩展 header 版本号、rpc.call 防御性 null 检查、theme wire-up 修 zinc CSS-var 等 |
 | 22 | lucide-react 图标迁移 | [`2026-06-15-lucide-icons-design.md`](./2026-06-15-lucide-icons-design.md) | 9 处 emoji/文字-glyph UI icon → lucide-react；无新 dep（lucide 已在 UI 组件中）；避免 emoji 在跨平台/夜间模式下的渲染差异 |
-| 23 | Quick Actions 空态 chip | [`2026-06-15-quick-actions-design.md`](./2026-06-15-quick-actions-design.md) | 会话空态 3 个 chip（总结/抽重点/抽评论）；点击填入 prompt；后被 Plan 28 的 URL-conditional preset 扩展 |
+| 23 | Quick Actions 空态 chip | [`2026-06-15-quick-actions-design.md`](./2026-06-15-quick-actions-design.md) | 会话空态 3 个 chip（总结/抽重点/抽评论）；点击填入 prompt；后被 Plan 27 的 URL-conditional preset 扩展 |
 | 24 | 简洁 / 详细模式切换 | [`2026-07-02-conversation-mode-design.md`](./2026-07-02-conversation-mode-design.md) | ChatView 简洁模式（默认）：每工具一行进展 + 图标 + 中文别名 + 耗时；详细模式保留原 StepCard；`defaultChatMode` in settings；session 生命周期内可临时切换 |
 | 25 | Prompt Optimize Button | [`2026-07-02-prompt-optimize-button-design.md`](./2026-07-02-prompt-optimize-button-design.md) | 输入框内一键 LLM 改写草稿：把用户口语转成结构化 prompt；非流式一次性 call；预览页可 accept/discard |
-| 26 | GitHub Pages 展示站 | [`2026-07-06-github-pages-site-design.md`](./2026-07-06-github-pages-site-design.md) | 新目录 `docs-site/`：VitePress + 中英双语（zh-CN 主，en 覆盖 overview）；首页 / Guide / 工具参考 / 高阶 章节；`deploy-docs.yml` 自动发到 `gh-pages`；41 个工具从 `TOOL_DEFS` 生成参考页 |
+| 26 | GitHub Pages 展示站 | [`2026-07-06-github-pages-site-design.md`](./2026-07-06-github-pages-site-design.md) | 新目录 `docs-site/`：VitePress + 中英双语（zh-CN 主，en 覆盖 overview）；首页 / Guide / 工具参考 / 高阶 章节；`deploy-docs.yml` 自动发到 `gh-pages`；工具参考从 `TOOL_DEFS` 生成 |
 | 27 | 场景 Preset 库 + Tool 运行时自愈（v0.0.45） | [`2026-07-07-scenario-presets-and-self-heal-design.md`](./2026-07-07-scenario-presets-and-self-heal-design.md) | 12 个内置 preset（7 内容站 prompt-form + 5 电商 tool-form）；tab-watcher 合并 preset 匹配 + 场景库 drawer + quick-actions URL 命中优先；`Tool.origin`（可选溯源）+ `RunRecord.healed`；`background/self-heal.ts`（DI，纯函数）+ sidepanel LLM 借用 RPC（BG 不持 key）；`rpc-handlers.runTool` catch-and-heal → static-scan 拒 dangerous 补丁 → `appendVersion` v(N+1) → `[自愈]` 系统气泡；单次运行最多 1 次自愈；coordinator EXEC 路径明确关闭自愈 |
-| 28 | 通用页面上下文索引 | [`2026-07-23-page-context-index-design.md`](./2026-07-23-page-context-index-design.md) | 新增 `createPageIndex` / `searchPageIndex` / `readPageBlock` / `extractPageFields` 通用工具；content script 本地构建页面块索引，LLM 只取小证据片段；避免 `extractText(body)` 和大 DOM 进入上下文；不做 Amazon 专用解析 |
+| 28 | 页内浮窗对话入口 | [`2026-07-08-inpage-chat-widget-design.md`](./2026-07-08-inpage-chat-widget-design.md) | Shadow DOM FAB + mini chat panel；widget 与 sidepanel 共享 `sessionsByTab`；dangerous 操作交接到 sidepanel；每站隐藏与全局开关；不替代 sidepanel 的工具库/设置/诊断 |
+| 29 | Widget Round 2（v0.0.52） | [`2026-07-10-widget-r2-11-feats-design.md`](./2026-07-10-widget-r2-11-feats-design.md) | 页内浮窗补齐 stop、sticky status、error banner、preset/quick-actions 空态、图片附件、权限 pill、保存入口、历史、resize、元素圈选；保持 runChatSession / Approver / 自愈协议不变 |
+| 30 | 通用页面上下文索引（v0.0.53） | [`2026-07-23-page-context-index-design.md`](./2026-07-23-page-context-index-design.md) | 新增 `createPageIndex` / `searchPageIndex` / `readPageBlock` / `extractPageFields` 通用工具；content script 本地构建页面块索引，LLM 只取小证据片段；避免 `extractText(body)` 和大 DOM 进入上下文；同版补充 targeted screenshot 视觉证据、`.xlsx` 导出、图片消息渲染修复 |
 
 ## 不在 spec 里的细节修复
 
@@ -48,6 +50,7 @@
 - `feat(sidepanel): persistent chat session + bubble-style UI` — 切 nav 不丢；user/assistant 双气泡
 - `feat(sidepanel): banner 运行 jumps to tool-detail with autoRun` — 不再丢弃 RunRecord
 - `feat(tools): description actually used` — system prompt 把已保存工具喂给 AI
+- `feat: add page context indexing and exports` — v0.0.53：page-index 落地、`downloadSpreadsheet` 真 `.xlsx`、targeted screenshot、图片用户消息渲染修复
 
 ## 工作流约定
 
