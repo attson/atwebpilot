@@ -1,5 +1,9 @@
 import type { Json, Step } from "@atwebpilot/shared/types";
-import { captureVisualEvidence } from "@/sidepanel/llm/visual-evidence";
+import {
+  captureVisualEvidence,
+  resolveVisualEvidenceTarget
+} from "@/sidepanel/llm/visual-evidence";
+import { captureScreenshotWithCdp } from "@/background/recorder/cdp";
 import {
   PAGE_METRICS_SOURCE,
   SCROLL_TO_SOURCE,
@@ -50,8 +54,36 @@ export async function screenshot(raw: Json, tabId: number): Promise<Json> {
     scale?: number;
   };
 
+  const resolved = a.fullPage
+    ? undefined
+    : await resolveVisualEvidenceTarget({ raw, defaultTabId: tabId, runStep: d.runStep });
+  const cdp = await captureScreenshotWithCdp(tabId, {
+    fullPage: a.fullPage,
+    format: a.format,
+    scale: a.scale,
+    selector: resolved?.selector
+  });
+  if (cdp) {
+    const target = resolved?.target
+      ? { ...resolved.target, ...(cdp.target ?? {}) }
+      : cdp.target;
+    return {
+      media_type: cdp.mediaType,
+      data: cdp.data,
+      byteLen: byteLenFromBase64(cdp.data),
+      backend: "cdp",
+      width: cdp.width,
+      height: cdp.height,
+      ...(cdp.fullPage ? { fullPage: true } : {}),
+      ...(target ? { target } : {})
+    } as unknown as Json;
+  }
+
   return withActiveTab(tabId, async () => {
-    if (a.fullPage) return captureFullPage(raw, tabId, d);
+    if (a.fullPage) {
+      const shot = await captureFullPage(raw, tabId, d) as Record<string, Json>;
+      return { ...shot, backend: "visible-tab" } as unknown as Json;
+    }
 
     const shot = await captureVisualEvidence({
       raw,
@@ -62,9 +94,10 @@ export async function screenshot(raw: Json, tabId: number): Promise<Json> {
         return { windowId: tab.windowId };
       },
       captureVisibleTab: (windowId) => chrome.tabs.captureVisibleTab(windowId, { format: "png" }),
-      runStep: d.runStep
+      runStep: d.runStep,
+      resolvedTarget: resolved
     });
-    return shot as unknown as Json;
+    return { ...shot, backend: "visible-tab" } as unknown as Json;
   });
 }
 
@@ -80,7 +113,10 @@ async function withActiveTab<T>(tabId: number, capture: () => Promise<T>): Promi
     return await capture();
   } finally {
     if (switched && previousTabId != null) {
-      await chrome.tabs.update(previousTabId, { active: true }).catch(() => undefined);
+      const [current] = await chrome.tabs.query({ windowId: target.windowId, active: true }).catch(() => []);
+      if (current?.id === tabId) {
+        await chrome.tabs.update(previousTabId, { active: true }).catch(() => undefined);
+      }
     }
   }
 }

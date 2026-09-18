@@ -1,6 +1,6 @@
 import type { Json, Step } from "@atwebpilot/shared/types";
 
-type RunStep = (input: {
+export type VisualEvidenceRunStep = (input: {
   step: Step;
   tabId: number;
   attachedTabIds?: number[];
@@ -12,7 +12,8 @@ type CaptureArgs = {
   defaultTabId: number;
   getTab: (tabId: number) => Promise<{ windowId: number }>;
   captureVisibleTab: (windowId: number) => Promise<string>;
-  runStep: RunStep;
+  runStep: VisualEvidenceRunStep;
+  resolvedTarget?: ResolvedVisualEvidenceTarget;
 };
 
 export type VisualEvidenceResult = {
@@ -65,7 +66,7 @@ function byteLenFromBase64(base64: string): number {
   return Math.floor((base64.length * 3) / 4);
 }
 
-async function resolveBlockTarget(input: Record<string, unknown>, tabId: number, runStep: RunStep): Promise<{
+async function resolveBlockTarget(input: Record<string, unknown>, tabId: number, runStep: VisualEvidenceRunStep): Promise<{
   selector?: string;
   target?: Record<string, Json>;
 }> {
@@ -106,7 +107,7 @@ async function prepareSelectorTarget(input: {
   selector: string;
   tabId: number;
   highlightMs: number;
-  runStep: RunStep;
+  runStep: VisualEvidenceRunStep;
 }): Promise<Record<string, Json>> {
   const result = asRecord(await input.runStep({
     tabId: input.tabId,
@@ -122,13 +123,40 @@ async function prepareSelectorTarget(input: {
   return result as Record<string, Json>;
 }
 
-export async function captureVisualEvidence(args: CaptureArgs): Promise<VisualEvidenceResult> {
+export type ResolvedVisualEvidenceTarget = {
+  tabId: number;
+  highlightMs: number;
+  selector?: string;
+  target?: Record<string, Json>;
+};
+
+export async function resolveVisualEvidenceTarget(args: {
+  raw: unknown;
+  defaultTabId: number;
+  runStep: VisualEvidenceRunStep;
+}): Promise<ResolvedVisualEvidenceTarget> {
   const input = asRecord(args.raw);
   const tabId = optionalNumber(input.tabId) ?? args.defaultTabId;
   const highlightMs = Math.max(250, Math.min(5000, Math.floor(optionalNumber(input.highlightMs) ?? 1500)));
   const blockTarget = await resolveBlockTarget(input, tabId, args.runStep);
-  const selector = blockTarget.selector ?? optionalString(input.selector);
-  let target: Record<string, Json> | undefined = blockTarget.target;
+  return {
+    tabId,
+    highlightMs,
+    selector: blockTarget.selector ?? optionalString(input.selector),
+    target: blockTarget.target
+  };
+}
+
+export async function captureVisualEvidence(args: CaptureArgs): Promise<VisualEvidenceResult> {
+  const resolved =
+    args.resolvedTarget ??
+    (await resolveVisualEvidenceTarget({
+      raw: args.raw,
+      defaultTabId: args.defaultTabId,
+      runStep: args.runStep
+    }));
+  const { tabId, highlightMs, selector } = resolved;
+  let target: Record<string, Json> | undefined = resolved.target;
 
   if (selector) {
     const prepared = await prepareSelectorTarget({ selector, tabId, highlightMs, runStep: args.runStep });
