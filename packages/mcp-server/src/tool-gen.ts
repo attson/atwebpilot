@@ -24,7 +24,7 @@ export const CORE_TOOLS: readonly string[] = [
   "clickByUid", "click", "fillByUid", "fillInput", "fillForm", "selectOption", "setCheckbox",
   "hover", "pressKey", "drag", "drop", "uploadFile",
   // navigation and tabs
-  "navigate", "listTabs", "openTab", "closeTab", "switchToTab", "resize", "scroll",
+  "navigate", "listTabs", "openTab", "closeTab", "resize", "scroll",
   // observation
   "screenshot", "waitFor", "runJS", "consoleMessages", "networkRequests"
 ] as const;
@@ -211,7 +211,7 @@ export function readToolMode(env: Record<string, string | undefined>): ToolMode 
   return "core";
 }
 
-export type DiscoverGroup = "export" | "network" | "storage" | "browser-data" | "inspect" | "legacy-dom" | "form";
+export type DiscoverGroup = "export" | "network" | "storage" | "browser-data" | "inspect" | "legacy-dom" | "form" | "tabs";
 
 /** Keyed by MCP name. Everything outside CORE_TOOLS must appear exactly once. */
 export const DISCOVERABLE_GROUPS: Record<DiscoverGroup, readonly string[]> = {
@@ -221,7 +221,8 @@ export const DISCOVERABLE_GROUPS: Record<DiscoverGroup, readonly string[]> = {
   "browser-data": ["browser_searchBookmarks", "browser_searchHistory"],
   inspect: ["browser_inspectElement", "browser_highlight", "browser_getValue", "browser_extractFormState"],
   "legacy-dom": ["browser_snapshotDOM", "browser_querySelector", "browser_querySelectorAll", "browser_extractImages", "browser_focus"],
-  form: ["browser_submitForm"]
+  form: ["browser_submitForm"],
+  tabs: ["browser_switchToTab"]
 };
 
 const GROUP_BY_NAME = new Map<string, DiscoverGroup>(

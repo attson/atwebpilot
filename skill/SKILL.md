@@ -25,14 +25,14 @@ When this skill is loaded, you can drive any open tab through these tools
 
 All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
 
-**Core — advertised by default (32):**
+**Core — advertised by default (31):**
 
 | Class | Tools |
 |---|---|
 | page state（safe） | `takeSnapshot`, `findElements`, `getPageInfo`, `extractText` |
 | page index（safe） | `createPageIndex`, `searchPageIndex`, `readPageBlock`, `extractPageFields` |
 | interaction（caution） | `clickByUid`, `click`, `fillByUid`, `fillInput`, `fillForm`, `selectOption`, `setCheckbox`, `hover`, `pressKey`, `drag`, `drop`（files ⇒ dangerous）, `uploadFile`（dangerous） |
-| navigation / tabs | `navigate`（`action` 取 `back` / `forward` / `reload` / `goto`）, `listTabs`, `openTab`, `closeTab`, `switchToTab`, `resize`, `scroll` |
+| navigation / tabs | `navigate`（`action` 取 `back` / `forward` / `reload` / `goto`）, `listTabs`, `openTab`, `closeTab`, `resize`, `scroll` |
 | observation | `screenshot`, `waitFor`, `runJS`（static-scanned）, `consoleMessages`, `networkRequests` |
 
 **Discoverable — call `browser_discoverTools` first:**
@@ -46,6 +46,7 @@ All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
 | `inspect` | `inspectElement`, `highlight`（`text` or `selector`/`uid`）, `getValue`, `extractFormState` |
 | `legacy-dom` | `snapshotDOM`, `querySelector`, `querySelectorAll`, `extractImages`, `focus` |
 | `form` | `submitForm`（dangerous） |
+| `tabs` | `switchToTab`（只在用户明确要求把 Chrome 切到前台时使用） |
 
 `askUser`, `attachTab` and `detachTab` are **not** exposed: an MCP session has
 no human at the side panel, and its tab is already bound by `open_session`.
@@ -89,6 +90,7 @@ prefer to pay the context cost once.
 - `fillForm`: `{ fields: [{ selector: 'input[name=name]', value: '张三' }, { uid: 'el_5', value: 'mushroom' }] }` — much cheaper than repeated `fillInput`.
 - `pressKey`: `{ selector: 'input[name=q]', key: 'Enter' }` submits a form-less search; `{ key: 'Escape' }` closes a modal.
 - `navigate`: `{ action: 'back' }`, `{ action: 'goto', url: 'https://example.com/page' }`.
+- `switchToTab`: all tools already target the session-bound tab. Discover and call this only when the user explicitly asks to bring Chrome and that tab to the foreground; never use it as setup for click, wait, runJS, or screenshot.
 - `httpRequest`: `{ url: '.../api/comments?page=2' }` (no cookies) vs `{ url, withCredentials: true }` (cookied, reviewed).
 - `consoleMessages`: `{ level: 'error', limit: 50 }`; incremental polling with `{ sinceId }`.
 - `networkRequestDetail`: arm bodies first with `recorderConfig({ bodies: true })` in main-world mode.

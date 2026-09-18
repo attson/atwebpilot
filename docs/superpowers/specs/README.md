@@ -40,6 +40,7 @@
 | 34 | 站点嵌入式 demo | [`2026-08-18-embedded-demo-design.md`](./2026-08-18-embedded-demo-design.md) | 首页 iframe 嵌一个可运行 demo：mock 商品页在外层文档、**真侧边栏**在嵌套 iframe（避免 takeSnapshot 扫到面板自身，也更贴近真实的双文档结构）、harness 扮演 service worker；复用已有的 `MockLlmClient` 与 `runChatSession` 的 DI 面；chrome shim 覆盖 storage/runtime/tabs；工具调用桥接到**真实 `callTool`** 对 mock 页面 DOM 操作；独立 vite.demo.config 产出到 `docs-site/public/demo/` |
 | 35 | URL 注入策略 | [`2026-08-19-url-injection-policy-design.md`](./2026-08-19-url-injection-policy-design.md) | 默认与逐 hostname 的禁用/只读/操作/诊断注入级别；网页助手独立继承；惰性 bootstrap 与按需 MAIN-world recorder；配对错误状态分流 |
 | 36 | 会话标签分组 | [`2026-08-20-session-tab-groups-design.md`](./2026-08-20-session-tab-groups-design.md) | 按逻辑 session id 和 window 创建原生 Chrome tab group；区分侧栏/MCP/远程来源；结束后恢复原分组；用户手动移出后不拉回；MV3 session 状态恢复 |
+| 37 | 无干扰 MCP 截图 | [`2026-09-18-non-intrusive-screenshot-design.md`](./2026-09-18-non-intrusive-screenshot-design.md) | `switchToTab` 退出默认 core；CDP `Page.captureScreenshot` 后台截图；visible-tab 兼容回退不覆盖用户中途切 tab |
 
 ## 不在 spec 里的细节修复
 

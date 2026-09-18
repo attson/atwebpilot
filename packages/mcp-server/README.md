@@ -49,8 +49,8 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 ## 工具面
 
 - 控制面 4 个：`list_tabs / open_session / close_session / get_quota`
-- 发现 1 个：`browser_discoverTools` —— 不带参数返回未发布工具目录（按 `export / network / storage / browser-data / inspect / legacy-dom / form` 分组）；带 `enable: [...]` 把它们加进本进程的 `tools/list`（发送 `tools/list_changed`），并直接返回完整 schema。
-- 执行面默认 **core 32 个** `browser_*`：浏览 / 采集 / 填表 / 导航 / 截图 闭环所需的工具。其余 19 个由 AI 按需 `discoverTools` 拉取，用户不用配置。
+- 发现 1 个：`browser_discoverTools` —— 不带参数返回未发布工具目录（按 `export / network / storage / browser-data / inspect / legacy-dom / form / tabs` 分组）；带 `enable: [...]` 把它们加进本进程的 `tools/list`（发送 `tools/list_changed`），并直接返回完整 schema。
+- 执行面默认 **core 31 个** `browser_*`：浏览 / 采集 / 填表 / 导航 / 截图 闭环所需的工具。其余 20 个由 AI 按需 `discoverTools` 拉取，用户不用配置。
 - 不暴露 `askUser`（MCP 会话没有人在侧边栏应答）和 `attachTab` / `detachTab`（目标 tab 已由 `open_session` 绑定）。
 
 MCP 层的描述是精简英文（≈2.5k tokens for core），侧边栏内置 LLM 仍用中文长描述；两者共享同一份 `TOOL_DEFS`，靠 `mcp` 字段区分。
@@ -65,7 +65,7 @@ hover / uploadFile / scroll / waitFor`）；`browser_storage` 也不会列出，
 
 | 值 | 效果 |
 |---|---|
-| `core`（默认） | 32 个核心工具 + `browser_discoverTools`，其余按需发现 |
+| `core`（默认） | 31 个核心工具 + `browser_discoverTools`，其余按需发现 |
 | `full` | 一开始就全部列出（51 个），适合不想让 AI 多一步发现的用户 |
 
 无法识别的值（包括已移除的 `parity`）按 `core` 处理，并往 stderr 打一条提示。
@@ -95,7 +95,7 @@ hover / uploadFile / scroll / waitFor`）；`browser_storage` 也不会列出，
 | `browser_drag` / `browser_drop` | `browser_drag` / `browser_drop` |
 | `browser_file_upload` | `browser_uploadFile` |
 | `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action` 取 `goto` / `back` / `forward` / `reload`） |
-| `browser_tabs` | `browser_listTabs` / `openTab` / `closeTab` / `switchToTab` |
+| `browser_tabs` | `browser_listTabs` / `openTab` / `closeTab`; `switchToTab` 需按需发现，仅用于用户明确要求前台切换 |
 | `browser_close` | `browser_closeTab` |
 | `browser_resize` | `browser_resize` |
 | `browser_take_screenshot` | `browser_screenshot`（含 `fullPage` / `format` / `scale`） |

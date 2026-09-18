@@ -534,7 +534,10 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "switchToTab",
     description: "[META] 把 Chrome 前台切到目标 tab。tabId 必须已在 attachedTabs 或当前 tab。",
-    mcp: { description: "Bring the session's tab to the foreground." },
+    mcp: {
+      description:
+        "Bring the session's tab and Chrome window to the foreground. Use only when the user explicitly asks to see that tab; all other browser tools already operate on the session-bound tab without this setup step."
+    },
     input_schema: {
       type: "object",
       properties: { tabId: { type: "integer" } },
