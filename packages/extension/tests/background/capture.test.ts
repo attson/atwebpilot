@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerCaptureDeps, screenshot } from "@/background/bg-tools/capture";
+import { detachCdp } from "@/background/recorder/cdp";
 import { PAGE_METRICS_SOURCE, SCROLL_TO_SOURCE, STITCH_SOURCE } from "@/content/tools/page-metrics";
 
 const realChrome = globalThis.chrome;
@@ -32,21 +33,139 @@ let captureVisibleTab: ReturnType<typeof vi.fn>;
 let updateTab: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  let activeTabId = 2;
   captureVisibleTab = vi.fn(async () => "data:image/png;base64,QUJD");
-  updateTab = vi.fn(async (tabId: number) => ({ id: tabId, windowId: 9 }));
+  updateTab = vi.fn(async (tabId: number) => {
+    activeTabId = tabId;
+    return { id: tabId, windowId: 9 };
+  });
   globalThis.chrome = {
     tabs: {
-      get: vi.fn(async (tabId: number) => ({ id: tabId, windowId: 9, active: tabId === 2 })),
-      query: vi.fn(async () => [{ id: 2, windowId: 9, active: true }]),
+      get: vi.fn(async (tabId: number) => ({ id: tabId, windowId: 9, active: tabId === activeTabId })),
+      query: vi.fn(async () => [{ id: activeTabId, windowId: 9, active: true }]),
       update: updateTab,
       captureVisibleTab
     }
   } as unknown as typeof chrome;
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await detachCdp(1).catch(() => undefined);
   globalThis.chrome = realChrome;
   vi.restoreAllMocks();
+});
+
+describe("screenshot backend selection", () => {
+  it("uses CDP without activating the target tab when the opt-in setting is enabled", async () => {
+    const h = harness({ scrollHeight: 2400, clientHeight: 800, clientWidth: 1000, scrollY: 0 });
+    const sendCommand = vi.fn(async (_target: chrome.debugger.Debuggee, method: string) => {
+      if (method === "Page.getLayoutMetrics") {
+        return { cssContentSize: { x: 0, y: 0, width: 1000, height: 2400 } };
+      }
+      if (method === "Page.captureScreenshot") return { data: "QUJD" };
+      return {};
+    });
+    Object.assign(globalThis.chrome, {
+      debugger: {
+        attach: vi.fn(async () => undefined),
+        detach: vi.fn(async () => undefined),
+        sendCommand
+      },
+      permissions: { contains: vi.fn(async () => true) },
+      storage: {
+        local: { get: vi.fn(async () => ({ "atwebpilot.recorder.cdpEnabled": true })) }
+      }
+    });
+
+    const out = (await screenshot({ fullPage: true, scale: 0.5 } as never, 1)) as unknown as {
+      backend: string;
+      fullPage: boolean;
+      data: string;
+    };
+
+    expect(out).toMatchObject({ backend: "cdp", fullPage: true, data: "QUJD" });
+    expect(updateTab).not.toHaveBeenCalled();
+    expect(captureVisibleTab).not.toHaveBeenCalled();
+    expect(h.runStep).not.toHaveBeenCalled();
+  });
+
+  it("resolves a page-index target and clips it through CDP without activating the tab", async () => {
+    const runStep = vi.fn(async ({ step }: { step: { kind: string; tool?: string } }) => {
+      if (step.kind === "tool" && step.tool === "readPageBlock") {
+        return {
+          indexId: "pi_1",
+          blockId: "b2",
+          label: "Revenue chart",
+          selectorHint: ".chart"
+        } as never;
+      }
+      throw new Error("unexpected visible-tab step");
+    });
+    registerCaptureDeps({ runStep: runStep as never });
+    const sendCommand = vi.fn(async (_target: chrome.debugger.Debuggee, method: string) => {
+      if (method === "Runtime.evaluate") {
+        return {
+          result: {
+            type: "object",
+            value: {
+              ok: true,
+              rect: { x: 40, y: 1200, width: 800, height: 450 },
+              viewport: { width: 1280, height: 720 },
+              visible: false
+            }
+          }
+        };
+      }
+      if (method === "Page.captureScreenshot") return { data: "QUJD" };
+      return {};
+    });
+    Object.assign(globalThis.chrome, {
+      debugger: {
+        attach: vi.fn(async () => undefined),
+        detach: vi.fn(async () => undefined),
+        sendCommand
+      },
+      permissions: { contains: vi.fn(async () => true) },
+      storage: {
+        local: { get: vi.fn(async () => ({ "atwebpilot.recorder.cdpEnabled": true })) }
+      }
+    });
+
+    const out = (await screenshot({ blockId: "b2", indexId: "pi_1" } as never, 1)) as unknown as {
+      backend: string;
+      target: Record<string, unknown>;
+    };
+
+    expect(out.backend).toBe("cdp");
+    expect(out.target).toMatchObject({
+      kind: "pageBlock",
+      indexId: "pi_1",
+      blockId: "b2",
+      selector: ".chart",
+      label: "Revenue chart",
+      rect: { x: 40, y: 1200, width: 800, height: 450 }
+    });
+    expect(updateTab).not.toHaveBeenCalled();
+    expect(runStep).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the compatibility backend when CDP is disabled", async () => {
+    harness({ scrollHeight: 800, clientHeight: 800, clientWidth: 1000, scrollY: 0 });
+    const out = (await screenshot({} as never, 1)) as unknown as { backend: string };
+    expect(out.backend).toBe("visible-tab");
+  });
+
+  it("does not restore the old tab over a tab the user selected during capture", async () => {
+    harness({ scrollHeight: 800, clientHeight: 800, clientWidth: 1000, scrollY: 0 });
+    const query = vi.mocked(chrome.tabs.query);
+    query
+      .mockResolvedValueOnce([{ id: 2, windowId: 9, active: true }] as chrome.tabs.Tab[])
+      .mockResolvedValueOnce([{ id: 3, windowId: 9, active: true }] as chrome.tabs.Tab[]);
+
+    await screenshot({} as never, 1);
+
+    expect(updateTab.mock.calls).toEqual([[1, { active: true }]]);
+  });
 });
 
 describe("screenshot — fullPage", () => {

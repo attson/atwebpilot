@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CdpRecorder,
   attachCdp,
+  captureScreenshotWithCdp,
   detachCdp,
   evaluateWithCdp,
   getAttachedCdpRecorder,
@@ -188,6 +189,111 @@ describe("evaluateWithCdp", () => {
       code: "cdp_evaluation_failed",
       message: expect.stringContaining("Cannot access a chrome:// URL")
     });
+  });
+});
+
+describe("CDP screenshots", () => {
+  it("captures the CSS visual viewport with format and scale", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) => {
+      if (method === "Page.getLayoutMetrics") {
+        return {
+          cssVisualViewport: { pageX: 12, pageY: 34, clientWidth: 1000, clientHeight: 700 }
+        };
+      }
+      if (method === "Page.captureScreenshot") return { data: "QUJD" };
+      return {};
+    });
+
+    const out = await new CdpRecorder(1).captureScreenshot({ format: "jpeg", scale: 0.5 });
+
+    expect(out).toMatchObject({ data: "QUJD", mediaType: "image/jpeg", width: 1000, height: 700 });
+    expect(sendCommand).toHaveBeenCalledWith(
+      { tabId: 1 },
+      "Page.captureScreenshot",
+      {
+        format: "jpeg",
+        fromSurface: true,
+        captureBeyondViewport: false,
+        clip: { x: 12, y: 34, width: 1000, height: 700, scale: 0.5 }
+      }
+    );
+  });
+
+  it("captures the full CSS content without scrolling", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) => {
+      if (method === "Page.getLayoutMetrics") {
+        return { cssContentSize: { x: 0, y: 0, width: 1440, height: 9000 } };
+      }
+      if (method === "Page.captureScreenshot") return { data: "QUJD" };
+      return {};
+    });
+
+    const out = await new CdpRecorder(1).captureScreenshot({ fullPage: true, format: "png", scale: 1 });
+
+    expect(out).toMatchObject({ fullPage: true, width: 1440, height: 9000 });
+    expect(sendCommand).toHaveBeenCalledWith(
+      { tabId: 1 },
+      "Page.captureScreenshot",
+      expect.objectContaining({
+        captureBeyondViewport: true,
+        clip: { x: 0, y: 0, width: 1440, height: 9000, scale: 1 }
+      })
+    );
+    expect(sendCommand.mock.calls.map((call) => call[1])).not.toContain("Runtime.callFunctionOn");
+  });
+
+  it("clips a selector by page coordinates without scrolling or highlighting", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) => {
+      if (method === "Runtime.evaluate") {
+        return {
+          result: {
+            type: "object",
+            value: {
+              ok: true,
+              rect: { x: 210, y: 430, width: 320, height: 180 },
+              viewport: { width: 1280, height: 720 },
+              visible: false
+            }
+          }
+        };
+      }
+      if (method === "Page.captureScreenshot") return { data: "QUJD" };
+      return {};
+    });
+
+    const out = await new CdpRecorder(1).captureScreenshot({ selector: ".chart" });
+
+    expect(out.target).toEqual({
+      selector: ".chart",
+      rect: { x: 210, y: 430, width: 320, height: 180 },
+      viewport: { width: 1280, height: 720 },
+      visible: false
+    });
+    expect(sendCommand).toHaveBeenCalledWith(
+      { tabId: 1 },
+      "Page.captureScreenshot",
+      expect.objectContaining({
+        captureBeyondViewport: true,
+        clip: { x: 210, y: 430, width: 320, height: 180, scale: 1 }
+      })
+    );
+    const evaluateParams = sendCommand.mock.calls.find(
+      (call) => call[1] === "Runtime.evaluate"
+    )?.[2] as { expression?: string } | undefined;
+    const expression = String(evaluateParams?.expression);
+    expect(expression).toContain("getBoundingClientRect");
+    expect(expression).not.toContain("scrollIntoView");
+    expect(expression).not.toContain("outline");
+  });
+
+  it("does not request debugger permission when CDP is disabled", async () => {
+    const { chromeStub } = fakeChrome({ enabled: false });
+    await expect(captureScreenshotWithCdp(1, {})).resolves.toBeNull();
+    expect(chromeStub.debugger.attach).not.toHaveBeenCalled();
+    expect(chromeStub.permissions).not.toHaveProperty("request");
   });
 });
 

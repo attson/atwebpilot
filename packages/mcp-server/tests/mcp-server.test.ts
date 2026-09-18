@@ -31,7 +31,7 @@ describe("buildToolList", () => {
     expect(names).toContain("open_session");
     expect(names).toContain("browser_click");
     expect(names).not.toContain("browser_snapshotDOM");
-    expect(tools.length).toBe(1 + 4 + 1 + 32);
+    expect(tools.length).toBe(1 + 4 + 1 + 31);
     for (const t of tools) expect(t.inputSchema).toBeTruthy();
   });
 

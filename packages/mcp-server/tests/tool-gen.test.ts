@@ -100,10 +100,10 @@ describe("core mode", () => {
       "createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields",
       "clickByUid", "click", "fillByUid", "fillInput", "fillForm", "selectOption", "setCheckbox",
       "hover", "pressKey", "drag", "drop", "uploadFile",
-      "navigate", "listTabs", "openTab", "closeTab", "switchToTab", "resize", "scroll",
+      "navigate", "listTabs", "openTab", "closeTab", "resize", "scroll",
       "screenshot", "waitFor", "runJS", "consoleMessages", "networkRequests"
     ]) expect(core.has(n), n).toBe(true);
-    for (const n of ["downloadSpreadsheet", "httpRequest", "readStorage", "snapshotDOM", "searchHistory"]) {
+    for (const n of ["switchToTab", "downloadSpreadsheet", "httpRequest", "readStorage", "snapshotDOM", "searchHistory"]) {
       expect(core.has(n), n).toBe(false);
     }
   });
@@ -127,6 +127,12 @@ describe("mcp descriptions", () => {
     for (const t of tools) {
       expect(JSON.stringify({ d: t.description, s: t.inputSchema }), t.name).not.toMatch(/[一-鿿]/);
     }
+  });
+
+  it("warns that switchToTab is only for an explicit foreground request", () => {
+    const switcher = tools.find((t) => t.builtinTool === "switchToTab")!;
+    expect(switcher.description).toMatch(/only when the user explicitly asks/i);
+    expect(switcher.description).toMatch(/already operate on the session-bound tab/i);
   });
 });
 
@@ -208,6 +214,7 @@ describe("discovery catalog", () => {
     const cat = discoveryCatalog(full, core);
     expect(cat.length).toBe(full.length - core.size);
     expect(cat.map((c) => c.name)).toContain("browser_downloadSpreadsheet");
+    expect(cat).toContainEqual(expect.objectContaining({ name: "browser_switchToTab", group: "tabs" }));
     expect(cat.map((c) => c.name)).not.toContain("browser_click");
     const keys = cat.map((c) => `${c.group} ${c.name}`);
     expect(keys).toEqual([...keys].sort());

@@ -41,7 +41,7 @@ describe("supported_tools negotiation", () => {
   it("advertises the default (core) surface when no worker has connected yet", () => {
     // tools/list is routinely called before the browser attaches; answering
     // with nothing then would be worse than answering optimistically.
-    expect(browserNames(buildToolList(depsWith()))).toHaveLength(32);
+    expect(browserNames(buildToolList(depsWith()))).toHaveLength(31);
   });
 
   it("intersects against what the worker reports", () => {

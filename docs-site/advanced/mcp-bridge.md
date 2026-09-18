@@ -48,7 +48,7 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 |---|---|
 | `ATWEBPILOT_WS_PORT` | 固定端口。默认是自动选一个空闲端口并复用上次那个 |
 | `ATWEBPILOT_WS_TOKEN` | 要求扩展带 `bearer.<token>` 子协议 |
-| `ATWEBPILOT_MCP_TOOLS` | `core`（默认，32 个 + `browser_discoverTools` 按需发现其余）或 `full`（一开始全部 51 个） |
+| `ATWEBPILOT_MCP_TOOLS` | `core`（默认，31 个 + `browser_discoverTools` 按需发现其余）或 `full`（一开始全部 51 个） |
 
 ## Codex / Claude Code 可用的 MCP tools
 

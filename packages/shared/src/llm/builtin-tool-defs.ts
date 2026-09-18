@@ -534,7 +534,10 @@ export const TOOL_DEFS: LlmTool[] = [
   {
     name: "switchToTab",
     description: "[META] 把 Chrome 前台切到目标 tab。tabId 必须已在 attachedTabs 或当前 tab。",
-    mcp: { description: "Bring the session's tab to the foreground." },
+    mcp: {
+      description:
+        "Bring the session's tab and Chrome window to the foreground. Use only when the user explicitly asks to see that tab; all other browser tools already operate on the session-bound tab without this setup step."
+    },
     input_schema: {
       type: "object",
       properties: { tabId: { type: "integer" } },
@@ -548,7 +551,7 @@ export const TOOL_DEFS: LlmTool[] = [
       "[VISION] 截当前 tab 可见区域为 PNG（自动作为 image block 注入下轮）。用于视觉调试、看图回答、核对 page-index 证据。\n" +
       "如果已有 searchPageIndex/extractPageFields 返回的 blockId/indexId，优先传 {blockId,indexId}；工具会滚动并高亮该局部区域后截图。也可传 selector。",
     mcp: {
-      description: "PNG/JPEG of the visible viewport, returned as an image block. selector or blockId scrolls to and highlights that region first; fullPage stitches the whole page.",
+      description: "PNG/JPEG returned as an image block. With opt-in CDP enabled, captures viewport/fullPage/selector in the background without activating or scrolling the tab; compatibility mode may temporarily activate the tab.",
       params: { blockId: "page-index blockId to frame", indexId: "indexId that produced blockId", scale: "0.1–1; smaller saves tokens" }
     },
     input_schema: {
