@@ -28,6 +28,48 @@ import { registerCdpLookup, registerCdpResizer, setDegradedReason } from "./host
 
 const PROTOCOL = "1.3";
 
+export type CdpScreenshotOptions = {
+  format?: "png" | "jpeg";
+  scale?: number;
+  fullPage?: boolean;
+  selector?: string;
+};
+
+type ScreenshotRect = { x: number; y: number; width: number; height: number };
+
+export type CdpScreenshotResult = {
+  data: string;
+  mediaType: "image/png" | "image/jpeg";
+  width: number;
+  height: number;
+  fullPage?: true;
+  target?: {
+    selector: string;
+    rect: ScreenshotRect;
+    viewport: { width: number; height: number };
+    visible: boolean;
+  };
+};
+
+const MEASURE_SELECTOR_SOURCE = `
+const selector = ctx.selector;
+if (typeof selector !== "string" || !selector) return { ok: false, error: "selector_required" };
+const el = document.querySelector(selector);
+if (!el) return { ok: false, error: "selector_not_found", selector };
+const rect = el.getBoundingClientRect();
+return {
+  ok: true,
+  rect: {
+    x: rect.left + window.scrollX,
+    y: rect.top + window.scrollY,
+    width: rect.width,
+    height: rect.height
+  },
+  viewport: { width: window.innerWidth, height: window.innerHeight },
+  visible: rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth
+};
+`;
+
 export class CdpEvaluationError extends Error {
   constructor(
     readonly code: "cdp_disabled" | "cdp_attach_failed" | "cdp_evaluation_failed",
@@ -294,6 +336,77 @@ export class CdpRecorder implements PageRecorder {
     });
   }
 
+  async captureScreenshot(options: CdpScreenshotOptions): Promise<CdpScreenshotResult> {
+    const format = options.format === "jpeg" ? "jpeg" : "png";
+    const scale = clampScale(options.scale);
+    let clip: ScreenshotRect & { scale: number };
+    let target: CdpScreenshotResult["target"];
+
+    if (options.selector) {
+      const measured = await this.evaluate(MEASURE_SELECTOR_SOURCE, {
+        selector: options.selector
+      }) as unknown as {
+        ok?: boolean;
+        error?: string;
+        rect?: ScreenshotRect;
+        viewport?: { width: number; height: number };
+        visible?: boolean;
+      };
+      if (!measured.ok || !measured.rect || !measured.viewport) {
+        throw new Error(`screenshot: ${measured.error ?? "selector_measure_failed"}`);
+      }
+      assertCaptureRect(measured.rect);
+      clip = { ...measured.rect, scale };
+      target = {
+        selector: options.selector,
+        rect: measured.rect,
+        viewport: measured.viewport,
+        visible: measured.visible === true
+      };
+    } else {
+      type LayoutMetrics = {
+        cssVisualViewport?: { pageX: number; pageY: number; clientWidth: number; clientHeight: number };
+        visualViewport?: { pageX: number; pageY: number; clientWidth: number; clientHeight: number };
+        cssContentSize?: ScreenshotRect;
+        contentSize?: ScreenshotRect;
+      };
+      const metrics = await this.send<LayoutMetrics>("Page.getLayoutMetrics");
+      if (options.fullPage) {
+        const content = metrics.cssContentSize ?? metrics.contentSize;
+        if (!content) throw new Error("screenshot: CDP content metrics unavailable");
+        assertCaptureRect(content);
+        clip = { x: content.x, y: content.y, width: content.width, height: content.height, scale };
+      } else {
+        const viewport = metrics.cssVisualViewport ?? metrics.visualViewport;
+        if (!viewport) throw new Error("screenshot: CDP viewport metrics unavailable");
+        const rect = {
+          x: viewport.pageX,
+          y: viewport.pageY,
+          width: viewport.clientWidth,
+          height: viewport.clientHeight
+        };
+        assertCaptureRect(rect);
+        clip = { ...rect, scale };
+      }
+    }
+
+    const captured = await this.send<{ data?: string }>("Page.captureScreenshot", {
+      format,
+      fromSurface: true,
+      captureBeyondViewport: options.fullPage === true || target != null,
+      clip
+    });
+    if (!captured.data) throw new Error("screenshot: CDP returned no image data");
+    return {
+      data: captured.data,
+      mediaType: format === "jpeg" ? "image/jpeg" : "image/png",
+      width: clip.width,
+      height: clip.height,
+      ...(options.fullPage ? { fullPage: true as const } : {}),
+      ...(target ? { target } : {})
+    };
+  }
+
   async evaluate(source: string, args: Json): Promise<Json> {
     type EvaluateResponse = {
       result?: { type?: string; value?: unknown; description?: string };
@@ -366,6 +479,16 @@ export async function evaluateWithCdp(tabId: number, source: string, args: Json)
     );
   }
   return recorder.evaluate(source, args);
+}
+
+/** Uses the existing opt-in CDP setting and never prompts for permission. */
+export async function captureScreenshotWithCdp(
+  tabId: number,
+  options: CdpScreenshotOptions
+): Promise<CdpScreenshotResult | null> {
+  if (!(await cdpRecorderEnabled())) return null;
+  const recorder = getAttachedCdpRecorder(tabId) ?? (await attachCdp(tabId));
+  return recorder ? recorder.captureScreenshot(options) : null;
 }
 
 /** Returns null rather than throwing — a failed attach must degrade, not fail. */
@@ -459,6 +582,24 @@ function dialogKind(type: string): DialogEntry["kind"] {
   if (type === "confirm") return "confirm";
   if (type === "prompt") return "prompt";
   return "alert";
+}
+
+function clampScale(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 1;
+  return Math.max(0.1, Math.min(1, value));
+}
+
+function assertCaptureRect(rect: ScreenshotRect): void {
+  if (
+    !Number.isFinite(rect.x) ||
+    !Number.isFinite(rect.y) ||
+    !Number.isFinite(rect.width) ||
+    !Number.isFinite(rect.height) ||
+    rect.width <= 0 ||
+    rect.height <= 0
+  ) {
+    throw new Error("screenshot: target has no capturable area");
+  }
 }
 
 function renderRemoteObject(o: Record<string, unknown>): string {
