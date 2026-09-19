@@ -200,7 +200,14 @@ describe("image results", () => {
     coordinator.registerWorker(fakeWorker());
     const shot: Result = {
       type: "RESULT", nonce: "n", ts: 1, protocol_version: 1, req_id: "req_1", ok: true,
-      return: { data: "QUJD", media_type: "image/png", byteLen: 3 }
+      return: {
+        data: "QUJD",
+        media_type: "image/png",
+        byteLen: 3,
+        backend: "cdp",
+        width: 390,
+        height: 844
+      }
     };
     return staticDeps(coordinator, { exec: async () => shot } as any);
   }
@@ -212,6 +219,19 @@ describe("image results", () => {
     const r = await dispatchCall(d, "browser_screenshot", { session_id });
     expect(r.isError).toBeFalsy();
     expect(r.content[0]).toEqual({ type: "image", data: "QUJD", mimeType: "image/png" });
+  });
+
+  it("keeps compact screenshot metadata without duplicating image data", async () => {
+    const d = imageDeps();
+    const open = await dispatchCall(d, "open_session", { tab_id: "42" });
+    const session_id = JSON.parse(textOf(open)).session_id;
+    const r = await dispatchCall(d, "browser_screenshot", { session_id });
+
+    expect(r.content).toHaveLength(2);
+    expect(r.content[1].type).toBe("text");
+    const metadata = JSON.parse((r.content[1] as { type: "text"; text: string }).text);
+    expect(metadata).toEqual({ byteLen: 3, backend: "cdp", width: 390, height: 844 });
+    expect((r.content[1] as { type: "text"; text: string }).text).not.toContain("QUJD");
   });
 
   it("falls back to text when the payload is not an image", async () => {
@@ -262,6 +282,32 @@ describe("discovery over MCP", () => {
 
     const after = (await client.listTools()).tools.map((t) => t.name);
     expect(after).toContain("browser_downloadSpreadsheet");
+    await Promise.all([client.close(), server.close()]);
+  });
+
+  it("enableGroups adds a known group in one call and emits list_changed once", async () => {
+    const state = createToolState("core");
+    const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock: new FakeClock(0), idGen: new FakeIdGen() });
+    coordinator.registerWorker({ ...fakeWorker(), supported_tools: new Set(["searchBookmarks", "searchHistory"]) });
+    const d = staticDeps(coordinator, { exec: async () => okResult } as any);
+    const server = createMcpServer(d, state);
+    const client = new Client({ name: "t", version: "1" });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    const changes: number[] = [];
+    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => { changes.push(1); });
+    await Promise.all([server.connect(st), client.connect(ct)]);
+
+    const r = await client.callTool({ name: "browser_discoverTools", arguments: { enableGroups: ["browser-data"] } });
+    const body = JSON.parse((r.content as Array<{ text: string }>)[0].text);
+    expect(body.enabled.map((t: { name: string }) => t.name)).toEqual([
+      "browser_searchBookmarks",
+      "browser_searchHistory"
+    ]);
+    await vi.waitFor(() => expect(changes).toHaveLength(1));
+
+    const after = (await client.listTools()).tools.map((t) => t.name);
+    expect(after).toContain("browser_searchBookmarks");
+    expect(after).toContain("browser_searchHistory");
     await Promise.all([client.close(), server.close()]);
   });
 

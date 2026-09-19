@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "tsup",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "analyze:sessions": "tsx src/session-analysis/cli.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

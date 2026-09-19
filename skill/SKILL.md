@@ -35,7 +35,7 @@ All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
 | navigation / tabs | `navigate`（`action` 取 `back` / `forward` / `reload` / `goto`）, `listTabs`, `openTab`, `closeTab`, `resize`, `scroll` |
 | observation | `screenshot`, `waitFor`, `runJS`（static-scanned）, `consoleMessages`, `networkRequests` |
 
-**Discoverable — call `browser_discoverTools` first:**
+**Discoverable — enable directly with `browser_discoverTools`:**
 
 | Group | Tools |
 |---|---|
@@ -58,10 +58,13 @@ core — exporting a spreadsheet, calling an API with cookies, reading
 localStorage, inspecting a request body, searching history, debugging layout —
 do this, in order:
 
-1. `browser_discoverTools({})` → catalog of everything not yet advertised.
-2. `browser_discoverTools({ enable: ["browser_downloadSpreadsheet", ...] })` →
-   the tools join `tools/list` (a `tools/list_changed` notification is sent)
-   and the response carries their full schemas, so you can call them right away.
+1. If you know the tool, enable it directly with
+   `browser_discoverTools({ enable: ["browser_downloadSpreadsheet", ...] })`.
+   If you know only the group, use
+   `browser_discoverTools({ enableGroups: ["export"] })`.
+2. Call `browser_discoverTools({})` only when neither the tool nor group is
+   known. Enabled tools join `tools/list` (a `tools/list_changed` notification
+   is sent), and the response carries their full schemas for immediate use.
 
 **Do not** rebuild these capabilities with `runJS` (`fetch`, CSV blobs,
 `localStorage[...]`). It is slower, loses schema validation, and usually trips
@@ -73,7 +76,7 @@ prefer to pay the context cost once.
 ## Recommended flow
 
 1. **探查先于操作**：每次进入新页面，先 `getPageInfo` 确认位置，再 `takeSnapshot`（要点击/填表）或 `createPageIndex`（要读内容/抽字段）；`snapshotDOM` / `querySelector` 属于 legacy-dom 组，只在需要分析整页结构时通过 `browser_discoverTools` 启用。
-2. **小步快跑**：每次只动一个元素，验证 DOM 变化后再继续，避免连点连填触发反爬。
+2. **最少充分验证**：危险或不可逆操作保持单步；多个独立字段用 `fillForm`。工具已返回 `verified` 或明确后置状态时，不要再用 `runJS` 重复验证。
 3. **dangerous 工具会被人工审核**：调用前用 `extractText` 给用户看上下文，让审批更顺。
 4. **跑不动了就停下来问**：候选不唯一、缺关键信息、需要二次确认时，把问题写在回复里交给用户，不要瞎猜（MCP 会话没有 `askUser`）。
 5. **完成后给一个简洁的总结**：用户希望看到「做了 N 步，最终结果 X」，不希望看流水账。
@@ -91,6 +94,8 @@ prefer to pay the context cost once.
 - `pressKey`: `{ selector: 'input[name=q]', key: 'Enter' }` submits a form-less search; `{ key: 'Escape' }` closes a modal.
 - `navigate`: `{ action: 'back' }`, `{ action: 'goto', url: 'https://example.com/page' }`.
 - `switchToTab`: all tools already target the session-bound tab. Discover and call this only when the user explicitly asks to bring Chrome and that tab to the foreground; never use it as setup for click, wait, runJS, or screenshot.
+- `resize`: returns measured `actualViewport`, `devicePixelRatio`, and `verified`; do not follow it with a viewport-only `runJS` probe.
+- `screenshot`: the image block is followed by compact capture metadata (backend, dimensions and target when available); use that instead of probing the viewport again.
 - `httpRequest`: `{ url: '.../api/comments?page=2' }` (no cookies) vs `{ url, withCredentials: true }` (cookied, reviewed).
 - `consoleMessages`: `{ level: 'error', limit: 50 }`; incremental polling with `{ sinceId }`.
 - `networkRequestDetail`: arm bodies first with `recorderConfig({ bodies: true })` in main-world mode.

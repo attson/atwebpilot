@@ -132,18 +132,50 @@ describe("navigation", () => {
 
   it("compensates for browser chrome when resizing", async () => {
     const update = vi.fn(async () => undefined);
+    const executeScript = vi.fn()
+      .mockResolvedValueOnce([{ result: { iw: 1000, ih: 700, ow: 1016, oh: 790, dpr: 1 } }])
+      .mockResolvedValue([{ result: { iw: 1280, ih: 800, ow: 1296, oh: 890, dpr: 2 } }]);
     fakeChrome({
       scripting: {
-        executeScript: vi.fn(async () => [{ result: { iw: 1000, ih: 700, ow: 1016, oh: 790 } }])
+        executeScript
       },
       tabs: { get: vi.fn(async () => ({ windowId: 9 })) },
       windows: { update }
     });
     const out = (await META_TOOLS.resize({ width: 1280, height: 800 } as never, 1)) as unknown as {
       chromeInset: { w: number; h: number };
+      actualViewport: { width: number; height: number };
+      devicePixelRatio: number;
+      verified: boolean;
     };
     expect(update).toHaveBeenCalledWith(9, { width: 1280 + 16, height: 800 + 90 });
     expect(out.chromeInset).toEqual({ w: 16, h: 90 });
+    expect(out.actualViewport).toEqual({ width: 1280, height: 800 });
+    expect(out.devicePixelRatio).toBe(2);
+    expect(out.verified).toBe(true);
+  });
+
+  it("reports a viewport mismatch instead of pretending the requested size applied", async () => {
+    vi.useFakeTimers();
+    try {
+      fakeChrome({
+        scripting: {
+          executeScript: vi.fn(async () => [{ result: { iw: 1920, ih: 887, ow: 1920, oh: 1008, dpr: 1 } }])
+        },
+        tabs: { get: vi.fn(async () => ({ windowId: 9 })) },
+        windows: { update: vi.fn(async () => undefined) }
+      });
+      const pending = META_TOOLS.resize({ width: 390, height: 844 } as never, 1) as Promise<unknown>;
+      await vi.runAllTimersAsync();
+      const out = await pending as {
+        actualViewport: { width: number; height: number };
+        verified: boolean;
+      };
+      expect(out.actualViewport).toEqual({ width: 1920, height: 887 });
+      expect(out.verified).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("requires both dimensions", async () => {

@@ -984,7 +984,7 @@ export const TOOL_DEFS: LlmTool[] = [
     name: "resize",
     description:
       "[FLOW] 把视口调整到指定尺寸。main-world 档量取 outerWidth-innerWidth 反推浏览器边框后改窗口外框，视口精确但**用户的窗口会真的变大小**；cdp 档用 Emulation 覆盖设备尺寸，不动真实窗口。",
-    mcp: { description: "Resize the viewport to width×height." },
+    mcp: { description: "Resize the viewport to width×height and return the measured actualViewport plus verified status. Do not re-measure with runJS." },
     input_schema: {
       type: "object",
       properties: {

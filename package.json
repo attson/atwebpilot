@@ -10,7 +10,8 @@
     "preview": "pnpm --filter @atwebpilot/extension preview",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:watch": "pnpm --filter @atwebpilot/extension test:watch"
+    "test:watch": "pnpm --filter @atwebpilot/extension test:watch",
+    "analyze:sessions": "pnpm --filter @attson/atwebpilot-mcp analyze:sessions"
   },
   "packageManager": "pnpm@9.0.0"
 }
