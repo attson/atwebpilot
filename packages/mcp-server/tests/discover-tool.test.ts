@@ -6,11 +6,12 @@ const all = generateBrowserTools("full");
 const coreNames = () => new Set(generateBrowserTools("core").map((t) => t.name));
 
 describe("browser_discoverTools", () => {
-  it("has an English description and an optional enable array", () => {
+  it("has an English description and optional tool/group enable arrays", () => {
     expect(DISCOVER_TOOL.name).toBe("browser_discoverTools");
     expect(DISCOVER_TOOL.description).not.toMatch(/[一-鿿]/);
     const props = DISCOVER_TOOL.inputSchema.properties as Record<string, { type: string }>;
     expect(props.enable.type).toBe("array");
+    expect(props.enableGroups.type).toBe("array");
     expect(DISCOVER_TOOL.inputSchema.required ?? []).not.toContain("enable");
   });
 
@@ -47,6 +48,56 @@ describe("browser_discoverTools", () => {
     const advertised = coreNames();
     const r = handleDiscover({ all, advertised, args: { enable: ["downloadSpreadsheet"] } });
     expect(r.enabled!.map((t) => t.name)).toEqual(["browser_downloadSpreadsheet"]);
+  });
+
+  it("preserves bare names when reporting unknown explicit tools", () => {
+    const advertised = coreNames();
+    const r = handleDiscover({ all, advertised, args: { enable: ["nope"] } });
+    expect(r.unknown).toEqual(["nope"]);
+  });
+
+  it("enables a known group directly and deduplicates explicit names", () => {
+    const advertised = coreNames();
+    const r = handleDiscover({
+      all,
+      advertised,
+      args: {
+        enableGroups: ["browser-data"],
+        enable: ["browser_searchHistory"]
+      }
+    });
+    expect(r.enabled!.map((t) => t.name)).toEqual([
+      "browser_searchHistory",
+      "browser_searchBookmarks"
+    ]);
+    expect(r.unknownGroups).toBeUndefined();
+  });
+
+  it("reports unknown groups without blocking valid groups", () => {
+    const advertised = coreNames();
+    const r = handleDiscover({
+      all,
+      advertised,
+      args: { enableGroups: ["browser-data", "nope"] }
+    });
+    expect(r.enabled!.map((t) => t.name)).toEqual([
+      "browser_searchBookmarks",
+      "browser_searchHistory"
+    ]);
+    expect(r.unknownGroups).toEqual(["nope"]);
+    expect(r.changed).toBe(true);
+  });
+
+  it("applies worker support filtering to group activation", () => {
+    const advertised = coreNames();
+    const r = handleDiscover({
+      all,
+      advertised,
+      args: { enableGroups: ["browser-data"] },
+      supported: new Set(["searchBookmarks"])
+    });
+    expect(r.enabled!.map((t) => t.name)).toEqual(["browser_searchBookmarks"]);
+    expect(r.unsupported).toEqual(["browser_searchHistory"]);
   });
 
   it("catalog omits tools the worker cannot run", () => {

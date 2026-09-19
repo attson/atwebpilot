@@ -41,6 +41,8 @@
 | 35 | URL 注入策略 | [`2026-08-19-url-injection-policy-design.md`](./2026-08-19-url-injection-policy-design.md) | 默认与逐 hostname 的禁用/只读/操作/诊断注入级别；网页助手独立继承；惰性 bootstrap 与按需 MAIN-world recorder；配对错误状态分流 |
 | 36 | 会话标签分组 | [`2026-08-20-session-tab-groups-design.md`](./2026-08-20-session-tab-groups-design.md) | 按逻辑 session id 和 window 创建原生 Chrome tab group；区分侧栏/MCP/远程来源；结束后恢复原分组；用户手动移出后不拉回；MV3 session 状态恢复 |
 | 37 | 无干扰 MCP 截图 | [`2026-09-18-non-intrusive-screenshot-design.md`](./2026-09-18-non-intrusive-screenshot-design.md) | `switchToTab` 退出默认 core；CDP `Page.captureScreenshot` 后台截图；visible-tab 兼容回退不覆盖用户中途切 tab |
+| 38 | MCP 调用轮次优化 | [`2026-09-18-mcp-round-efficiency-design.md`](./2026-09-18-mcp-round-efficiency-design.md) | screenshot 保留元数据；resize 返回实测 viewport；discoverTools 可直接按组启用；定义 opt-in trace 后续方向 |
+| 39 | 本地 AI 会话效率分析 | [`2026-09-19-local-ai-session-analyzer-design.md`](./2026-09-19-local-ai-session-analyzer-design.md) | 只读扫描 Claude/Codex JSONL；脱敏聚合 AtWebPilot 调用；识别重复验证、固定等待与可合并步骤 |
 
 ## 不在 spec 里的细节修复
 

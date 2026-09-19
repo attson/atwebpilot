@@ -5,6 +5,51 @@ function asObj(raw: Json): Record<string, unknown> {
   return (raw ?? {}) as Record<string, unknown>;
 }
 
+type ViewportMetrics = {
+  iw: number;
+  ih: number;
+  ow: number;
+  oh: number;
+  dpr: number;
+};
+
+async function measureViewport(tabId: number): Promise<ViewportMetrics> {
+  const [probe] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => ({
+      iw: window.innerWidth,
+      ih: window.innerHeight,
+      ow: window.outerWidth,
+      oh: window.outerHeight,
+      dpr: window.devicePixelRatio
+    })
+  });
+  const metrics = probe?.result as ViewportMetrics | undefined;
+  if (!metrics) throw new Error("resize: could not measure the viewport");
+  return metrics;
+}
+
+async function measureSettledViewport(
+  tabId: number,
+  width: number,
+  height: number
+): Promise<ViewportMetrics> {
+  let latest = await measureViewport(tabId);
+  for (let attempt = 0; attempt < 4 && (latest.iw !== width || latest.ih !== height); attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    latest = await measureViewport(tabId);
+  }
+  return latest;
+}
+
+function verifiedViewportResult(metrics: ViewportMetrics, width: number, height: number) {
+  return {
+    actualViewport: { width: metrics.iw, height: metrics.ih },
+    devicePixelRatio: metrics.dpr,
+    verified: metrics.iw === width && metrics.ih === height
+  };
+}
+
 /**
  * History navigation. Running off the end of the history is an ordinary
  * outcome, not a failure — an agent walking back through pages should get a
@@ -48,20 +93,17 @@ export async function resize(raw: Json, tabId: number): Promise<Json> {
   const viaCdp = getCdpResizer(tabId);
   if (viaCdp) {
     await viaCdp(width, height);
-    return { ok: true, width, height, backend: "cdp" } as unknown as Json;
+    const actual = await measureSettledViewport(tabId, width, height);
+    return {
+      ok: true,
+      width,
+      height,
+      backend: "cdp",
+      ...verifiedViewportResult(actual, width, height)
+    } as unknown as Json;
   }
 
-  const [probe] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: () => ({
-      iw: window.innerWidth,
-      ih: window.innerHeight,
-      ow: window.outerWidth,
-      oh: window.outerHeight
-    })
-  });
-  const m = probe?.result as { iw: number; ih: number; ow: number; oh: number } | undefined;
-  if (!m) throw new Error("resize: could not measure the viewport");
+  const m = await measureViewport(tabId);
 
   const tab = await chrome.tabs.get(tabId);
   if (tab.windowId == null) throw new Error("resize: tab has no window");
@@ -72,12 +114,14 @@ export async function resize(raw: Json, tabId: number): Promise<Json> {
     width: width + chromeW,
     height: height + chromeH
   });
+  const actual = await measureSettledViewport(tabId, width, height);
 
   return {
     ok: true,
     width,
     height,
     backend: "main-world",
-    chromeInset: { w: chromeW, h: chromeH }
+    chromeInset: { w: chromeW, h: chromeH },
+    ...verifiedViewportResult(actual, width, height)
   } as unknown as Json;
 }

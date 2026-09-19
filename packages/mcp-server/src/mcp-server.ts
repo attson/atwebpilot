@@ -84,10 +84,15 @@ const ok = (data: unknown): CallResult => ({
  */
 function toolResult(gen: GeneratedTool, data: unknown): CallResult {
   if (gen.resultKind !== "image") return ok(data);
-  const d = (data ?? {}) as { data?: unknown; media_type?: unknown };
+  const d = (data ?? {}) as Record<string, unknown>;
   if (typeof d.data !== "string") return ok(data);
   const mimeType = typeof d.media_type === "string" ? d.media_type : "image/png";
-  return { content: [{ type: "image", data: d.data, mimeType }] };
+  const { data: imageData, media_type: _mediaType, ...metadata } = d;
+  const content: ContentBlock[] = [{ type: "image", data: imageData as string, mimeType }];
+  if (Object.keys(metadata).length > 0) {
+    content.push({ type: "text", text: JSON.stringify(metadata) });
+  }
+  return { content };
 }
 const fail = (message: string): CallResult => ({ content: [{ type: "text", text: message }], isError: true });
 

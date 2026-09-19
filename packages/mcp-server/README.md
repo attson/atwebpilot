@@ -49,7 +49,7 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 ## 工具面
 
 - 控制面 4 个：`list_tabs / open_session / close_session / get_quota`
-- 发现 1 个：`browser_discoverTools` —— 不带参数返回未发布工具目录（按 `export / network / storage / browser-data / inspect / legacy-dom / form / tabs` 分组）；带 `enable: [...]` 把它们加进本进程的 `tools/list`（发送 `tools/list_changed`），并直接返回完整 schema。
+- 发现 1 个：`browser_discoverTools` —— 已知工具时直接传 `enable: [...]`，已知分组时直接传 `enableGroups: ["export", ...]`；只有两者都未知时才不带参数读取目录。启用后会加入本进程的 `tools/list`（发送 `tools/list_changed`），并直接返回完整 schema。
 - 执行面默认 **core 31 个** `browser_*`：浏览 / 采集 / 填表 / 导航 / 截图 闭环所需的工具。其余 20 个由 AI 按需 `discoverTools` 拉取，用户不用配置。
 - 不暴露 `askUser`（MCP 会话没有人在侧边栏应答）和 `attachTab` / `detachTab`（目标 tab 已由 `open_session` 绑定）。
 
@@ -69,6 +69,20 @@ hover / uploadFile / scroll / waitFor`）；`browser_storage` 也不会列出，
 | `full` | 一开始就全部列出（51 个），适合不想让 AI 多一步发现的用户 |
 
 无法识别的值（包括已移除的 `parity`）按 `core` 处理，并往 stderr 打一条提示。
+
+## 本地会话效率分析
+
+在仓库根目录运行：
+
+```bash
+pnpm analyze:sessions
+pnpm analyze:sessions -- --since 7d --clients claude --format json
+```
+
+分析器只读扫描 `~/.claude/projects` 与 `~/.codex/sessions` 中最近 30 天的
+JSONL，识别真实 AtWebPilot 工具调用及重复验证、固定等待、重复截图、可批量填表等
+模式。输出只包含聚合计数、参数字段名与不可逆指纹；不会输出或保存 prompt、参数值、
+工具结果正文、凭证或绝对会话路径。使用 `--help` 查看目录覆盖等选项。
 
 ### 从 0.0.70 及更早版本迁移
 

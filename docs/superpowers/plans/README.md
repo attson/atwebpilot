@@ -22,6 +22,8 @@
 | 16 | [`2026-06-06-atwebpilot-rename.md`](./2026-06-06-atwebpilot-rename.md) | 7 | 0 (rename only) | ~492 |
 | 17 | [`2026-06-07-mcp-publish.md`](./2026-06-07-mcp-publish.md) | 9 | 0 (publish only) | ~492 |
 | 18 | [`2026-09-18-non-intrusive-screenshot.md`](./2026-09-18-non-intrusive-screenshot.md) | 4 | + focused MCP/CDP capture tests | current |
+| 19 | [`2026-09-18-mcp-round-efficiency.md`](./2026-09-18-mcp-round-efficiency.md) | 6 | +7 focused MCP/extension tests | current |
+| 20 | [`2026-09-19-local-ai-session-analyzer.md`](./2026-09-19-local-ai-session-analyzer.md) | 8 | synthetic adapter/analyzer/CLI tests | current |
 
 各 plan 的 task 严格 TDD：写失败测试 → 实现 → 验证通过 → commit。每 task 一组 commit；plan 内的 commit 加起来构成一次完整 feature。
 
