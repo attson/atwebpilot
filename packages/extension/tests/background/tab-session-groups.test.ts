@@ -37,6 +37,10 @@ function harness(seed: Array<{ id: number; windowId: number; index: number; grou
       if (!group) throw new Error("group missing");
       return group as chrome.tabGroups.TabGroup;
     }),
+    queryGroups: vi.fn(async () => [...groups.values()] as chrome.tabGroups.TabGroup[]),
+    queryTabs: vi.fn(async (query: chrome.tabs.QueryInfo) =>
+      [...tabs.values()].filter((tab) => query.groupId == null || tab.groupId === query.groupId) as chrome.tabs.Tab[]
+    ),
     updateGroup: vi.fn(async (groupId: number, update: chrome.tabGroups.UpdateProperties) => {
       const group = groups.get(groupId);
       if (!group) throw new Error("group missing");
@@ -107,6 +111,39 @@ describe("TabSessionGroupManager", () => {
     await h.manager.claim({ sessionId: "s1", tabId: 1, source: "local" });
     await h.manager.setStatus("s1", "awaiting");
     expect([...h.groups.values()][0].title).toContain("等待确认");
+  });
+
+  it("releases only claims from the requested source", async () => {
+    const h = harness([
+      { id: 1, windowId: 7, index: 0 },
+      { id: 2, windowId: 7, index: 1 }
+    ]);
+    await h.manager.claim({ sessionId: "mcp-s1", tabId: 1, source: "mcp" });
+    await h.manager.claim({ sessionId: "local-s1", tabId: 2, source: "local" });
+
+    await h.manager.releaseBySource("mcp");
+
+    expect(h.tabs.get(1)?.groupId).toBe(-1);
+    expect(h.tabs.get(2)?.groupId).not.toBe(-1);
+    expect(h.manager.snapshot().claims).toEqual([
+      expect.objectContaining({ sessionId: "local-s1", tabId: 2 })
+    ]);
+  });
+
+  it("explicit cleanup ungroups branded orphan groups without closing tabs", async () => {
+    const h = harness([{ id: 1, windowId: 7, index: 0, groupId: 55 }]);
+    h.groups.set(55, {
+      id: 55,
+      windowId: 7,
+      title: "AtWebPilot · MCP · stale1",
+      color: "green"
+    });
+
+    const cleanedTabs = await h.manager.cleanupBySource("mcp");
+
+    expect(cleanedTabs).toBe(1);
+    expect(h.tabs.has(1)).toBe(true);
+    expect(h.tabs.get(1)?.groupId).toBe(-1);
   });
 
   it("serializes a session release behind an in-flight claim", async () => {

@@ -112,6 +112,25 @@ describe("CoordinatorPool", () => {
     expect(FakeWS.instances[0].readyState).toBe(FakeWS.CLOSED);
   });
 
+  it("preserves the caller status callback when disconnecting", async () => {
+    const onStatusChange = vi.fn();
+    const pool = new CoordinatorPool({
+      clientOptions: () => ({
+        token: "t",
+        worker_id: "w1",
+        savedToolsProvider: async () => [],
+        labelsProvider: async () => [],
+        onStatusChange
+      })
+    });
+    await pool.addFromPairing(payload());
+    onStatusChange.mockClear();
+
+    await pool.remove("sess_1");
+
+    expect(onStatusChange).toHaveBeenCalledWith("disconnected");
+  });
+
   it("removing an unknown session is a no-op", async () => {
     const pool = makePool();
     await expect(pool.remove("nope")).resolves.toBeUndefined();

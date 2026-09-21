@@ -65,6 +65,7 @@ export function CoordinatorSettingsPage() {
   const [cdpEnabled, setCdpEnabled] = useState(false);
   const [sessions, setSessions] = useState<PoolEntry[]>([]);
   const [trusted, setTrusted] = useState<TrustRecord[]>([]);
+  const [cleaningGroups, setCleaningGroups] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -290,7 +291,31 @@ export function CoordinatorSettingsPage() {
       </label>
 
       <section className="border-t pt-3">
-        <h3 className="text-sm font-medium mb-1">已接入的会话</h3>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">已接入的会话</h3>
+          <button
+            type="button"
+            className="text-xs text-gray-600 underline disabled:opacity-50"
+            disabled={cleaningGroups}
+            title="恢复或取消 AtWebPilot 创建的 MCP 标签分组，不会关闭标签页"
+            onClick={() => {
+              setCleaningGroups(true);
+              void chrome.runtime
+                .sendMessage({ type: "pairing.cleanupGroups" })
+                .then((result: { ok?: boolean; cleanedTabs?: number; error?: string } | undefined) => {
+                  setSavedMsg(
+                    result?.ok
+                      ? `已取消 ${result.cleanedTabs ?? 0} 个标签页的 MCP 分组，标签页保持打开`
+                      : result?.error ?? "清理失败"
+                  );
+                })
+                .catch((error: unknown) => setSavedMsg(`清理失败：${String(error)}`))
+                .finally(() => setCleaningGroups(false));
+            }}
+          >
+            {cleaningGroups ? "清理中…" : "取消所有 MCP 分组"}
+          </button>
+        </div>
         {sessions.length === 0 ? (
           <p className="text-xs text-gray-500">
             还没有会话接入。在 Claude Code 里让 AI 操作网页时，会自动打开一个配对页请你确认。

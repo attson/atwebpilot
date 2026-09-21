@@ -24,6 +24,7 @@ export type EnsureDeps = {
 };
 
 const DEFAULT_WORKER_WAIT_TIMEOUT_MS = 90_000;
+const SESSION_SWEEP_INTERVAL_MS = 30_000;
 
 /**
  * Binds the websocket port on first use rather than at startup.
@@ -40,6 +41,7 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
   let opening: Promise<void> | null = null;
   let hubIsClosed = false;
   let pendingDenial = false;
+  let sessionSweepTimer: ReturnType<typeof setInterval> | null = null;
   let workerWait: {
     promise: Promise<string>;
     resolve: (workerId: string) => void;
@@ -86,6 +88,10 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
 
   function hubClosed(): void {
     hubIsClosed = true;
+    if (sessionSweepTimer) {
+      clearInterval(sessionSweepTimer);
+      sessionSweepTimer = null;
+    }
     if (workerWait) {
       finishWorkerWait({ error: new Error("浏览器配对服务已关闭。") });
     }
@@ -122,6 +128,8 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
 
     saveLastPort(port, d.identityDir);
     const coordinator = new Coordinator({ hub, clock: d.clock, idGen: d.idGen });
+    sessionSweepTimer = setInterval(() => coordinator.tick(), SESSION_SWEEP_INTERVAL_MS);
+    sessionSweepTimer.unref?.();
     installWire(hub, coordinator, d.clock, () => notifyWorkerReady(coordinator));
     pairUrlValue = `http://127.0.0.1:${port}/pair`;
     return { coordinator, hub, port };
