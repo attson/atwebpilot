@@ -180,6 +180,34 @@ describe("CoordinatorSettingsPage", () => {
     });
   });
 
+  it("cleans MCP groups without closing tabs", async () => {
+    const chromeMock = fakeChromeStorage();
+    chromeMock.runtime.sendMessage.mockImplementation(async (message: unknown) => {
+      if ((message as { type?: string }).type === "pairing.cleanupGroups") {
+        return { ok: true, cleanedTabs: 3 };
+      }
+      return { sessions: [] };
+    });
+    vi.stubGlobal("chrome", chromeMock);
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+
+    const cleanupButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("取消所有 MCP 分组")
+    ) as HTMLButtonElement;
+    await act(async () => {
+      cleanupButton.click();
+    });
+    await flushAsync();
+
+    expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "pairing.cleanupGroups"
+    });
+    expect(container.textContent).toContain("已取消 3 个标签页的 MCP 分组，标签页保持打开");
+  });
+
   it("does not show a stale connected runtime status as live", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-07T12:00:00Z"));

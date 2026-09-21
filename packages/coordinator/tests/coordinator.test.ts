@@ -47,7 +47,7 @@ function makeWorker(id: string, overrides: Partial<Worker> = {}): Worker {
 
 describe("Coordinator happy path", () => {
   it("worker register → open session → list tools → call submitForm → close", () => {
-    const { coord } = newCoord();
+    const { coord, hub } = newCoord();
     coord.registerWorker(makeWorker("w1"));
 
     const session = coord.openSession({
@@ -71,8 +71,13 @@ describe("Coordinator happy path", () => {
     if (validate.ok) coord.recordCall(session.id, validate.dangerous);
     expect(coord.sessions.get(session.id)?.dangerous_count).toBe(1);
 
+    vi.mocked(hub.send).mockClear();
     coord.closeSession(session.id);
     expect(coord.sessions.get(session.id)?.state).toBe("closed");
+    expect(hub.send).toHaveBeenCalledWith("w1", expect.objectContaining({
+      type: "CLOSE_SESSION",
+      session_id: session.id
+    }));
   });
 });
 
@@ -101,7 +106,7 @@ describe("Coordinator denials", () => {
 
 describe("Coordinator periodic tick", () => {
   it("expires idle sessions", () => {
-    const { coord, clock } = newCoord();
+    const { coord, clock, hub } = newCoord();
     coord.registerWorker(makeWorker("w1"));
     const session = coord.openSession({
       ai_client_fingerprint: "ai-1",
@@ -109,10 +114,15 @@ describe("Coordinator periodic tick", () => {
       tab_id: "t1",
       scope: new Set([])
     });
+    vi.mocked(hub.send).mockClear();
     clock.tick(SESSION_IDLE_TIMEOUT_MS + 1);
     const { expired_sessions } = coord.tick();
     expect(expired_sessions).toContain(session.id);
     expect(coord.sessions.get(session.id)?.state).toBe("expired");
+    expect(hub.send).toHaveBeenCalledWith("w1", expect.objectContaining({
+      type: "CLOSE_SESSION",
+      session_id: session.id
+    }));
   });
 });
 

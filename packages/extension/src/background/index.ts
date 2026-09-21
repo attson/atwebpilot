@@ -299,6 +299,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({ sessions: pool ? pool.list() : [] });
     return false;
   }
+  if (m?.type === "pairing.cleanupGroups") {
+    void tabSessionGroups
+      .cleanupBySource("mcp")
+      .then((cleanedTabs) => sendResponse({ ok: true, cleanedTabs }))
+      .catch((error: unknown) => sendResponse({ ok: false, error: String(error) }));
+    return true;
+  }
   if (m?.type === "pairing.disconnect" && typeof m.sessionId === "string") {
     void ensurePool().remove(m.sessionId).then(() => sendResponse({ ok: true }));
     return true;

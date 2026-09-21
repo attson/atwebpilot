@@ -27,6 +27,8 @@ type Deps = {
   ungroupTabs(tabIds: number | number[]): Promise<void>;
   moveTab(tabId: number, move: chrome.tabs.MoveProperties): Promise<chrome.tabs.Tab | chrome.tabs.Tab[]>;
   getGroup(groupId: number): Promise<chrome.tabGroups.TabGroup>;
+  queryGroups(query: chrome.tabGroups.QueryInfo): Promise<chrome.tabGroups.TabGroup[]>;
+  queryTabs(query: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>;
   updateGroup(groupId: number, update: chrome.tabGroups.UpdateProperties): Promise<chrome.tabGroups.TabGroup>;
   load(): Promise<PersistedState | undefined>;
   save(state: PersistedState): Promise<void>;
@@ -126,6 +128,45 @@ export class TabSessionGroupManager {
 
   releaseSession(sessionId: string): Promise<void> {
     return this.enqueue(() => this.releaseSessionNow(sessionId));
+  }
+
+  releaseBySource(source: TabSessionSource): Promise<void> {
+    return this.enqueue(async () => {
+      const sessionIds = new Set(
+        [...this.claims.values()]
+          .filter((claim) => claim.source === source)
+          .map((claim) => claim.sessionId)
+      );
+      for (const sessionId of sessionIds) await this.releaseSessionNow(sessionId);
+    });
+  }
+
+  /** Explicit user cleanup, including branded groups whose persisted claim was lost. */
+  cleanupBySource(source: TabSessionSource): Promise<number> {
+    return this.enqueue(async () => {
+      const trackedTabIds = [...this.claims.values()]
+        .filter((claim) => claim.source === source)
+        .map((claim) => claim.tabId);
+      const sessionIds = new Set(
+        [...this.claims.values()]
+          .filter((claim) => claim.source === source)
+          .map((claim) => claim.sessionId)
+      );
+      for (const sessionId of sessionIds) await this.releaseSessionNow(sessionId);
+
+      const cleaned = new Set(trackedTabIds);
+      const prefix = `AtWebPilot · ${sourceLabel(source)} ·`;
+      const groups = await this.deps.queryGroups({});
+      for (const group of groups) {
+        if (!group.title?.startsWith(prefix)) continue;
+        const tabs = await this.deps.queryTabs({ groupId: group.id });
+        const tabIds = tabs.flatMap((tab) => tab.id == null ? [] : [tab.id]);
+        if (tabIds.length === 0) continue;
+        await this.deps.ungroupTabs(tabIds);
+        for (const tabId of tabIds) cleaned.add(tabId);
+      }
+      return cleaned.size;
+    });
   }
 
   private async releaseSessionNow(sessionId: string): Promise<void> {
@@ -235,18 +276,18 @@ export class TabSessionGroupManager {
     return this.deps.save(this.snapshot());
   }
 
-  private enqueue(operation: () => Promise<void>): Promise<void> {
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const run = this.operations.then(
       async () => {
         await this.ready;
-        await operation();
+        return operation();
       },
       async () => {
         await this.ready;
-        await operation();
+        return operation();
       }
     );
-    this.operations = run.catch(() => undefined);
+    this.operations = run.then(() => undefined, () => undefined);
     return run;
   }
 }
@@ -278,6 +319,8 @@ function chromeDeps(): Deps {
     ungroupTabs: (tabIds) => chrome.tabs.ungroup(tabIds),
     moveTab: (tabId, move) => chrome.tabs.move(tabId, move),
     getGroup: (groupId) => chrome.tabGroups.get(groupId),
+    queryGroups: (query) => chrome.tabGroups.query(query),
+    queryTabs: (query) => chrome.tabs.query(query),
     updateGroup: (groupId, update) => chrome.tabGroups.update(groupId, update),
     load: async () => (await chrome.storage.session.get([STORAGE_KEY]))[STORAGE_KEY] as PersistedState | undefined,
     save: (state) => chrome.storage.session.set({ [STORAGE_KEY]: state })

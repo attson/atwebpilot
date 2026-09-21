@@ -69,10 +69,12 @@ export class CoordinatorPool {
   async add(meta: Omit<PoolEntry, "status" | "failures">): Promise<void> {
     if (this.entries.has(meta.sessionId)) return;
 
+    const sharedOptions = this.deps.clientOptions(meta.endpoint, meta.sessionId);
     const client = new CoordinatorClient({
-      ...this.deps.clientOptions(meta.endpoint, meta.sessionId),
+      ...sharedOptions,
       ws_url: meta.endpoint,
       onStatusChange: (status) => {
+        sharedOptions.onStatusChange?.(status);
         const e = this.entries.get(meta.sessionId);
         if (!e) return;
         // Dormancy outranks a plain "disconnected": it means nobody is coming
@@ -82,6 +84,7 @@ export class CoordinatorPool {
         this.changed();
       },
       onDormant: () => {
+        sharedOptions.onDormant?.();
         const e = this.entries.get(meta.sessionId);
         if (!e) return;
         e.status = "dormant";

@@ -82,7 +82,9 @@ export class Coordinator {
   }
 
   closeSession(id: string): void {
+    const session = this.sessions.get(id);
     this.sessions.close(id);
+    if (session) this.notifySessionClosed(session);
   }
 
   // === Tool calls ===
@@ -112,6 +114,24 @@ export class Coordinator {
   // === Periodic housekeeping ===
   tick(): { expired_sessions: string[] } {
     const expired_sessions = this.sessions.tick();
+    for (const id of expired_sessions) {
+      const session = this.sessions.get(id);
+      if (session) this.notifySessionClosed(session);
+    }
     return { expired_sessions };
+  }
+
+  private notifySessionClosed(session: Session): void {
+    void this.hub
+      .send(session.worker_id, {
+        type: "CLOSE_SESSION",
+        nonce: this.idGen.next("nonce"),
+        ts: this.clock.now(),
+        protocol_version: PROTOCOL_VERSION,
+        session_id: session.id
+      })
+      .catch(() => {
+        // A disconnected worker releases all of its claims on the extension side.
+      });
   }
 }
