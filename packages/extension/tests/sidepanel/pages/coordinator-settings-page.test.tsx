@@ -42,9 +42,10 @@ function fakeChromeStorage(initial: Record<string, unknown> = {}) {
       for (const fn of listeners) fn(changes, "local");
     })
   };
+  const sendMessage = vi.fn(async (_message?: unknown): Promise<unknown> => ({ sessions: [] }));
   return {
     // Plan 33: the page polls the worker for connected sessions.
-    runtime: { sendMessage: vi.fn(async () => ({ sessions: [] })) },
+    runtime: { sendMessage },
     permissions: { contains: vi.fn(async () => false) },
     storage: {
       local,
@@ -182,7 +183,7 @@ describe("CoordinatorSettingsPage", () => {
 
   it("cleans MCP groups without closing tabs", async () => {
     const chromeMock = fakeChromeStorage();
-    chromeMock.runtime.sendMessage.mockImplementation(async (message: unknown) => {
+    chromeMock.runtime.sendMessage.mockImplementation(async (message?: unknown) => {
       if ((message as { type?: string }).type === "pairing.cleanupGroups") {
         return { ok: true, cleanedTabs: 3 };
       }
