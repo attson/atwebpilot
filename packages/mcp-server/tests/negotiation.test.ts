@@ -38,10 +38,8 @@ const browserNames = (list: Array<{ name: string }>) =>
   list.map((t) => t.name).filter((n) => n.startsWith("browser_") && n !== "browser_discoverTools");
 
 describe("supported_tools negotiation", () => {
-  it("advertises the default (core) surface when no worker has connected yet", () => {
-    // tools/list is routinely called before the browser attaches; answering
-    // with nothing then would be worse than answering optimistically.
-    expect(browserNames(buildToolList(depsWith()))).toHaveLength(31);
+  it("keeps browser schemas out of tools/list until a worker has connected", () => {
+    expect(browserNames(buildToolList(depsWith()))).toHaveLength(0);
   });
 
   it("intersects against what the worker reports", () => {
@@ -58,6 +56,7 @@ describe("supported_tools negotiation", () => {
     const names = buildToolList(depsWith(worker(["click"]))).map((t) => t.name);
     for (const n of [
       "atwebpilot_skill_read",
+      "pairing_status",
       "list_tabs",
       "open_session",
       "close_session",

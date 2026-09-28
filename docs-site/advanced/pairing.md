@@ -18,9 +18,10 @@
 
 ```
 会话启动           → 什么都不做，不绑端口
-tools/list         → 不碰端口
-第一次 browser_*   → 绑一个空闲端口 → 打开 http://127.0.0.1:<port>/pair
-                   → 你点「允许」→ 扩展接入 → 重试那次调用
+tools/list         → 不碰端口，只列控制面
+list_tabs          → 绑一个空闲端口 → 打开 http://127.0.0.1:<port>/pair
+                   → 立即返回 pairing_required + pair_url
+你点「允许」       → pairing_status 返回 connected → 再读取 tab
 ```
 
 不碰网页的会话全程零副作用，也就不可能和别的会话撞端口。

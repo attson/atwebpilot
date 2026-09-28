@@ -1,6 +1,6 @@
 # Multi-Session Pairing Design
 
-**Status:** proposed.
+**Status:** implemented; pairing wait updated by Plan 40.
 
 ## Problem
 
@@ -121,11 +121,12 @@ The port needs no negotiated convention: the page runs *on* that port, so
 `location.port` is self-evidently true.
 
 The server opens the page itself, once per process, via the platform opener
-(`open` / `xdg-open` / `start`), and also returns the URL in the error that
-triggered pairing. The opener uses the *default* browser, which may not be the
-one holding the extension — hence the URL in the error text as well, so the user
-can paste it into the right browser. A session opens the page at most once
-automatically; subsequent failures only return the URL.
+(`open` / `xdg-open` / `start`). The triggering `list_tabs` or
+`pairing_status` call returns immediately with `pairing_required` and the URL;
+it never keeps a model tool call open while waiting for a human. The opener uses
+the *default* browser, which may not be the one holding the extension, so the
+user can paste the returned URL into the right browser. After approval the agent
+checks `pairing_status`, then reads tabs only once the status is `connected`.
 
 **Restart.**
 
@@ -256,7 +257,8 @@ again.
 ## Error Handling
 
 - Pairing page opened but ignored: nothing blocks. The triggering call already
-  returned an actionable error; the agent retries.
+  returned `pairing_required`; the agent waits for user approval and checks
+  `pairing_status` rather than retrying `list_tabs`.
 - Extension absent, or the page is a restricted URL where content scripts cannot
   run: the page reports that AtWebPilot was not detected and links to install.
 - `installId` matches but `secret` does not: treated as unknown and sent through

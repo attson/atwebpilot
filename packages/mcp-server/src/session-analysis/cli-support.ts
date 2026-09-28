@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { AnalysisReport, CliOptions, SessionClient } from "./types";
+import type { AnalysisReport, CliOptions, SessionClient, ToolEvent } from "./types";
 
 const CLIENTS = new Set<SessionClient>(["claude", "codex"]);
 
@@ -23,6 +23,7 @@ export function parseCliArgs(args: string[], homeDir: string, now = new Date()):
   let format: CliOptions["format"] = "text";
   let claudeDir = join(homeDir, ".claude", "projects");
   let codexDir = join(homeDir, ".codex", "sessions");
+  let latestSession = false;
   let help = false;
 
   for (let index = 0; index < args.length; index++) {
@@ -30,6 +31,10 @@ export function parseCliArgs(args: string[], homeDir: string, now = new Date()):
     if (arg === "--") continue;
     if (arg === "--help" || arg === "-h") {
       help = true;
+      continue;
+    }
+    if (arg === "--latest-session") {
+      latestSession = true;
       continue;
     }
     if (arg === "--clients") {
@@ -65,7 +70,15 @@ export function parseCliArgs(args: string[], homeDir: string, now = new Date()):
   }
 
   const sinceMs = now.getTime() - durationMs(since);
-  return { clients, sinceMs, sinceLabel: new Date(sinceMs).toISOString(), format, claudeDir, codexDir, help };
+  return { clients, sinceMs, sinceLabel: new Date(sinceMs).toISOString(), format, claudeDir, codexDir, latestSession, help };
+}
+
+export function latestSessionEvents(events: ToolEvent[]): ToolEvent[] {
+  let latest: ToolEvent | undefined;
+  for (const event of events) {
+    if (!latest || (event.timestampMs ?? 0) > (latest.timestampMs ?? 0)) latest = event;
+  }
+  return latest ? events.filter((event) => event.sessionKey === latest!.sessionKey) : [];
 }
 
 function bytes(value: number): string {
@@ -83,7 +96,9 @@ export function renderReport(report: AnalysisReport, format: "text" | "json"): s
     `Calls: ${report.summary.toolCalls} (${report.summary.exactCalls} exact, ${report.summary.derivedCalls} derived)`,
     `Sessions: ${report.summary.sessions}; model tool rounds: ${report.summary.modelToolRounds}`,
     `Known tool-round tokens: ${report.summary.toolRoundInputTokens} input / ${report.summary.toolRoundOutputTokens} output`,
+    `Input split: ${report.summary.toolRoundCachedInputTokens} cached / ${report.summary.toolRoundUncachedInputTokens} uncached`,
     `Recorded result bytes: ${bytes(report.summary.resultBytes)}`,
+    `Failed calls: ${report.summary.failedCalls}; recorded call time: ${(report.summary.totalCallDurationMs / 1000).toFixed(1)} s`,
     `Estimated avoidable rounds: ${report.summary.estimatedAvoidableRounds}`,
     "",
     "Clients:"
@@ -114,6 +129,7 @@ Options:
   --since <duration>       Lookback such as 24h, 7d, 4w (default: 30d)
   --clients <list>         claude,codex (default: both)
   --format <text|json>     Output format (default: text)
+  --latest-session        Analyze only the latest session with an AtWebPilot call
   --claude-dir <path>      Override ~/.claude/projects
   --codex-dir <path>       Override ~/.codex/sessions
   -h, --help               Show this help

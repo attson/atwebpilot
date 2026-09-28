@@ -17,11 +17,11 @@ Claude Code：
 **不需要手填端口。** 从 Plan 33 起是配对流程：
 
 1. 会话启动时**不绑任何端口** —— 不碰网页的会话零副作用。
-2. AI 第一次调 `list_tabs` / `browser_*` 时才绑一个空闲端口，尝试用系统默认浏览器打开配对页，并立即在 MCP 进度消息中显示配对 URL。
-3. 你在浏览器里点「允许」，扩展即接入；正在等待的调用会自动继续，无需告诉 AI 授权成功或手动重试。
+2. AI 第一次调 `list_tabs` / `pairing_status` 时才绑一个空闲端口，尝试用系统默认浏览器打开配对页，并立即返回 `pairing_required + pair_url`，不阻塞等待。
+3. 你在浏览器里点「允许」，扩展即接入；AI 用轻量 `pairing_status` 确认连接后再读取 tab，不重复阻塞式调用。
 4. 之后本机的会话都免确认（信任是安装级的）；端口能复用时连配对页都不会弹。
 
-首次调用默认等待授权 90 秒。若系统未弹出浏览器，可直接打开进度消息中的 URL；拒绝或超时也会返回明确错误和配对页地址。授权成功只以扩展实际建立连接并发送 `HELLO` 为准。
+若系统未弹出浏览器，可直接打开返回结果中的 `pair_url`。授权成功只以扩展实际建立连接并发送 `HELLO` 为准；打开配对页本身不代表已连接。
 
 多个 Codex / Claude Code 会话可以同时接入同一个浏览器，各自一条连接。可在扩展设置 →
 Coordinator 查看已接入的会话、单独断开，或撤销信任。
@@ -48,9 +48,9 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 
 ## 工具面
 
-- 控制面 4 个：`list_tabs / open_session / close_session / get_quota`
+- 控制面 5 个：`pairing_status / list_tabs / open_session / close_session / get_quota`
 - 发现 1 个：`browser_discoverTools` —— 已知工具时直接传 `enable: [...]`，已知分组时直接传 `enableGroups: ["export", ...]`；只有两者都未知时才不带参数读取目录。启用后会加入本进程的 `tools/list`（发送 `tools/list_changed`），并直接返回完整 schema。
-- 执行面默认 **core 31 个** `browser_*`：浏览 / 采集 / 填表 / 导航 / 截图 闭环所需的工具。其余 20 个由 AI 按需 `discoverTools` 拉取，用户不用配置。
+- 执行面在浏览器连接前不进入 `tools/list`；连接确认后加载默认 **core 31 个** `browser_*`。其余 20 个由 AI 按需 `discoverTools` 拉取，用户不用配置。
 - 不暴露 `askUser`（MCP 会话没有人在侧边栏应答）和 `attachTab` / `detachTab`（目标 tab 已由 `open_session` 绑定）。
 
 MCP 层的描述是精简英文（≈2.5k tokens for core），侧边栏内置 LLM 仍用中文长描述；两者共享同一份 `TOOL_DEFS`，靠 `mcp` 字段区分。
@@ -65,8 +65,8 @@ hover / uploadFile / scroll / waitFor`）；`browser_storage` 也不会列出，
 
 | 值 | 效果 |
 |---|---|
-| `core`（默认） | 31 个核心工具 + `browser_discoverTools`，其余按需发现 |
-| `full` | 一开始就全部列出（51 个），适合不想让 AI 多一步发现的用户 |
+| `core`（默认） | 连接前仅控制面；连接后 31 个核心工具 + `browser_discoverTools` |
+| `full` | 连接前仍仅控制面；连接后列出全部 51 个工具 |
 
 无法识别的值（包括已移除的 `parity`）按 `core` 处理，并往 stderr 打一条提示。
 
@@ -77,12 +77,14 @@ hover / uploadFile / scroll / waitFor`）；`browser_storage` 也不会列出，
 ```bash
 pnpm analyze:sessions
 pnpm analyze:sessions -- --since 7d --clients claude --format json
+pnpm analyze:sessions -- --since 24h --clients codex --latest-session
 ```
 
 分析器只读扫描 `~/.claude/projects` 与 `~/.codex/sessions` 中最近 30 天的
-JSONL，识别真实 AtWebPilot 工具调用及重复验证、固定等待、重复截图、可批量填表等
+JSONL，识别真实 AtWebPilot 工具调用及重复验证、固定等待、重复截图、可批量填表、配对超时与无状态重试等
 模式。输出只包含聚合计数、参数字段名与不可逆指纹；不会输出或保存 prompt、参数值、
-工具结果正文、凭证或绝对会话路径。使用 `--help` 查看目录覆盖等选项。
+工具结果正文、凭证或绝对会话路径。Codex 嵌套调用会关联 wait cell 的耗时、错误以及
+cached/uncached token；使用 `--latest-session` 只看最近一条真实使用记录。
 
 ### 从 0.0.70 及更早版本迁移
 

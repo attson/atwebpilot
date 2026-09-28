@@ -23,63 +23,66 @@ function deps() {
 }
 
 describe("buildToolList", () => {
-  it("lists skill bundle + 4 control + the core browser tools by default, each with inputSchema", () => {
+  it("lists only skill, 5 controls and discovery before pairing", () => {
     const tools = buildToolList();
     const names = tools.map((t) => t.name);
     expect(names).toContain("atwebpilot_skill_read");
     expect(names).toContain("list_tabs");
     expect(names).toContain("open_session");
-    expect(names).toContain("browser_click");
+    expect(names).toContain("pairing_status");
+    expect(names).not.toContain("browser_click");
     expect(names).not.toContain("browser_snapshotDOM");
-    expect(tools.length).toBe(1 + 4 + 1 + 31);
+    expect(tools.length).toBe(1 + 5 + 1);
     for (const t of tools) expect(t.inputSchema).toBeTruthy();
   });
 
   it("describes the first-use pairing behavior", () => {
     const listTabs = buildToolList().find((tool) => tool.name === "list_tabs");
-    expect(listTabs?.description).toContain("配对页");
-    expect(listTabs?.description).toContain("90 秒");
+    expect(listTabs?.description).toContain("pairing_required");
+    expect(listTabs?.description).toContain("immediately");
   });
 });
 
-describe("pairing progress", () => {
-  it("reports the pairing URL while list_tabs is still waiting", async () => {
-    let release!: () => void;
-    const workerReady = new Promise<void>((resolve) => { release = resolve; });
+describe("pairing surface", () => {
+  it("returns pairing_required immediately without progress polling", async () => {
+    const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock: new FakeClock(0), idGen: new FakeIdGen() });
     const d: Deps = {
-      ensure: async () => ({
-        coordinator: {
-          workers: {
-            get: () => ({ available_tabs: [] })
-          }
-        } as any,
-        hub: {} as any,
-        port: 43443
-      }),
+      ensure: async () => ({ coordinator, hub: {} as any, port: 43443 }),
       peek: () => null,
       pairUrl: () => "http://127.0.0.1:43443/pair",
-      waitForWorker: async (_timeoutMs, onWaiting) => {
-        await onWaiting?.("http://127.0.0.1:43443/pair");
-        await workerReady;
-        return "w1";
-      }
+      waitForWorker: async () => { throw new Error("must not wait"); }
     };
     const server = createMcpServer(d);
     const client = new Client({ name: "test-client", version: "1" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-    const messages: string[] = [];
+    const result = await client.callTool({ name: "list_tabs", arguments: {} });
+    const body = JSON.parse((result.content as Array<{ text: string }>)[0].text);
+    expect(body).toEqual({
+      status: "pairing_required",
+      pair_url: "http://127.0.0.1:43443/pair",
+      tabs: []
+    });
+    await Promise.all([client.close(), server.close()]);
+  });
 
-    const call = client.callTool(
-      { name: "list_tabs", arguments: {} },
-      undefined,
-      { onprogress: (progress) => messages.push(progress.message ?? "") }
-    );
-    await vi.waitFor(() => expect(messages).toHaveLength(1));
+  it("reveals browser tools and emits list_changed once connection is observed", async () => {
+    const state = createToolState("core");
+    const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock: new FakeClock(0), idGen: new FakeIdGen() });
+    coordinator.registerWorker(fakeWorker());
+    const server = createMcpServer(staticDeps(coordinator, { exec: async () => okResult } as any), state);
+    const client = new Client({ name: "test-client", version: "1" });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    const changes: number[] = [];
+    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => { changes.push(1); });
+    await Promise.all([server.connect(st), client.connect(ct)]);
 
-    expect(messages[0]).toContain("http://127.0.0.1:43443/pair");
-    release();
-    await call;
+    state.browserSurfaceVisible = false;
+    await client.callTool({ name: "pairing_status", arguments: {} });
+    await vi.waitFor(() => expect(changes).toHaveLength(1));
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain("browser_click");
+    await client.callTool({ name: "list_tabs", arguments: {} });
+    expect(changes).toHaveLength(1);
     await Promise.all([client.close(), server.close()]);
   });
 });
@@ -94,6 +97,16 @@ function textOf(r: { content: Array<{ type: string; text?: string }> }): string 
 }
 
 describe("dispatchCall", () => {
+  it("returns a concise quickstart by default and full guidance only on request", async () => {
+    const quick = await dispatchCall(deps(), "atwebpilot_skill_read", {});
+    const full = await dispatchCall(deps(), "atwebpilot_skill_read", { topic: "full" });
+    expect(textOf(quick)).toContain("pairing_status");
+    expect(textOf(quick)).toContain("browser_getPageInfo");
+    expect(textOf(quick)).not.toMatch(/\buse getPageInfo\b/);
+    expect(textOf(full)).toContain("## Capabilities you have");
+    expect(textOf(quick).length).toBeLessThan(textOf(full).length / 3);
+  });
+
   it("routes list_tabs and returns content", async () => {
     const r = await dispatchCall(deps(), "list_tabs", {});
     expect(r.isError).toBeFalsy();
@@ -255,7 +268,9 @@ describe("discovery over MCP", () => {
   it("advertises browser_discoverTools in core mode and full mode alike", () => {
     const names = buildToolList(undefined, createToolState("core")).map((t) => t.name);
     expect(names).toContain("browser_discoverTools");
-    const fullNames = buildToolList(undefined, createToolState("full")).map((t) => t.name);
+    const fullState = createToolState("full");
+    fullState.browserSurfaceVisible = true;
+    const fullNames = buildToolList(undefined, fullState).map((t) => t.name);
     expect(fullNames).toContain("browser_discoverTools");
     expect(fullNames).toContain("browser_downloadSpreadsheet");
   });
@@ -314,9 +329,9 @@ describe("discovery over MCP", () => {
   it("a non-advertised tool is still callable by name (client cache may lag)", async () => {
     const d = deps();
     const state = createToolState("core");
-    const open = await dispatchCall(d, "open_session", { tab_id: "42" }, undefined, state);
+    const open = await dispatchCall(d, "open_session", { tab_id: "42" }, state);
     const session_id = JSON.parse(textOf(open)).session_id;
-    const r = await dispatchCall(d, "browser_snapshotDOM", { session_id }, undefined, state);
+    const r = await dispatchCall(d, "browser_snapshotDOM", { session_id }, state);
     expect(r.isError).toBeFalsy();
   });
 
@@ -335,7 +350,7 @@ describe("discovery over MCP", () => {
     coordinator.registerWorker({ ...fakeWorker(), supported_tools: new Set(["downloadImage"]) });
     const d = staticDeps(coordinator, { exec: async () => okResult } as any);
 
-    const r = await dispatchCall(d, "browser_discoverTools", { enable: ["browser_storage"] }, undefined, state);
+    const r = await dispatchCall(d, "browser_discoverTools", { enable: ["browser_storage"] }, state);
     const body = JSON.parse(textOf(r));
     expect(body.unsupported).toEqual(["browser_storage"]);
     expect(body.enabled ?? []).toEqual([]);

@@ -5,8 +5,8 @@ import { CONTROL_TOOLS } from "./control-tools";
 import { DISCOVER_TOOL, handleDiscover } from "./discover-tool";
 import { generateBrowserTools, readToolMode, type GeneratedTool, type ToolMode } from "./tool-gen";
 import {
-  handleListTabs, handleOpenSession, handleCloseSession, handleGetQuota, handleBrowserTool,
-  type Deps, type PairingRequiredHandler
+  handlePairingStatus, handleListTabs, handleOpenSession, handleCloseSession, handleGetQuota, handleBrowserTool,
+  type Deps
 } from "./handlers";
 import { readSkillBundle, SKILL_TOOL } from "./skill-bundle";
 
@@ -26,10 +26,13 @@ const BROWSER_BY_NAME = new Map(ALL_BROWSER_TOOLS.map((t) => [t.name, t]));
  * Process-wide advertised set. MCP `tools/list` has no per-session scope, so
  * neither does this; discovery only ever grows it.
  */
-export type ToolState = { advertised: Set<string> };
+export type ToolState = { advertised: Set<string>; browserSurfaceVisible: boolean };
 
 export function createToolState(mode: ToolMode): ToolState {
-  return { advertised: new Set(generateBrowserTools(mode).map((t) => t.name)) };
+  return {
+    advertised: new Set(generateBrowserTools(mode).map((t) => t.name)),
+    browserSurfaceVisible: false
+  };
 }
 
 const DEFAULT_STATE = createToolState(readToolMode(process.env));
@@ -63,8 +66,10 @@ function workerToolSupport(deps?: Deps): ReadonlySet<string> | undefined {
 
 export function buildToolList(deps?: Deps, state: ToolState = DEFAULT_STATE): ToolListEntry[] {
   const supported = workerToolSupport(deps);
-  const browser = ALL_BROWSER_TOOLS.filter((t) => state.advertised.has(t.name))
-    .filter((t) => !supported || t.builtinTools.every((b) => supported.has(b)));
+  const browser = state.browserSurfaceVisible || supported
+    ? ALL_BROWSER_TOOLS.filter((t) => state.advertised.has(t.name))
+      .filter((t) => !supported || t.builtinTools.every((b) => supported.has(b)))
+    : [];
   return [
     { name: SKILL_TOOL.name, description: SKILL_TOOL.description, inputSchema: SKILL_TOOL.inputSchema as JsonSchema },
     ...CONTROL_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
@@ -100,13 +105,12 @@ export async function dispatchCall(
   deps: Deps,
   name: string,
   args: Record<string, unknown>,
-  onPairingRequired?: PairingRequiredHandler,
   state: ToolState = DEFAULT_STATE,
   onListChanged?: () => Promise<void>
 ): Promise<CallResult> {
   try {
     if (name === SKILL_TOOL.name) {
-      const bundle = readSkillBundle();
+      const bundle = readSkillBundle(args.topic);
       return { content: [{ type: "text", text: bundle.content }] };
     }
     if (name === DISCOVER_TOOL.name) {
@@ -118,8 +122,21 @@ export async function dispatchCall(
       const { changed: _c, ...body } = r;
       return ok(body);
     }
-    if (name === "list_tabs") return ok(await handleListTabs(deps, onPairingRequired));
-    if (name === "open_session") return ok(await handleOpenSession(deps, args, onPairingRequired));
+    if (name === "pairing_status") {
+      const result = await handlePairingStatus(deps);
+      if (result.status === "connected") await revealBrowserSurface(state, onListChanged);
+      return ok(result);
+    }
+    if (name === "list_tabs") {
+      const result = await handleListTabs(deps);
+      if (result.status === "connected") await revealBrowserSurface(state, onListChanged);
+      return ok(result);
+    }
+    if (name === "open_session") {
+      const result = await handleOpenSession(deps, args);
+      await revealBrowserSurface(state, onListChanged);
+      return ok(result);
+    }
     if (name === "close_session") return ok(await handleCloseSession(deps, args));
     if (name === "get_quota") return ok(await handleGetQuota(deps, args));
     const gen = BROWSER_BY_NAME.get(name);
@@ -130,33 +147,23 @@ export async function dispatchCall(
   }
 }
 
+async function revealBrowserSurface(
+  state: ToolState,
+  onListChanged?: () => Promise<void>
+): Promise<void> {
+  if (state.browserSurfaceVisible) return;
+  state.browserSurfaceVisible = true;
+  await onListChanged?.();
+}
+
 export function createMcpServer(deps: Deps, state: ToolState = DEFAULT_STATE): Server {
   const server = new Server(
     { name: "atwebpilot-mcp", version: "0.1.0" },
     { capabilities: { tools: { listChanged: true }, logging: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: buildToolList(deps, state) }));
-  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
+  server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
-    const onPairingRequired: PairingRequiredHandler = async (url) => {
-      const message = `等待浏览器授权（最多 90 秒）。配对页：${url}。已尝试自动打开；若未弹出，请手动打开。`;
-      try {
-        const progressToken = extra._meta?.progressToken;
-        if (progressToken != null) {
-          await extra.sendNotification({
-            method: "notifications/progress",
-            params: { progressToken, progress: 0, total: 1, message }
-          });
-        } else {
-          await server.sendLoggingMessage({ level: "info", logger: "atwebpilot", data: message });
-        }
-      } catch (error) {
-        console.error(
-          "[atwebpilot-mcp] failed to report pairing URL:",
-          error instanceof Error ? error.message : String(error)
-        );
-      }
-    };
     const onListChanged = async () => {
       try {
         await server.sendToolListChanged();
@@ -164,7 +171,7 @@ export function createMcpServer(deps: Deps, state: ToolState = DEFAULT_STATE): S
         console.error("[atwebpilot-mcp] failed to send tools/list_changed:", error instanceof Error ? error.message : String(error));
       }
     };
-    return dispatchCall(deps, req.params.name, args, onPairingRequired, state, onListChanged);
+    return dispatchCall(deps, req.params.name, args, state, onListChanged);
   });
   return server;
 }
