@@ -6,6 +6,9 @@ export type EventSignals = {
   viewportProbe?: boolean;
   emptyDiscovery?: boolean;
   enablesDiscovery?: boolean;
+  pairingRequired?: boolean;
+  pairingConnected?: boolean;
+  pairingTimeout?: boolean;
 };
 
 export type ToolEvent = {
@@ -23,9 +26,11 @@ export type ToolEvent = {
   argHash?: string;
   resultBytes?: number;
   isError?: boolean;
+  durationMs?: number;
   confidence: EventConfidence;
   signals: EventSignals;
   roundInputTokens?: number;
+  roundCachedInputTokens?: number;
   roundOutputTokens?: number;
 };
 
@@ -51,7 +56,9 @@ export type FindingId =
   | "discovery_round_trip"
   | "duplicate_call"
   | "repeated_screenshot"
-  | "serial_form_fill";
+  | "serial_form_fill"
+  | "pairing_timeout"
+  | "pairing_retry_without_state_change";
 
 export type Finding = {
   id: FindingId;
@@ -73,8 +80,12 @@ export type AnalysisReport = {
     sessions: number;
     modelToolRounds: number;
     toolRoundInputTokens: number;
+    toolRoundCachedInputTokens: number;
+    toolRoundUncachedInputTokens: number;
     toolRoundOutputTokens: number;
     resultBytes: number;
+    failedCalls: number;
+    totalCallDurationMs: number;
     estimatedAvoidableRounds: number;
   };
   tools: Array<{ name: string; calls: number }>;
@@ -99,5 +110,6 @@ export type CliOptions = {
   format: "text" | "json";
   claudeDir: string;
   codexDir: string;
+  latestSession: boolean;
   help: boolean;
 };

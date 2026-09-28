@@ -91,13 +91,14 @@ function numeric(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function claudeUsage(message: JsonObject): { input: number; output: number } {
+function claudeUsage(message: JsonObject): { input: number; cached: number; output: number } {
   const usage = asObject(message.usage);
+  const cached =
+    numeric(usage.cache_creation_input_tokens) +
+    numeric(usage.cache_read_input_tokens);
   return {
-    input:
-      numeric(usage.input_tokens) +
-      numeric(usage.cache_creation_input_tokens) +
-      numeric(usage.cache_read_input_tokens),
+    input: numeric(usage.input_tokens) + cached,
+    cached,
     output: numeric(usage.output_tokens)
   };
 }
@@ -127,6 +128,7 @@ function makeExactEvent(input: {
   rawTool: string;
   args: JsonObject;
   inputTokens?: number;
+  cachedInputTokens?: number;
   outputTokens?: number;
 }): ToolEvent | null {
   const tool = normalizeToolName(input.rawTool);
@@ -144,21 +146,59 @@ function makeExactEvent(input: {
     confidence: "exact",
     signals: signalsFor(tool, input.args),
     ...(input.inputTokens == null ? {} : { roundInputTokens: input.inputTokens }),
+    ...(input.cachedInputTokens == null ? {} : { roundCachedInputTokens: input.cachedInputTokens }),
     ...(input.outputTokens == null ? {} : { roundOutputTokens: input.outputTokens })
   };
 }
 
 function attachResult(
-  callId: unknown,
-  callById: Map<string, ToolEvent>,
+  target: ToolEvent[] | undefined,
   line: string,
-  isError: boolean
+  output: string,
+  timestampMs: number | undefined,
+  terminal: boolean,
+  explicitError = false
 ): void {
-  if (typeof callId !== "string") return;
-  const event = callById.get(callId);
-  if (!event) return;
-  event.resultBytes = Buffer.byteLength(line, "utf8");
-  event.isError = isError;
+  if (!target) return;
+  const pairingRequired = /pairing_required|PAIRING_REQUIRED|等待浏览器授权|配对页/.test(output);
+  const pairingConnected = /\\?"status\\?"\s*:\s*\\?"connected\\?"/.test(output);
+  const pairingTimeout = /等待浏览器授权超时|pairing[^\n]{0,80}timed?\s*out/i.test(output);
+  const isError = explicitError || pairingTimeout || /(?:^|\b)Error:|"isError"\s*:\s*true/.test(output);
+  const bytes = Buffer.byteLength(line, "utf8");
+  for (const event of target) {
+    event.resultBytes = (event.resultBytes ?? 0) + bytes;
+    if (isError) event.isError = true;
+    if (pairingRequired) event.signals.pairingRequired = true;
+    if (pairingConnected) event.signals.pairingConnected = true;
+    if (pairingTimeout) event.signals.pairingTimeout = true;
+    if (terminal && timestampMs != null && event.timestampMs != null) {
+      event.durationMs = Math.max(0, timestampMs - event.timestampMs);
+    }
+  }
+}
+
+function resultText(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function runningCellId(output: string): string | undefined {
+  return /Script running with cell ID\s+([^\s]+)/.exec(output)?.[1];
+}
+
+function addUsage(target: ToolEvent[], usage: JsonObject): void {
+  const input = numeric(usage.input_tokens);
+  const cached = numeric(usage.cached_input_tokens);
+  const output = numeric(usage.output_tokens);
+  for (const event of target) {
+    event.roundInputTokens = (event.roundInputTokens ?? 0) + input;
+    event.roundCachedInputTokens = (event.roundCachedInputTokens ?? 0) + cached;
+    event.roundOutputTokens = (event.roundOutputTokens ?? 0) + output;
+  }
 }
 
 function nestedCodexEvents(input: {
@@ -184,6 +224,9 @@ function nestedCodexEvents(input: {
       ...(timestampOf(input.record) == null ? {} : { timestampMs: timestampOf(input.record) }),
       tool,
       argFields: [],
+      ...(["list_tabs", "pairing_status"].includes(tool)
+        ? { argHash: hash(stableStringify({})) }
+        : {}),
       confidence: "derived",
       signals: {}
     });
@@ -258,12 +301,15 @@ function executableNestedToolNames(source: string): string[] {
 function candidateLine(client: SessionClient, line: string): boolean {
   return client === "claude"
     ? line.includes('"tool_use"') || line.includes('"tool_result"')
-    : line.includes("function_call") || line.includes("custom_tool_call");
+    : line.includes("function_call") || line.includes("custom_tool_call") || line.includes('"token_count"');
 }
 
 export async function parseSessionLines(input: ParseInput): Promise<ParsedSession> {
   const events: ToolEvent[] = [];
-  const callById = new Map<string, ToolEvent>();
+  const callById = new Map<string, ToolEvent[]>();
+  const cellById = new Map<string, ToolEvent[]>();
+  const cellByCallId = new Map<string, string>();
+  let tokenTargets: ToolEvent[] = [];
   let malformedLines = 0;
   let sequence = 0;
 
@@ -301,39 +347,73 @@ export async function parseSessionLines(input: ParseInput): Promise<ParsedSessio
             rawTool: block.name,
             args: asObject(block.input),
             inputTokens: usage.input,
+            cachedInputTokens: usage.cached,
             outputTokens: usage.output
           });
           if (!event) continue;
           sequence++;
           events.push(event);
-          callById.set(callId, event);
+          callById.set(callId, [event]);
         }
       } else if (record.type === "user") {
         for (const block of contentBlocks(message.content)) {
           if (block.type !== "tool_result") continue;
-          attachResult(block.tool_use_id, callById, line, block.is_error === true);
+          const callId = typeof block.tool_use_id === "string" ? block.tool_use_id : "";
+          attachResult(
+            callById.get(callId),
+            line,
+            resultText(block.content),
+            timestampMs,
+            true,
+            block.is_error === true
+          );
         }
       }
       continue;
     }
 
-    if (record.type !== "response_item") continue;
     const payload = asObject(record.payload);
+    if (record.type === "event_msg" && payload.type === "token_count") {
+      const usage = asObject(asObject(payload.info).last_token_usage);
+      addUsage(tokenTargets, usage);
+      tokenTargets = [];
+      continue;
+    }
+    if (record.type !== "response_item") continue;
     if (payload.type === "function_call_output" || payload.type === "custom_tool_call_output") {
-      attachResult(payload.call_id, callById, line, false);
+      const callId = typeof payload.call_id === "string" ? payload.call_id : "";
+      const target = callById.get(callId);
+      const output = resultText(payload.output);
+      const cellId = runningCellId(output);
+      attachResult(target, line, output, timestampMs, cellId == null);
+      if (cellId && target) cellById.set(cellId, target);
+      const waitedCell = cellByCallId.get(callId);
+      if (waitedCell && !cellId) cellById.delete(waitedCell);
+      tokenTargets = target ?? [];
       continue;
     }
     if (payload.type !== "function_call" && payload.type !== "custom_tool_call") continue;
 
     const sessionKey = safeSessionKey("codex", record.session_id ?? record.sessionId, input.fallbackSessionKey);
+    const callId = typeof payload.call_id === "string" ? payload.call_id : `line:${sequence}`;
+    if (payload.name === "wait" || payload.name === "functions.wait") {
+      const args = parseArguments(payload.arguments ?? payload.input);
+      const cellId = typeof args.cell_id === "string" ? args.cell_id : String(args.cell_id ?? "");
+      const target = cellById.get(cellId);
+      if (target) {
+        callById.set(callId, target);
+        cellByCallId.set(callId, cellId);
+      }
+      continue;
+    }
     const derived = nestedCodexEvents({ record, payload, sessionKey, startSequence: sequence });
     if (derived.length > 0) {
       events.push(...derived);
+      callById.set(callId, derived);
       sequence += derived.length;
       continue;
     }
     if (typeof payload.name !== "string") continue;
-    const callId = typeof payload.call_id === "string" ? payload.call_id : `line:${sequence}`;
     const event = makeExactEvent({
       client: "codex",
       sessionKey,
@@ -347,7 +427,7 @@ export async function parseSessionLines(input: ParseInput): Promise<ParsedSessio
     if (!event) continue;
     sequence++;
     events.push(event);
-    callById.set(callId, event);
+    callById.set(callId, [event]);
   }
 
   return { events, malformedLines };

@@ -4,13 +4,18 @@ export type ControlTool = { name: string; description: string; inputSchema: Json
 
 export const CONTROL_TOOLS: ControlTool[] = [
   {
+    name: "pairing_status",
+    description: "Start or check browser pairing without waiting. Returns connected or pairing_required with the pair URL.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false } as JsonSchema
+  },
+  {
     name: "list_tabs",
-    description: "列出浏览器可用标签页：[{tab_id,url,title}]。若扩展尚未连接，首次调用会尝试自动打开配对页并等待授权（最多 90 秒），等待期间会通知实际配对 URL。先调它拿 tab_id。",
+    description: "List browser tabs. If pairing is needed, opens the pair page and immediately returns pairing_required with its URL; wait for user approval, then call pairing_status instead of retrying this tool.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false } as JsonSchema
   },
   {
     name: "open_session",
-    description: "为某个 tab 开一个会话，返回 session_id；后续 browser_* 工具都带这个 session_id。capabilities 省略=授予全部能力。",
+    description: "Open a session for a tab from list_tabs. Returns immediately with PAIRING_REQUIRED if the browser is not connected.",
     inputSchema: {
       type: "object",
       required: ["tab_id"],

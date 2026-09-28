@@ -37,7 +37,9 @@ export interface Deps {
   ): Promise<string>;
 }
 
-export type PairingRequiredHandler = (pairUrl: string) => void | Promise<void>;
+export type PairingStatus =
+  | { status: "pairing_required"; pair_url: string }
+  | { status: "connected"; tab_count: number };
 
 /** Test helper: a Deps whose hub already exists. */
 export function staticDeps(coordinator: Coordinator, hub: Hub, port = 0): Deps {
@@ -54,33 +56,54 @@ function singleWorkerId(c: Coordinator, pairUrl: string | null): string {
   const workers = c.workers.list();
   if (workers.length === 0) {
     throw new Error(
-      "没有浏览器连入。已为你打开配对页" +
-        (pairUrl ? ` ${pairUrl}` : "") +
-        "，在浏览器里确认后重试本次调用。（如果默认浏览器不是装了扩展的那个，请把该地址粘贴过去打开）"
+      "PAIRING_REQUIRED: 浏览器尚未连接。" +
+        (pairUrl ? `请在浏览器中完成配对：${pairUrl}` : "请先调用 pairing_status 获取配对页。")
     );
   }
   if (workers.length > 1) throw new Error("检测到多个浏览器连入；v1 仅支持单 worker，请只保留一个连接");
   return workers[0].id;
 }
 
-export async function handleListTabs(
-  deps: Deps,
-  onPairingRequired?: PairingRequiredHandler
-): Promise<{ tabs: unknown[] }> {
+export async function handlePairingStatus(deps: Deps): Promise<PairingStatus> {
   const { coordinator } = await deps.ensure();
-  const workerId = await deps.waitForWorker(undefined, onPairingRequired);
-  const w = coordinator.workers.get(workerId);
-  if (!w) throw new Error(`worker ${workerId} disconnected while opening browser context`);
-  return { tabs: w.available_tabs };
+  const workers = coordinator.workers.list();
+  if (workers.length > 1) {
+    throw new Error("检测到多个浏览器连入；v1 仅支持单 worker，请只保留一个连接");
+  }
+  if (workers.length === 1) {
+    return { status: "connected", tab_count: workers[0].available_tabs.length };
+  }
+  const pairUrl = deps.pairUrl();
+  if (!pairUrl) throw new Error("PAIRING_REQUIRED: 配对服务已启动，但配对页尚不可用");
+  return { status: "pairing_required", pair_url: pairUrl };
+}
+
+export async function handleListTabs(
+  deps: Deps
+): Promise<
+  | { status: "connected"; tabs: unknown[] }
+  | { status: "pairing_required"; pair_url: string; tabs: [] }
+> {
+  const { coordinator } = await deps.ensure();
+  const workers = coordinator.workers.list();
+  if (workers.length > 1) {
+    throw new Error("检测到多个浏览器连入；v1 仅支持单 worker，请只保留一个连接");
+  }
+  const worker = workers[0];
+  if (!worker) {
+    const pairUrl = deps.pairUrl();
+    if (!pairUrl) throw new Error("PAIRING_REQUIRED: 配对服务已启动，但配对页尚不可用");
+    return { status: "pairing_required", pair_url: pairUrl, tabs: [] };
+  }
+  return { status: "connected", tabs: worker.available_tabs };
 }
 
 export async function handleOpenSession(
   deps: Deps,
-  args: Record<string, unknown>,
-  onPairingRequired?: PairingRequiredHandler
+  args: Record<string, unknown>
 ): Promise<{ session_id: string }> {
   const { coordinator } = await deps.ensure();
-  const worker_id = await deps.waitForWorker(undefined, onPairingRequired);
+  const worker_id = singleWorkerId(coordinator, deps.pairUrl());
   const tab_id = String(args.tab_id);
   const requested = Array.isArray(args.capabilities) ? (args.capabilities as unknown[]).map(String).filter(isCapability) : [];
   const scope = new Set<Capability>(requested.length ? requested : (CAPABILITIES as readonly Capability[]));

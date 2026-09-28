@@ -36,8 +36,8 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 然后照常装扩展。**不用手填端口**：
 
 1. 会话启动时不绑任何端口 —— 不碰网页的会话零副作用
-2. AI 第一次调 `list_tabs` / `browser_*` 时才绑一个空闲端口，并自动打开配对页
-3. 你在浏览器里点「允许」，扩展即接入，重试那次调用即可
+2. AI 第一次调 `list_tabs` / `pairing_status` 时才绑一个空闲端口，自动打开配对页并立即返回 URL
+3. 你在浏览器里点「允许」，AI 用 `pairing_status` 确认 `connected` 后再读取 tab
 4. 之后本机的会话都免确认；端口能复用时连配对页都不会弹
 
 详见 [多会话配对](/advanced/pairing)。
@@ -48,12 +48,13 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 |---|---|
 | `ATWEBPILOT_WS_PORT` | 固定端口。默认是自动选一个空闲端口并复用上次那个 |
 | `ATWEBPILOT_WS_TOKEN` | 要求扩展带 `bearer.<token>` 子协议 |
-| `ATWEBPILOT_MCP_TOOLS` | `core`（默认，31 个 + `browser_discoverTools` 按需发现其余）或 `full`（一开始全部 51 个） |
+| `ATWEBPILOT_MCP_TOOLS` | 连接前仅控制面；连接后为 `core`（默认 31 个）或 `full`（全部 51 个） |
 
 ## Codex / Claude Code 可用的 MCP tools
 
 | 工具 | 用途 |
 |---|---|
+| `pairing_status` | 无阻塞启动/检查浏览器配对状态 |
 | `list_tabs` | 列出扩展当前挂载的所有 tab，含 `busy` / `mine` 占用标记 |
 | `open_session` | 开启一个 session，绑定某 tab |
 | `browser_*` × 51 | 扩展全部内置工具的 MCP 包装 |

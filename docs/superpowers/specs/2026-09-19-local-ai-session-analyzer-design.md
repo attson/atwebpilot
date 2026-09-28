@@ -28,6 +28,7 @@ From the repository root:
 ```bash
 pnpm analyze:sessions
 pnpm analyze:sessions -- --since 7d --clients claude --format json
+pnpm analyze:sessions -- --since 24h --clients codex --latest-session
 ```
 
 Defaults:
@@ -38,9 +39,10 @@ Defaults:
 - roots: `~/.claude/projects` and `~/.codex/sessions`
 
 Optional `--claude-dir` and `--codex-dir` overrides support fixtures and custom
-installations. `--format json` returns the same aggregated report as structured
-JSON. The CLI exits successfully when a client directory is missing and reports
-that client as unavailable.
+installations. `--latest-session` keeps only the most recent session containing
+an AtWebPilot call. `--format json` returns the same aggregated report as
+structured JSON. The CLI exits successfully when a client directory is missing
+and reports that client as unavailable.
 
 ## Privacy Model
 
@@ -71,10 +73,12 @@ counts, affected session counts and estimated avoidable model rounds.
   `custom_tool_call`, joined to their corresponding output by `call_id`.
 - Nested calls made through the Codex `exec` orchestrator are identified only
   when its source contains an actual `tools.mcp__atwebpilot__...(` invocation.
-  They are marked `confidence: "derived"`; argument shape and individual result
-  size are unavailable.
-- Token-usage records are not attributed to individual Codex tool calls; the
-  report only totals usage attached directly to a parsed model tool round.
+  They are marked `confidence: "derived"`; argument values remain unavailable.
+- A yielded exec cell is joined to subsequent `wait` calls until terminal
+  completion. Result bytes, boolean error/pairing signals and duration are
+  retained; result content and cell id are not.
+- Adjacent `token_count.last_token_usage` records are attributed to the active
+  call chain, splitting total input into cached and uncached input.
 
 Both adapters normalize `mcp__atwebpilot__browser_screenshot` to
 `browser_screenshot`. Calls unrelated to AtWebPilot are ignored.
@@ -92,6 +96,9 @@ The first rule set detects:
 - `repeated_screenshot`: screenshots repeated nearby;
 - `serial_form_fill`: two or more consecutive `fillInput` calls that could use
   `fillForm`.
+- `pairing_timeout`: a legacy blocking pairing call reached timeout.
+- `pairing_retry_without_state_change`: `list_tabs` repeated while pairing was
+  still required.
 
 Sequence rules inspect only AtWebPilot calls within the same local session and
 a small call window. They are heuristics, so the report labels them as

@@ -34,6 +34,14 @@ const FINDING_COPY: Record<FindingId, { description: string; suggestion: string 
   serial_form_fill: {
     description: "multiple fillInput calls were issued serially",
     suggestion: "Use fillForm for independent fields so one model round can fill them together."
+  },
+  pairing_timeout: {
+    description: "a browser pairing call waited until timeout",
+    suggestion: "Use the non-blocking pairing state, show pair_url once, then check pairing_status after user approval."
+  },
+  pairing_retry_without_state_change: {
+    description: "list_tabs was retried while pairing was still required",
+    suggestion: "Do not retry list_tabs until pairing_status reports connected."
   }
 };
 
@@ -107,6 +115,18 @@ export function analyzeEvents(events: ToolEvent[], context: AnalysisContext): An
       if (event.signals.fixedWait) {
         addFinding(findings, "fixed_wait", event.sessionKey, [event.id]);
       }
+      if (event.signals.pairingTimeout) {
+        addFinding(findings, "pairing_timeout", event.sessionKey, [event.id]);
+      }
+      if (event.tool === "list_tabs" && event.signals.pairingRequired) {
+        const priorPairingState = current.slice(0, index).reverse().find((candidate) =>
+          (candidate.tool === "list_tabs" || candidate.tool === "pairing_status") &&
+          (candidate.signals.pairingRequired || candidate.signals.pairingConnected)
+        );
+        if (priorPairingState?.signals.pairingRequired) {
+          addFinding(findings, "pairing_retry_without_state_change", event.sessionKey, [event.id]);
+        }
+      }
       if (event.signals.viewportProbe) {
         const trigger = [...stablePrevious].reverse().find((candidate) =>
           candidate.tool === "browser_resize" || candidate.tool === "browser_screenshot"
@@ -165,20 +185,25 @@ export function analyzeEvents(events: ToolEvent[], context: AnalysisContext): An
 
   const tools = new Map<string, number>();
   const sessions = new Set<string>();
-  const rounds = new Map<string, { input: number; output: number }>();
+  const rounds = new Map<string, { input: number; cached: number; output: number }>();
   let exactCalls = 0;
   let derivedCalls = 0;
   let resultBytes = 0;
+  let failedCalls = 0;
+  let totalCallDurationMs = 0;
   for (const event of events) {
     tools.set(event.tool, (tools.get(event.tool) ?? 0) + 1);
     sessions.add(event.sessionKey);
     if (event.confidence === "exact") exactCalls++;
     else derivedCalls++;
     resultBytes += event.resultBytes ?? 0;
+    if (event.isError) failedCalls++;
+    totalCallDurationMs += event.durationMs ?? 0;
     const roundId = `${event.sessionKey}:${event.roundKey}`;
-    const prior = rounds.get(roundId) ?? { input: 0, output: 0 };
+    const prior = rounds.get(roundId) ?? { input: 0, cached: 0, output: 0 };
     rounds.set(roundId, {
       input: Math.max(prior.input, event.roundInputTokens ?? 0),
+      cached: Math.max(prior.cached, event.roundCachedInputTokens ?? 0),
       output: Math.max(prior.output, event.roundOutputTokens ?? 0)
     });
   }
@@ -193,6 +218,9 @@ export function analyzeEvents(events: ToolEvent[], context: AnalysisContext): An
     }))
     .sort((a, b) => b.estimatedAvoidableRounds - a.estimatedAvoidableRounds || a.id.localeCompare(b.id));
 
+  const totalInput = [...rounds.values()].reduce((sum, usage) => sum + usage.input, 0);
+  const cachedInput = [...rounds.values()].reduce((sum, usage) => sum + usage.cached, 0);
+
   return {
     generatedAt: context.generatedAt,
     since: context.since,
@@ -203,9 +231,13 @@ export function analyzeEvents(events: ToolEvent[], context: AnalysisContext): An
       derivedCalls,
       sessions: sessions.size,
       modelToolRounds: rounds.size,
-      toolRoundInputTokens: [...rounds.values()].reduce((sum, usage) => sum + usage.input, 0),
+      toolRoundInputTokens: totalInput,
+      toolRoundCachedInputTokens: cachedInput,
+      toolRoundUncachedInputTokens: Math.max(0, totalInput - cachedInput),
       toolRoundOutputTokens: [...rounds.values()].reduce((sum, usage) => sum + usage.output, 0),
       resultBytes,
+      failedCalls,
+      totalCallDurationMs,
       estimatedAvoidableRounds: avoidableEventIds.size
     },
     tools: [...tools.entries()]

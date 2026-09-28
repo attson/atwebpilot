@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { analyzeEvents } from "./analyzer";
-import { HELP_TEXT, parseCliArgs, renderReport } from "./cli-support";
+import { HELP_TEXT, latestSessionEvents, parseCliArgs, renderReport } from "./cli-support";
 import { scanHistories } from "./scanner";
 
 export async function main(args = process.argv.slice(2)): Promise<number> {
@@ -18,7 +18,8 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   }
 
   const scan = await scanHistories(options);
-  const report = analyzeEvents(scan.events, {
+  const events = options.latestSession ? latestSessionEvents(scan.events) : scan.events;
+  const report = analyzeEvents(events, {
     generatedAt: new Date().toISOString(),
     since: options.sinceLabel,
     clients: scan.clients
