@@ -16,7 +16,7 @@ export function renderPairPage(payload: PairPayload): string {
 <body style="font:14px/1.6 system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;color:#222">
 <h1 style="font-size:1.1rem;margin:0 0 1rem">AtWebPilot 配对</h1>
 <p id="atwebpilot-status">正在联系扩展…</p>
-<p style="color:#666;font-size:13px">会话：${escapeHtml(payload.label)} · pid ${payload.pid} · 端口 ${payload.port}</p>
+<p style="color:#666;font-size:13px">会话：${escapeHtml(payload.label)} · pid ${payload.pid} · 端口 ${payload.port} · ${payload.mcpVersion ? `MCP v${escapeHtml(payload.mcpVersion)}` : "MCP 版本未知"}</p>
 <p style="color:#666;font-size:13px">没有反应？请确认这个浏览器已安装并启用 AtWebPilot 扩展，然后刷新本页。</p>
 <script>
 (function () {
@@ -36,8 +36,13 @@ export function renderPairPage(payload: PairPayload): string {
     done = true;
     var el = document.getElementById("atwebpilot-status");
     if (e.data.ok) {
-      el.textContent = e.data.trusted ? "已信任，连接中…" : "已连接";
-      setTimeout(function () { window.close(); }, 1200);
+      if (typeof e.data.versionWarning === "string" && e.data.versionWarning) {
+        el.textContent = "版本提醒：" + e.data.versionWarning + "。会话已连接，可以关闭本页。";
+        el.style.color = "#b45309";
+      } else {
+        el.textContent = e.data.trusted ? "已信任，连接中…" : "已连接";
+        setTimeout(function () { window.close(); }, 1200);
+      }
     } else if (e.data.reason === "denied") {
       fetch("/pair/decision", {
         method: "POST",

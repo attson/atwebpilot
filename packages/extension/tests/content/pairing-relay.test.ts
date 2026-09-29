@@ -15,7 +15,8 @@ const payload = {
   sessionId: "sess_1",
   label: "~/code/atwebpilot2",
   pid: 1234,
-  port: 51234
+  port: 51234,
+  mcpVersion: "0.0.74"
 };
 
 let sent: unknown[];
@@ -37,6 +38,7 @@ beforeEach(() => {
   reply = { decision: "trusted" };
   globalThis.chrome = {
     runtime: {
+      getManifest: () => ({ version: "0.0.75" }),
       sendMessage: vi.fn(async (m: unknown) => {
         sent.push(m);
         return reply;
@@ -112,7 +114,32 @@ describe("pairing relay", () => {
     pairMessage();
     await settle();
     expect(document.querySelector("[data-atwebpilot-pairing]")).toBeNull();
-    expect(results()[0]).toMatchObject({ ok: true, trusted: true });
+    expect(results()[0]).toMatchObject({
+      ok: true,
+      trusted: true,
+      extensionVersion: "0.0.75",
+      versionWarning: "MCP v0.0.74 低于扩展 v0.0.75，请更新 MCP"
+    });
+  });
+
+  it("accepts a legacy payload and reports that its MCP version is unknown", async () => {
+    const { mcpVersion: _mcpVersion, ...legacy } = payload;
+    pairMessage(legacy);
+    await settle();
+    expect(results()[0]).toMatchObject({
+      ok: true,
+      versionWarning: "MCP 版本未知，客户端可能过旧，请更新 MCP"
+    });
+  });
+
+  it("does not warn when MCP and extension versions match", async () => {
+    pairMessage({ ...payload, mcpVersion: "0.0.75" });
+    await settle();
+    expect(results()[0]).toMatchObject({
+      ok: true,
+      extensionVersion: "0.0.75",
+      versionWarning: null
+    });
   });
 
   it("renders an overlay when the worker asks", async () => {

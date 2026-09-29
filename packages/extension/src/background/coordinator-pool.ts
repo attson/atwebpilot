@@ -13,6 +13,7 @@ import { CoordinatorClient, type CoordinatorClientOptions } from "./coordinator-
 export type PoolEntryStatus = "connected" | "connecting" | "disconnected" | "dormant";
 
 export type PoolEntry = {
+  source: "mcp" | "manual";
   endpoint: string;
   installId: string;
   sessionId: string;
@@ -21,6 +22,7 @@ export type PoolEntry = {
   port: number;
   status: PoolEntryStatus;
   failures: number;
+  mcpVersion?: string;
 };
 
 type Managed = PoolEntry & { client: CoordinatorClient };
@@ -51,17 +53,20 @@ export class CoordinatorPool {
   async addFromPairing(payload: PairPayload): Promise<void> {
     const existing = this.entries.get(payload.sessionId);
     if (existing) {
+      existing.mcpVersion = payload.mcpVersion;
       existing.client.wakeUp();
       this.changed();
       return;
     }
     await this.add({
+      source: "mcp",
       endpoint: endpointFor(payload.port),
       installId: payload.installId,
       sessionId: payload.sessionId,
       label: payload.label,
       pid: payload.pid,
-      port: payload.port
+      port: payload.port,
+      mcpVersion: payload.mcpVersion
     });
   }
 

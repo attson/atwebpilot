@@ -9,6 +9,7 @@ import {
   type Deps
 } from "./handlers";
 import { readSkillBundle, SKILL_TOOL } from "./skill-bundle";
+import { MCP_VERSION } from "./version";
 
 export type ToolListEntry = { name: string; description: string; inputSchema: JsonSchema };
 
@@ -158,7 +159,7 @@ async function revealBrowserSurface(
 
 export function createMcpServer(deps: Deps, state: ToolState = DEFAULT_STATE): Server {
   const server = new Server(
-    { name: "atwebpilot-mcp", version: "0.1.0" },
+    { name: "atwebpilot-mcp", version: MCP_VERSION },
     { capabilities: { tools: { listChanged: true }, logging: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: buildToolList(deps, state) }));
