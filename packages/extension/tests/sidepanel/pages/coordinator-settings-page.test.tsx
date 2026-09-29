@@ -45,7 +45,7 @@ function fakeChromeStorage(initial: Record<string, unknown> = {}) {
   const sendMessage = vi.fn(async (_message?: unknown): Promise<unknown> => ({ sessions: [] }));
   return {
     // Plan 33: the page polls the worker for connected sessions.
-    runtime: { sendMessage },
+    runtime: { sendMessage, getManifest: () => ({ version: "0.0.75" }) },
     permissions: { contains: vi.fn(async () => false) },
     storage: {
       local,
@@ -207,6 +207,77 @@ describe("CoordinatorSettingsPage", () => {
       type: "pairing.cleanupGroups"
     });
     expect(container.textContent).toContain("已取消 3 个标签页的 MCP 分组，标签页保持打开");
+  });
+
+  it("shows each MCP version and warns about stale or legacy sessions", async () => {
+    const chromeMock = fakeChromeStorage();
+    chromeMock.runtime.sendMessage.mockResolvedValue({
+      sessions: [
+        {
+          source: "mcp",
+          endpoint: "ws://127.0.0.1:51234/worker",
+          installId: "inst",
+          sessionId: "current",
+          label: "~/code/current",
+          pid: 10,
+          port: 51234,
+          status: "connected",
+          failures: 0,
+          mcpVersion: "0.0.75"
+        },
+        {
+          source: "mcp",
+          endpoint: "ws://127.0.0.1:51235/worker",
+          installId: "inst",
+          sessionId: "stale",
+          label: "~/code/stale",
+          pid: 11,
+          port: 51235,
+          status: "connected",
+          failures: 0,
+          mcpVersion: "0.0.74"
+        },
+        {
+          source: "mcp",
+          endpoint: "ws://127.0.0.1:51236/worker",
+          installId: "inst",
+          sessionId: "legacy",
+          label: "~/code/legacy",
+          pid: 12,
+          port: 51236,
+          status: "dormant",
+          failures: 10
+        },
+        {
+          source: "manual",
+          endpoint: "ws://localhost:8787/worker",
+          installId: "legacy",
+          sessionId: "manual",
+          label: "手动配置",
+          pid: 0,
+          port: 0,
+          status: "connected",
+          failures: 0
+        }
+      ]
+    });
+    vi.stubGlobal("chrome", chromeMock);
+
+    await act(async () => {
+      root.render(<CoordinatorSettingsPage />);
+    });
+    await flushAsync();
+
+    expect(container.textContent).toContain("MCP v0.0.75");
+    expect(container.textContent).toContain("MCP v0.0.74");
+    expect(container.textContent).toContain("MCP 版本未知");
+    expect(container.textContent).toContain(
+      "~/code/stale：MCP v0.0.74 低于扩展 v0.0.75，请更新 MCP"
+    );
+    expect(container.textContent).toContain(
+      "~/code/legacy：MCP 版本未知，客户端可能过旧，请更新 MCP"
+    );
+    expect(container.textContent).not.toContain("手动配置：MCP 版本未知");
   });
 
   it("does not show a stale connected runtime status as live", async () => {

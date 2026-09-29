@@ -219,6 +219,22 @@ closure.
 Ownership is **advisory**. Nothing is blocked. An agent that sees a tab is taken
 can open its own, and two agents may share a tab on purpose.
 
+### MCP release version visibility
+
+The pairing payload carries an optional `mcpVersion` sourced from the published
+MCP package. The extension keeps it on the corresponding connection-pool entry
+and shows it in the MCP settings session list. The field remains optional under
+pairing payload `v: 1`, so older MCP clients still connect and are displayed as
+"MCP 版本未知".
+
+On each pairing request, including an already-trusted install, the extension
+compares `mcpVersion` with `chrome.runtime.getManifest().version`. A mismatch is
+advisory: the pair page remains open with a recommendation to update the older
+side, and the settings page keeps the warning visible beside the affected
+session. Matching versions preserve the existing auto-close flow. Version
+comparison never changes trust, websocket connectivity, or the separate
+`protocol_version` compatibility gate.
+
 ### Tab freshness
 
 A new C→S `TABS_UPDATE` fires on tab changes and ownership changes, reusing the

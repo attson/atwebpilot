@@ -9,7 +9,8 @@ const payload: PairPayload = {
   sessionId: "sess_1",
   label: "~/code/atwebpilot2",
   pid: 1234,
-  port: 51234
+  port: 51234,
+  mcpVersion: "0.0.75"
 };
 
 describe("renderPairPage", () => {
@@ -25,6 +26,7 @@ describe("renderPairPage", () => {
     const html = renderPairPage(payload);
     expect(html).toContain("~/code/atwebpilot2");
     expect(html).toContain("pid 1234");
+    expect(html).toContain("MCP v0.0.75");
   });
 
   it("escapes the label so a directory name cannot inject markup", () => {
@@ -48,6 +50,13 @@ describe("renderPairPage", () => {
     const html = renderPairPage(payload);
     expect(html).toContain('e.data.reason === "denied"');
     expect(html).toContain("连接扩展失败");
+  });
+
+  it("keeps the page open and shows an extension-supplied version warning", () => {
+    const html = renderPairPage(payload);
+    expect(html).toContain("e.data.versionWarning");
+    expect(html).toContain("版本提醒");
+    expect(html).toContain("window.close");
   });
 
   it("reports explicit denial to the local server so the pending call can stop", () => {

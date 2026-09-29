@@ -43,6 +43,7 @@ const payload = (over: Partial<PairPayload> = {}): PairPayload => ({
   label: "~/code/atwebpilot2",
   pid: 1,
   port: 51234,
+  mcpVersion: "0.0.75",
   ...over
 });
 
@@ -100,7 +101,8 @@ describe("CoordinatorPool", () => {
       label: "~/code/atwebpilot2",
       pid: 1,
       port: 51234,
-      installId: "inst_abc"
+      installId: "inst_abc",
+      mcpVersion: "0.0.75"
     });
   });
 
@@ -177,6 +179,7 @@ describe("CoordinatorPool", () => {
   it("the legacy single-URL config becomes exactly one entry", async () => {
     const pool = makePool();
     await pool.add({
+      source: "manual",
       endpoint: "ws://127.0.0.1:8787/worker",
       installId: "legacy",
       sessionId: "legacy",

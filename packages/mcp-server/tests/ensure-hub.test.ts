@@ -7,6 +7,7 @@ import { PROTOCOL_VERSION, type Hello } from "@atwebpilot/shared/protocol";
 import { WebSocket } from "ws";
 import { createHubEnsurer } from "../src/ensure-hub";
 import { loadLastPort, loadOrCreateIdentity, saveLastPort } from "../src/identity";
+import pkg from "../package.json" with { type: "json" };
 
 const dirs: string[] = [];
 const made: Array<ReturnType<typeof createHubEnsurer>> = [];
@@ -307,6 +308,8 @@ describe("createHubEnsurer", () => {
     const { port } = await e.ensure();
     const res = await fetch(`http://127.0.0.1:${port}/pair`);
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("sess_test");
+    const html = await res.text();
+    expect(html).toContain("sess_test");
+    expect(html).toContain(`\"mcpVersion\":\"${pkg.version}\"`);
   });
 });

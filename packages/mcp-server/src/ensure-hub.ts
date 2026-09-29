@@ -10,6 +10,7 @@ import {
   type ProcessInfo
 } from "./identity";
 import type { Deps, HubBundle } from "./handlers";
+import { MCP_VERSION } from "./version";
 
 export type EnsureDeps = {
   clock: Clock;
@@ -112,7 +113,8 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
       sessionId: info.sessionId,
       label: info.label,
       pid: info.pid,
-      port
+      port,
+      mcpVersion: MCP_VERSION
     });
 
     try {

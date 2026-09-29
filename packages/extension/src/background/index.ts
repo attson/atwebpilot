@@ -256,6 +256,7 @@ export async function startCoordinatorClient(): Promise<void> {
   const p = ensurePool();
   if (p.list().some((e) => e.sessionId === "legacy")) return;
   await p.add({
+    source: "manual",
     endpoint: config.ws_url,
     installId: "legacy",
     sessionId: "legacy",

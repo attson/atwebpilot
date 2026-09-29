@@ -17,7 +17,7 @@ import {
   setCdpRecorderEnabled
 } from "@/background/recorder/cdp-permission";
 import { listTrusted, revokeTrust } from "@/background/pairing-host";
-import type { TrustRecord } from "@atwebpilot/shared/pairing";
+import { comparePairingVersions, type TrustRecord } from "@atwebpilot/shared/pairing";
 import type { PoolEntry } from "@/background/coordinator-pool";
 
 const DEFAULT_WS_URL = "ws://localhost:8787/worker";
@@ -161,6 +161,12 @@ export function CoordinatorSettingsPage() {
   if (!loaded) return <div className="p-4">载入中…</div>;
 
   const liveStatus = formatConnectionStatus(enabled, wsUrl, connectionStatus, now);
+  const extensionVersion = chrome.runtime.getManifest().version;
+  const versionWarnings = sessions.flatMap((session) => {
+    if (session.source !== "mcp") return [];
+    const warning = comparePairingVersions(session.mcpVersion, extensionVersion).warning;
+    return warning ? [{ sessionId: session.sessionId, label: session.label, warning }] : [];
+  });
 
   return (
     <div className="p-4 space-y-4">
@@ -321,45 +327,63 @@ export function CoordinatorSettingsPage() {
             还没有会话接入。在 Claude Code 里让 AI 操作网页时，会自动打开一个配对页请你确认。
           </p>
         ) : (
-          <ul className="text-xs space-y-1">
-            {sessions.map((s) => (
-              <li key={s.sessionId} className="flex items-center gap-2">
-                <span className="flex-1 truncate" title={s.endpoint}>
-                  {s.label}
-                  {s.pid > 0 ? ` · pid ${s.pid}` : ""}
-                  {s.port > 0 ? ` · :${s.port}` : ""}
-                </span>
-                <span className={s.status === "connected" ? "text-green-600" : "text-gray-500"}>
-                  {s.status}
-                </span>
-                {s.status === "dormant" ? (
-                  <button
-                    className="underline"
-                    onClick={() => {
-                      void chrome.runtime.sendMessage({
-                        type: "pairing.wake",
-                        sessionId: s.sessionId
-                      });
-                    }}
-                  >
-                    重连
-                  </button>
-                ) : (
-                  <button
-                    className="underline"
-                    onClick={() => {
-                      void chrome.runtime.sendMessage({
-                        type: "pairing.disconnect",
-                        sessionId: s.sessionId
-                      });
-                    }}
-                  >
-                    断开
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+          <>
+            {versionWarnings.length > 0 && (
+              <div className="mb-2 space-y-1 text-xs text-amber-700" role="status">
+                {versionWarnings.map(({ sessionId, label, warning }) => (
+                  <p key={sessionId} className="break-words">
+                    {label}：{warning}
+                  </p>
+                ))}
+              </div>
+            )}
+            <ul className="space-y-2 text-xs">
+              {sessions.map((s) => (
+                <li key={s.sessionId} className="flex items-start gap-2">
+                  <span className="min-w-0 flex-1" title={s.endpoint}>
+                    <span className="block truncate">
+                      {s.label}
+                      {s.pid > 0 ? ` · pid ${s.pid}` : ""}
+                      {s.port > 0 ? ` · :${s.port}` : ""}
+                    </span>
+                    {s.source === "mcp" && (
+                      <span className="block text-gray-500">
+                        {s.mcpVersion ? `MCP v${s.mcpVersion}` : "MCP 版本未知"}
+                      </span>
+                    )}
+                  </span>
+                  <span className={s.status === "connected" ? "text-green-600" : "text-gray-500"}>
+                    {s.status}
+                  </span>
+                  {s.status === "dormant" ? (
+                    <button
+                      className="underline"
+                      onClick={() => {
+                        void chrome.runtime.sendMessage({
+                          type: "pairing.wake",
+                          sessionId: s.sessionId
+                        });
+                      }}
+                    >
+                      重连
+                    </button>
+                  ) : (
+                    <button
+                      className="underline"
+                      onClick={() => {
+                        void chrome.runtime.sendMessage({
+                          type: "pairing.disconnect",
+                          sessionId: s.sessionId
+                        });
+                      }}
+                    >
+                      断开
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 

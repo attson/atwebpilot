@@ -14,6 +14,8 @@ export type PairPayload = {
   label: string;
   pid: number;
   port: number;
+  /** MCP package version. Optional so extensions can still pair with older clients. */
+  mcpVersion?: string;
 };
 
 /**

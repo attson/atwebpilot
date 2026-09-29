@@ -2,6 +2,7 @@ import {
   PAIR_PAGE_SOURCE,
   PAIR_READY_SOURCE,
   PAIR_RESULT_SOURCE,
+  comparePairingVersions,
   type PairPayload,
   type PairingDecision
 } from "@atwebpilot/shared/pairing";
@@ -43,6 +44,11 @@ export function installPairingRelay(): () => void {
 }
 
 async function handle(payload: PairPayload): Promise<void> {
+  const extensionVersion = chrome.runtime.getManifest().version;
+  const { warning: versionWarning } = comparePairingVersions(
+    payload.mcpVersion,
+    extensionVersion
+  );
   const reply = (await chrome.runtime.sendMessage({
     type: "pairing.request",
     payload
@@ -54,21 +60,33 @@ async function handle(payload: PairPayload): Promise<void> {
   }
 
   if (reply.decision === "trusted") {
-    post({ ok: true, trusted: true });
+    post({ ok: true, trusted: true, extensionVersion, versionWarning });
     return;
   }
 
-  const approved = await askUser(payload);
+  const approved = await askUser(payload, extensionVersion, versionWarning);
   await chrome.runtime.sendMessage({
     type: "pairing.decision",
     sessionId: payload.sessionId,
     approved,
     payload
   });
-  post({ ok: approved, trusted: false, reason: approved ? undefined : "denied" });
+  post({
+    ok: approved,
+    trusted: false,
+    reason: approved ? undefined : "denied",
+    extensionVersion,
+    versionWarning
+  });
 }
 
-function post(result: { ok: boolean; trusted?: boolean; reason?: "denied" | "connection_error" }): void {
+function post(result: {
+  ok: boolean;
+  trusted?: boolean;
+  reason?: "denied" | "connection_error";
+  extensionVersion?: string;
+  versionWarning?: string | null;
+}): void {
   window.postMessage({ source: PAIR_RESULT_SOURCE, ...result }, "*");
 }
 
@@ -80,6 +98,9 @@ function parsePayload(raw: unknown): PairPayload | null {
   const strings = ["installId", "secret", "sessionId", "label"] as const;
   for (const k of strings) if (typeof p[k] !== "string" || !p[k]) return null;
   if (typeof p.pid !== "number" || typeof p.port !== "number") return null;
+  if (p.mcpVersion !== undefined && (typeof p.mcpVersion !== "string" || !p.mcpVersion)) {
+    return null;
+  }
   return {
     v: 1,
     installId: p.installId as string,
@@ -87,7 +108,8 @@ function parsePayload(raw: unknown): PairPayload | null {
     sessionId: p.sessionId as string,
     label: p.label as string,
     pid: p.pid,
-    port: p.port
+    port: p.port,
+    ...(p.mcpVersion ? { mcpVersion: p.mcpVersion as string } : {})
   };
 }
 
@@ -95,7 +117,11 @@ function parsePayload(raw: unknown): PairPayload | null {
  * Rendered into a closed shadow root so the page cannot restyle it into
  * something misleading or read its contents.
  */
-export function askUser(payload: PairPayload): Promise<boolean> {
+export function askUser(
+  payload: PairPayload,
+  extensionVersion = chrome.runtime.getManifest().version,
+  versionWarning = comparePairingVersions(payload.mcpVersion, extensionVersion).warning
+): Promise<boolean> {
   return new Promise((resolve) => {
     const host = document.createElement("div");
     host.setAttribute("data-atwebpilot-pairing", "");
@@ -111,6 +137,7 @@ export function askUser(payload: PairPayload): Promise<boolean> {
                 max-width:26rem; box-shadow:0 10px 40px rgba(0,0,0,.3); }
         h2 { font-size:15px; margin:0 0 8px; }
         .meta { color:#666; font-size:13px; margin:0 0 14px; word-break:break-all; }
+        .warning { color:#b45309; font-size:13px; margin:0 0 14px; }
         .row { display:flex; gap:8px; justify-content:flex-end; }
         button { font:inherit; padding:6px 14px; border-radius:6px; cursor:pointer;
                  border:1px solid #ccc; background:#f6f6f6; }
@@ -121,8 +148,10 @@ export function askUser(payload: PairPayload): Promise<boolean> {
           <h2>允许该会话控制此浏览器？</h2>
           <p class="meta">
             会话目录：${escapeHtml(payload.label)}<br>
-            pid ${payload.pid} · 端口 ${payload.port}
+            pid ${payload.pid} · 端口 ${payload.port}<br>
+            ${payload.mcpVersion ? `MCP v${escapeHtml(payload.mcpVersion)}` : "MCP 版本未知"} · 扩展 v${escapeHtml(extensionVersion)}
           </p>
+          ${versionWarning ? `<p class="warning">${escapeHtml(versionWarning)}</p>` : ""}
           <p class="meta">允许后，本机上的 AtWebPilot MCP 会话都可以直接连接，无需再次确认。可在扩展设置里撤销。</p>
           <div class="row">
             <button class="deny">拒绝</button>
